@@ -257,6 +257,28 @@ class Liquidacion(Base):
     )
 
 
+class EmpresaCredencial(Base):
+    """
+    Credenciales externas (Previred / Mi DT - Clave Única) guardadas por
+    empresa, solo como referencia para el usuario. La password se persiste
+    cifrada (Fernet, ver app.core.crypto) y nunca se expone en texto plano
+    vía API; la aplicación no realiza login automático con estos datos.
+    """
+    __tablename__ = "empresa_credenciales"
+    __table_args__ = (
+        UniqueConstraint("id_empresa", "tipo", name="uq_empresa_credencial_tipo"),
+        {"schema": "erp"},
+    )
+
+    id               = Column(Integer, primary_key=True)
+    id_empresa       = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
+    tipo             = Column(String(20), nullable=False)  # PREVIRED | CLAVE_UNICA
+    usuario          = Column(String(120), nullable=False)
+    password_cifrada = Column(Text, nullable=False)
+    created_at       = Column(TIMESTAMPTZ, server_default=func.now())
+    updated_at       = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
+
+
 # ── Usuarios del sistema (autenticación) ───────────────────────────────
 class Usuario(Base):
     __tablename__ = "usuarios"

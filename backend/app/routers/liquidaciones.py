@@ -3,6 +3,7 @@ Caverco ERP — Router Liquidaciones
 Endpoints: calcular preview, emitir, listar por período, detalle, indicadores Previred.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -14,11 +15,13 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion
+from app.models.rrhh import Empleado, Liquidacion, Empresa
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion
 )
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo
+from app.services.previred_export import generar_csv_previred
+from app.services.libro_remuneraciones import generar_csv_libro_remuneraciones, nombre_archivo
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"], dependencies=[Depends(get_current_user)])
@@ -283,6 +286,50 @@ async def listar_por_periodo(
         q = q.where(Liquidacion.id_empresa == id_empresa)
     result = await db.execute(q.order_by(Liquidacion.id_empleado))
     return result.scalars().all()
+
+
+async def _liquidaciones_y_empleados(periodo: str, id_empresa: int, db: AsyncSession):
+    q = select(Liquidacion).where(Liquidacion.periodo == periodo, Liquidacion.id_empresa == id_empresa)
+    result = await db.execute(q.order_by(Liquidacion.id_empleado))
+    liquidaciones = result.scalars().all()
+    if not liquidaciones:
+        raise HTTPException(404, f"No hay liquidaciones para la empresa {id_empresa} en el período {periodo}")
+
+    ids_empleado = [liq.id_empleado for liq in liquidaciones]
+    result = await db.execute(
+        select(Empleado)
+        .options(selectinload(Empleado.afp_rel), selectinload(Empleado.isapre_rel))
+        .where(Empleado.id.in_(ids_empleado))
+    )
+    empleados_por_id = {emp.id: emp for emp in result.scalars().all()}
+    return liquidaciones, empleados_por_id
+
+
+@router.get("/periodo/{periodo}/export/previred")
+async def exportar_previred(periodo: str, id_empresa: int, db: AsyncSession = Depends(get_db)):
+    liquidaciones, empleados_por_id = await _liquidaciones_y_empleados(periodo, id_empresa, db)
+    contenido = generar_csv_previred(liquidaciones, empleados_por_id)
+    return Response(
+        content=contenido,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="previred_{periodo.replace("-", "")}.csv"'},
+    )
+
+
+@router.get("/periodo/{periodo}/export/libro-remuneraciones")
+async def exportar_libro_remuneraciones(periodo: str, id_empresa: int, db: AsyncSession = Depends(get_db)):
+    liquidaciones, empleados_por_id = await _liquidaciones_y_empleados(periodo, id_empresa, db)
+    result = await db.execute(select(Empresa).where(Empresa.id == id_empresa))
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(404, "Empresa no encontrada")
+
+    contenido = generar_csv_libro_remuneraciones(liquidaciones, empleados_por_id)
+    return Response(
+        content=contenido,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo(empresa.rut, periodo)}"'},
+    )
 
 
 @router.get("/empleado/{id_empleado}", response_model=List[LiquidacionOut])

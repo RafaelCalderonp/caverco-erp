@@ -7,6 +7,7 @@ const NAV = [
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
+  { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
 export default function Layout() {

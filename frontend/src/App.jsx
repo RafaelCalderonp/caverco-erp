@@ -10,6 +10,7 @@ import Licencias from './pages/Licencias'
 import Liquidaciones from './pages/Liquidaciones'
 import LiquidacionDetalle from './pages/LiquidacionDetalle'
 import LiquidacionBoleta from './pages/LiquidacionBoleta'
+import Configuracion from './pages/Configuracion'
 import { useAuth } from './context/AuthContext'
 
 function RequireAuth({ children }) {
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="liquidaciones"      element={<Liquidaciones />} />
         <Route path="liquidaciones/:id"  element={<LiquidacionDetalle />} />
         <Route path="liquidaciones/:id/boleta" element={<LiquidacionBoleta />} />
+        <Route path="configuracion"      element={<Configuracion />} />
       </Route>
     </Routes>
   )

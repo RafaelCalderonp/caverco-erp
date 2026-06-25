@@ -59,4 +59,14 @@ export const liquidacionesApi = {
   get:             (id)           => api.get(`/liquidaciones/${id}`),
   marcarPagada:    (id)           => api.patch(`/liquidaciones/${id}/pagar`),
   indicadores:     (periodo)      => api.get(`/liquidaciones/indicadores/${periodo}`),
+  exportarPrevired:            (periodo, idEmpresa) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
+  exportarLibroRemuneraciones: (periodo, idEmpresa) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
+}
+
+export const credencialesApi = {
+  list:    (idEmpresa)            => api.get(`/empresas/${idEmpresa}/credenciales`),
+  guardar: (idEmpresa, tipo, data) => api.put(`/empresas/${idEmpresa}/credenciales/${tipo}`, data),
+  eliminar:(idEmpresa, tipo)      => api.delete(`/empresas/${idEmpresa}/credenciales/${tipo}`),
 }

@@ -58,6 +58,24 @@ export default function Liquidaciones() {
 
   const set = (k, v) => setForm(f => ({...f, [k]: v}))
 
+  const descargar = async (fn, nombreDefault) => {
+    try {
+      const r = await fn(periodo, 1)
+      const disposition = r.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : nombreDefault
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a = document.createElement('a')
+      a.href = url; a.download = nombre
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setMsg(e.response?.status === 404
+        ? `No hay liquidaciones EMITIDAS para ${periodo}`
+        : 'Error al generar el archivo')
+    }
+  }
+
   const calcular = async () => {
     if (!form.id_empleado) return setMsg('Selecciona un empleado')
     setMsg(''); setPreview(null)
@@ -97,8 +115,20 @@ export default function Liquidaciones() {
             onClick={() => setTab('lista')}>📋 Lista</button>
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
             onClick={() => setTab('calcular')}>➕ Nueva</button>
+          <button className="btn btn-outline"
+            onClick={() => descargar(liquidacionesApi.exportarPrevired, `previred_${periodo}.csv`)}>
+            ⬇️ Archivo Previred
+          </button>
+          <button className="btn btn-outline"
+            onClick={() => descargar(liquidacionesApi.exportarLibroRemuneraciones, `libro_remuneraciones_${periodo}.csv`)}>
+            ⬇️ Libro Remuneraciones DT
+          </button>
         </div>
       </div>
+      <p style={{fontSize:12,color:'var(--gray-500)',marginTop:-8,marginBottom:16}}>
+        Estos archivos se generan a partir de las liquidaciones EMITIDAS del período. Súbelos manualmente en
+        previred.com y en el portal Mi DT — la app no inicia sesión por ti.
+      </p>
 
       {/* ── Indicadores Previred ── */}
       {tab === 'calcular' && indicadores && (

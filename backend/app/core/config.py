@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     ENVIRONMENT: str = "development"
     APIGATEWAY_TOKEN: Optional[str] = None   # Token API Gateway para Previred
+    ENCRYPTION_KEY: Optional[str] = None     # Fernet key (urlsafe-base64, 32 bytes) para credenciales cifradas. Si no se define, se deriva de SECRET_KEY (solo recomendado en dev).
 
     class Config:
         env_file = ".env"
