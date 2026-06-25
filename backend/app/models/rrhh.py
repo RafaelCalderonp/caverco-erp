@@ -122,6 +122,9 @@ class Empleado(Base):
     id_tipo_contrato  = Column(Integer, ForeignKey("erp.tipo_contrato.id"))
     valor_isapre_uf   = Column(Numeric(8,4), default=Decimal("0"))
     n_cargas          = Column(SmallInteger, default=0)
+    banco             = Column(String(60))
+    tipo_cuenta       = Column(String(30))
+    numero_cuenta     = Column(String(30))
     created_at        = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at        = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
 
@@ -230,19 +233,45 @@ class ContratoRequisitoObra(Base):
     id_contrato              = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
     id_obra                  = Column(Integer, ForeignKey("erp.obras.id"), nullable=False)
     id_anexo                 = Column(Integer, ForeignKey("erp.anexos_contrato.id"))
-    examen_preocup_fecha     = Column(Date)
-    examen_preocup_resultado = Column(String(20))  # APTO / APTO_RESTRICCIONES / NO_APTO
-    induccion_ds44_fecha     = Column(Date)
-    induccion_ds44_aprobada  = Column(Boolean)
-    epp_entregado_fecha      = Column(Date)
-    epp_detalle              = Column(JSONB)
+    irl_ds44_folio           = Column(String(30))
+    irl_ds44_fecha           = Column(Date)
+    irl_ds44_aprobada        = Column(Boolean)
     fecha_ingreso_obra       = Column(Date)
     observaciones            = Column(Text)
     created_at               = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at               = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
 
     contrato = relationship("Contrato", back_populates="requisitos_obra")
-    obra = relationship("Obra")
+    entregas_epp = relationship("EntregaEpp", back_populates="requisito_obra")
+
+
+class EntregaEpp(Base):
+    __tablename__ = "entrega_epp"
+    __table_args__ = {"schema": "erp"}
+
+    id                = Column(Integer, primary_key=True)
+    id_contrato       = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_requisito_obra = Column(Integer, ForeignKey("erp.contrato_requisitos_obra.id"))
+    folio             = Column(String(30))
+    fecha_entrega     = Column(Date, nullable=False)
+    items             = Column(JSONB)
+    observaciones     = Column(Text)
+    created_at        = Column(TIMESTAMPTZ, server_default=func.now())
+
+    requisito_obra = relationship("ContratoRequisitoObra", back_populates="entregas_epp")
+
+
+class PactoHorasExtra(Base):
+    __tablename__ = "pactos_horas_extra"
+    __table_args__ = {"schema": "erp"}
+
+    id                 = Column(Integer, primary_key=True)
+    id_contrato        = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    fecha_inicio       = Column(Date, nullable=False)
+    fecha_termino      = Column(Date, nullable=False)
+    tope_horas_diarias = Column(Numeric(4, 2), nullable=False, default=Decimal("2"))
+    porcentaje_recargo = Column(Numeric(5, 4), nullable=False, default=Decimal("0.50"))
+    created_at         = Column(TIMESTAMPTZ, server_default=func.now())
 
 # NOTA: schema_v2_multiempresa.sql todavía no define la tabla `licencias` —
 # este modelo queda mapeado pero el endpoint fallará hasta que se agregue
