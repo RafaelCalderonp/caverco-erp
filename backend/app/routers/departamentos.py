@@ -1,0 +1,37 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import List
+from app.core.database import get_db
+from app.models.rrhh import Departamento, Cargo
+from app.schemas.rrhh import DepartamentoCreate, DepartamentoUpdate, DepartamentoOut, CargoOut
+
+router = APIRouter(prefix="/departamentos", tags=["Departamentos"])
+
+@router.get("/", response_model=List[DepartamentoOut])
+async def listar(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Departamento).where(Departamento.activo == True).order_by(Departamento.nombre))
+    return result.scalars().all()
+
+@router.post("/", response_model=DepartamentoOut, status_code=201)
+async def crear(data: DepartamentoCreate, db: AsyncSession = Depends(get_db)):
+    dep = Departamento(**data.model_dump())
+    db.add(dep)
+    await db.flush()
+    await db.refresh(dep)
+    return dep
+
+@router.patch("/{id}", response_model=DepartamentoOut)
+async def actualizar(id: int, data: DepartamentoUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Departamento).where(Departamento.id == id))
+    dep = result.scalar_one_or_none()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Departamento no encontrado")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(dep, k, v)
+    return dep
+
+@router.get("/{id}/cargos", response_model=List[CargoOut])
+async def cargos_por_departamento(id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Cargo).where(Cargo.id_departamento == id, Cargo.activo == True))
+    return result.scalars().all()
