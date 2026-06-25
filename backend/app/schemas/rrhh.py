@@ -95,18 +95,140 @@ class EmpleadoListOut(BaseModel):
 
 # ---- Contrato ----
 class ContratoCreate(BaseModel):
+    id_empleado: int
     id_tipo_contrato: int
+    id_obra: Optional[int] = None
+    id_centro_costo: Optional[int] = None
+    id_cargo: Optional[int] = None
+    numero_contrato: Optional[str] = None
+    fecha_contrato: date
     fecha_inicio: date
-    fecha_termino: Optional[date] = None
+    fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
     horas_semanales: int = 45
     jornada: str = "Completa"
-    descripcion: Optional[str] = None
+    id_contrato_origen: Optional[int] = None
 
-class ContratoOut(ContratoCreate):
+class ContratoUpdate(BaseModel):
+    id_obra: Optional[int] = None
+    id_centro_costo: Optional[int] = None
+    id_cargo: Optional[int] = None
+    numero_contrato: Optional[str] = None
+    fecha_termino_pactada: Optional[date] = None
+    fecha_termino_real: Optional[date] = None
+    id_motivo_termino: Optional[int] = None
+    aviso_previo_fecha: Optional[date] = None
+    sueldo_bruto: Optional[Decimal] = None
+    horas_semanales: Optional[int] = None
+    jornada: Optional[str] = None
+    estado: Optional[str] = None
+
+class ContratoOut(BaseModel):
     id: int
     id_empleado: int
-    activo: bool
+    id_tipo_contrato: int
+    id_obra: Optional[int] = None
+    id_centro_costo: Optional[int] = None
+    id_cargo: Optional[int] = None
+    numero_contrato: Optional[str] = None
+    fecha_contrato: Optional[date] = None
+    fecha_inicio: date
+    fecha_termino_pactada: Optional[date] = None
+    fecha_termino_real: Optional[date] = None
+    id_motivo_termino: Optional[int] = None
+    aviso_previo_fecha: Optional[date] = None
+    sueldo_bruto: Decimal
+    horas_semanales: int
+    jornada: str
+    estado: str
+    id_contrato_origen: Optional[int] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+# ---- Anexo de Contrato ----
+class AnexoContratoCreate(BaseModel):
+    id_tipo_anexo: int
+    fecha_anexo: date
+    nuevo_sueldo: Optional[Decimal] = None
+    id_nueva_obra: Optional[int] = None
+    nuevo_cargo: Optional[str] = None
+    nueva_jornada: Optional[str] = None
+    nueva_fecha_termino: Optional[date] = None
+    valor_anterior: Optional[dict] = None
+    valor_nuevo: Optional[dict] = None
+    observacion: Optional[str] = None
+
+class AnexoContratoOut(AnexoContratoCreate):
+    id: int
+    id_contrato: int
+    id_empleado: int
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+# ---- Documento de Contrato ----
+class ContratoDocumentoCreate(BaseModel):
+    id_anexo: Optional[int] = None
+    tipo_documento: str
+    onedrive_item_id: Optional[str] = None
+    url_compartido: Optional[str] = None
+    nombre_original: Optional[str] = None
+
+class ContratoDocumentoOut(ContratoDocumentoCreate):
+    id: int
+    id_contrato: int
+    fecha_carga: datetime
+    id_usuario_carga: Optional[int] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+# ---- Requisito de ingreso a obra ----
+class ContratoRequisitoObraCreate(BaseModel):
+    id_obra: int
+    id_anexo: Optional[int] = None
+    irl_ds44_folio: Optional[str] = None
+    irl_ds44_fecha: Optional[date] = None
+    irl_ds44_aprobada: Optional[bool] = None
+    fecha_ingreso_obra: Optional[date] = None
+    observaciones: Optional[str] = None
+
+class ContratoRequisitoObraUpdate(BaseModel):
+    irl_ds44_folio: Optional[str] = None
+    irl_ds44_fecha: Optional[date] = None
+    irl_ds44_aprobada: Optional[bool] = None
+    fecha_ingreso_obra: Optional[date] = None
+    observaciones: Optional[str] = None
+
+class ContratoRequisitoObraOut(ContratoRequisitoObraCreate):
+    id: int
+    id_contrato: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+# ---- Entrega de EPP ----
+class EntregaEppCreate(BaseModel):
+    id_requisito_obra: Optional[int] = None
+    folio: Optional[str] = None
+    fecha_entrega: date
+    items: Optional[list] = None
+    observaciones: Optional[str] = None
+
+class EntregaEppOut(EntregaEppCreate):
+    id: int
+    id_contrato: int
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+# ---- Pacto de horas extra ----
+class PactoHorasExtraCreate(BaseModel):
+    fecha_inicio: date
+    fecha_termino: date
+    tope_horas_diarias: Decimal = Decimal("2")
+    porcentaje_recargo: Decimal = Decimal("0.50")
+
+class PactoHorasExtraOut(PactoHorasExtraCreate):
+    id: int
+    id_contrato: int
     created_at: datetime
     model_config = {"from_attributes": True}
 

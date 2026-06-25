@@ -146,7 +146,7 @@ class Contrato(Base):
     id_centro_costo       = Column(Integer, ForeignKey("erp.centros_costo.id"))
     id_cargo              = Column(Integer, ForeignKey("erp.cargos.id"))
     numero_contrato       = Column(String(30))
-    fecha_contrato        = Column(Date)
+    fecha_contrato        = Column(Date, nullable=False)
     fecha_inicio          = Column(Date, nullable=False)
     fecha_termino_pactada = Column(Date)
     fecha_termino_real    = Column(Date)
