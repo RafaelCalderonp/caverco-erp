@@ -10,7 +10,7 @@ from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, Emplea
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
 
-@router.get("/", response_model=List[EmpleadoListOut])
+@router.get("", response_model=List[EmpleadoListOut])
 async def listar_empleados(
     activo: Optional[bool] = None,
     id_departamento: Optional[int] = None,
@@ -58,7 +58,7 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     return emp
 
-@router.post("/", response_model=EmpleadoOut, status_code=201)
+@router.post("", response_model=EmpleadoOut, status_code=201)
 async def crear_empleado(data: EmpleadoCreate, db: AsyncSession = Depends(get_db)):
     emp = Empleado(**data.model_dump())
     db.add(emp)

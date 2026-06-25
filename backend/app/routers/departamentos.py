@@ -9,12 +9,12 @@ from app.schemas.rrhh import DepartamentoCreate, DepartamentoUpdate, Departament
 
 router = APIRouter(prefix="/departamentos", tags=["Departamentos"], dependencies=[Depends(get_current_user)])
 
-@router.get("/", response_model=List[DepartamentoOut])
+@router.get("", response_model=List[DepartamentoOut])
 async def listar(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Departamento).where(Departamento.activo == True).order_by(Departamento.nombre))
     return result.scalars().all()
 
-@router.post("/", response_model=DepartamentoOut, status_code=201)
+@router.post("", response_model=DepartamentoOut, status_code=201)
 async def crear(data: DepartamentoCreate, db: AsyncSession = Depends(get_db)):
     dep = Departamento(**data.model_dump())
     db.add(dep)
