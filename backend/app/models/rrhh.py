@@ -1,6 +1,6 @@
 from decimal import Decimal
 from sqlalchemy import Column, Integer, String, Boolean, Date, Numeric, SmallInteger, Text, ForeignKey, CHAR, UniqueConstraint
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 
 TIMESTAMPTZ = TIMESTAMP(timezone=True)
 from sqlalchemy.orm import relationship
@@ -136,22 +136,113 @@ class Contrato(Base):
     __tablename__ = "contratos"
     __table_args__ = {"schema": "erp"}
 
-    id               = Column(Integer, primary_key=True)
-    id_empleado      = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
-    id_tipo_contrato = Column(Integer, ForeignKey("erp.tipo_contrato.id"), nullable=False)
-    id_obra          = Column(Integer, ForeignKey("erp.obras.id"))
-    fecha_contrato   = Column(Date)
-    fecha_inicio     = Column(Date, nullable=False)
-    fecha_termino    = Column(Date)
-    sueldo_bruto     = Column(Numeric(12, 2), nullable=False)
-    horas_semanales  = Column(SmallInteger, default=45)
-    jornada          = Column(String(30), default="Completa")
-    descripcion      = Column(Text)
-    activo           = Column(Boolean, default=True)
-    created_at       = Column(TIMESTAMPTZ, server_default=func.now())
-    updated_at       = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
+    id                    = Column(Integer, primary_key=True)
+    id_empleado           = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
+    id_tipo_contrato      = Column(Integer, ForeignKey("erp.tipo_contrato.id"), nullable=False)
+    id_obra               = Column(Integer, ForeignKey("erp.obras.id"))
+    id_centro_costo       = Column(Integer, ForeignKey("erp.centros_costo.id"))
+    id_cargo              = Column(Integer, ForeignKey("erp.cargos.id"))
+    numero_contrato       = Column(String(30))
+    fecha_contrato        = Column(Date)
+    fecha_inicio          = Column(Date, nullable=False)
+    fecha_termino_pactada = Column(Date)
+    fecha_termino_real    = Column(Date)
+    id_motivo_termino     = Column(Integer, ForeignKey("erp.motivos_termino.id"))
+    aviso_previo_fecha    = Column(Date)
+    sueldo_bruto          = Column(Numeric(12, 2), nullable=False)
+    horas_semanales       = Column(SmallInteger, default=45)
+    jornada               = Column(String(30), default="Completa")
+    estado                = Column(String(20), nullable=False, default="vigente")  # vigente / finiquitado / anulado
+    id_contrato_origen    = Column(Integer, ForeignKey("erp.contratos.id"))
+    created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
-    empleado = relationship("Empleado", back_populates="contratos")
+    empleado = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
+    anexos = relationship("AnexoContrato", back_populates="contrato")
+    documentos = relationship("ContratoDocumento", back_populates="contrato")
+    requisitos_obra = relationship("ContratoRequisitoObra", back_populates="contrato")
+
+
+class MotivoTermino(Base):
+    __tablename__ = "motivos_termino"
+    __table_args__ = {"schema": "erp"}
+
+    id          = Column(Integer, primary_key=True)
+    codigo      = Column(String(30), unique=True, nullable=False)
+    nombre      = Column(String(120), nullable=False)
+    articulo_ct = Column(String(10))
+
+
+class TipoAnexo(Base):
+    __tablename__ = "tipo_anexo"
+    __table_args__ = {"schema": "erp"}
+
+    id     = Column(Integer, primary_key=True)
+    codigo = Column(String(30), unique=True, nullable=False)
+    nombre = Column(String(100), nullable=False)
+
+
+class AnexoContrato(Base):
+    __tablename__ = "anexos_contrato"
+    __table_args__ = {"schema": "erp"}
+
+    id            = Column(Integer, primary_key=True)
+    id_contrato   = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_empleado   = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
+    id_tipo_anexo = Column(Integer, ForeignKey("erp.tipo_anexo.id"), nullable=False)
+    fecha_anexo   = Column(Date, nullable=False)
+    nuevo_sueldo  = Column(Numeric(12, 2))
+    id_nueva_obra = Column(Integer, ForeignKey("erp.obras.id"))
+    nuevo_cargo   = Column(String(100))
+    nueva_jornada = Column(String(30))
+    nueva_fecha_termino = Column(Date)
+    valor_anterior = Column(JSONB)
+    valor_nuevo    = Column(JSONB)
+    observacion   = Column(Text)
+    created_at    = Column(TIMESTAMPTZ, server_default=func.now())
+
+    contrato = relationship("Contrato", back_populates="anexos")
+    tipo_anexo = relationship("TipoAnexo")
+
+
+class ContratoDocumento(Base):
+    __tablename__ = "contrato_documentos"
+    __table_args__ = {"schema": "erp"}
+
+    id               = Column(Integer, primary_key=True)
+    id_contrato      = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_anexo         = Column(Integer, ForeignKey("erp.anexos_contrato.id"))
+    tipo_documento   = Column(String(30), nullable=False)
+    onedrive_item_id = Column(String(200))
+    url_compartido   = Column(String(500))
+    nombre_original  = Column(String(200))
+    fecha_carga      = Column(TIMESTAMPTZ, server_default=func.now())
+    id_usuario_carga = Column(Integer, ForeignKey("erp.usuarios.id"))
+    created_at       = Column(TIMESTAMPTZ, server_default=func.now())
+
+    contrato = relationship("Contrato", back_populates="documentos")
+
+
+class ContratoRequisitoObra(Base):
+    __tablename__ = "contrato_requisitos_obra"
+    __table_args__ = {"schema": "erp"}
+
+    id                       = Column(Integer, primary_key=True)
+    id_contrato              = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_obra                  = Column(Integer, ForeignKey("erp.obras.id"), nullable=False)
+    id_anexo                 = Column(Integer, ForeignKey("erp.anexos_contrato.id"))
+    examen_preocup_fecha     = Column(Date)
+    examen_preocup_resultado = Column(String(20))  # APTO / APTO_RESTRICCIONES / NO_APTO
+    induccion_ds44_fecha     = Column(Date)
+    induccion_ds44_aprobada  = Column(Boolean)
+    epp_entregado_fecha      = Column(Date)
+    epp_detalle              = Column(JSONB)
+    fecha_ingreso_obra       = Column(Date)
+    observaciones            = Column(Text)
+    created_at               = Column(TIMESTAMPTZ, server_default=func.now())
+    updated_at               = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
+
+    contrato = relationship("Contrato", back_populates="requisitos_obra")
+    obra = relationship("Obra")
 
 # NOTA: schema_v2_multiempresa.sql todavía no define la tabla `licencias` —
 # este modelo queda mapeado pero el endpoint fallará hasta que se agregue
