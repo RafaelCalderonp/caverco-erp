@@ -1,35 +1,31 @@
 """
-Caverco ERP — Integración con Previred vía API Gateway (apigateway.cl)
-Obtiene indicadores previsionales oficiales: AFP, AFC, SIS, UF, UTM, rentas topes.
+Caverco ERP — Integración con indicadores previsionales (Gael Cloud)
 
-Endpoint: GET https://apigateway.cl/api/v2/previred/indicadores/data/{YYYYMM}
-Auth: Token en header Authorization
+Fuente: API pública gratuita y sin autenticación de Gael Cloud, que replica
+los indicadores mensuales publicados en previred.com (UF, UTM, topes
+imponibles, tasas AFP, AFC, SIS, tramos de asignación familiar, etc).
 
-Registro gratuito: https://app.apigateway.cl/signup
+Endpoint: GET https://api.gael.cloud/general/public/previred/{MMYYYY}
+Sin auth. Los valores numéricos vienen como strings con coma decimal
+("39383,07") al estilo chileno, por lo que se normalizan antes de castear
+a Decimal.
+
+No es la fuente oficial de Previred (que no expone API pública) sino un
+agregador de terceros; se mantiene FALLBACK_INDICADORES como respaldo si
+el servicio no responde.
 """
 import httpx
-import asyncio
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
-from datetime import datetime
 import logging
 
 log = logging.getLogger(__name__)
 
-APIGATEWAY_BASE = "https://apigateway.cl/api/v2"
+GAEL_BASE = "https://api.gael.cloud/general/public/previred"
 
-# Códigos AFP en API Gateway → nombre legible
-AFP_CODIGOS = {
-    "31": "Capital",
-    "03": "Cuprum",
-    "14": "Habitat",   # código estimado — verificar en respuesta real
-    "11": "PlanVital",
-    "06": "ProVida",
-    "34": "Modelo",
-    "35": "Uno",
-}
+# Códigos AFP internos usados por el motor de liquidaciones
+AFP_NOMBRES = ["Capital", "Cuprum", "Habitat", "PlanVital", "ProVida", "Modelo", "Uno"]
 
-# Tasas de comisión AFP hardcoded Mayo 2026 (fallback si API no disponible)
 AFP_FALLBACK = {
     "Capital":   {"tasa_trabajador": Decimal("0.1144"), "codigo": 31},
     "Cuprum":    {"tasa_trabajador": Decimal("0.1144"), "codigo": 13},
@@ -49,8 +45,8 @@ FALLBACK_INDICADORES = {
     "tope_gratif":         Decimal("213354"),
     "renta_tope_afp":      Decimal("3581157"),
     "renta_tope_afc":      Decimal("5379693"),
-    "aporte_empleador_afp": Decimal("0.001"),   # 0.1% aporte patronal AFP
-    "seguro_social":        Decimal("0.009"),   # 0.9% expectativa de vida
+    "aporte_empleador_afp": Decimal("0.001"),
+    "seguro_social":        Decimal("0.009"),
     "afc": {
         "indefinido_empleador":  Decimal("0.024"),
         "indefinido_trabajador": Decimal("0.006"),
@@ -63,94 +59,79 @@ FALLBACK_INDICADORES = {
 }
 
 
+def _dec(valor, default: str = "0") -> Decimal:
+    """Convierte un string chileno ("39383,07", "11,44") a Decimal."""
+    if valor is None:
+        return Decimal(default)
+    texto = str(valor).strip().replace(".", "").replace(",", ".")
+    try:
+        return Decimal(texto)
+    except InvalidOperation:
+        return Decimal(default)
+
+
 class PreviredService:
+    """Mantiene el nombre histórico de la clase por compatibilidad con
+    indicadores.py; internamente consulta la API pública de Gael Cloud."""
+
     def __init__(self, api_token: Optional[str] = None):
-        self.token = api_token
+        self.token = api_token  # no se usa: la API de Gael Cloud no requiere token
         self._cache: dict = {}
 
     def _periodo_str(self, year: int, month: int) -> str:
-        return f"{year}{month:02d}"
+        return f"{month:02d}{year}"
 
     async def obtener_indicadores(self, year: int, month: int) -> dict:
-        """
-        Obtiene indicadores del período. Usa cache en memoria.
-        Si no hay token o falla la API, retorna datos fallback.
-        """
+        """Obtiene indicadores del período desde Gael Cloud. Usa cache en
+        memoria. Si la API falla, retorna datos fallback."""
         key = self._periodo_str(year, month)
         if key in self._cache:
             return self._cache[key]
 
-        if not self.token:
-            log.warning("Sin token API Gateway — usando datos fallback")
-            return FALLBACK_INDICADORES
-
         try:
             async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.get(
-                    f"{APIGATEWAY_BASE}/previred/indicadores/data/{key}",
-                    headers={"Authorization": f"Token {self.token}"}
-                )
+                r = await client.get(f"{GAEL_BASE}/{key}")
                 r.raise_for_status()
                 raw = r.json()
 
-            indicadores = raw["data"]["indicadores"]
-            result = self._parsear_indicadores(indicadores, f"{year}-{month:02d}")
+            result = self._parsear_indicadores(raw, f"{year}-{month:02d}")
+            result["_fuente"] = "API_GATEWAY"
             self._cache[key] = result
-            log.info(f"Indicadores Previred {key} obtenidos OK desde API Gateway")
+            log.info(f"Indicadores Previred {key} obtenidos OK desde Gael Cloud")
             return result
 
         except Exception as e:
-            log.error(f"Error API Gateway ({key}): {e} — usando fallback")
-            return FALLBACK_INDICADORES
+            log.error(f"Error consultando Gael Cloud ({key}): {e} — usando fallback")
+            return {**FALLBACK_INDICADORES, "_fuente": "FALLBACK"}
 
     def _parsear_indicadores(self, ind: dict, periodo: str) -> dict:
-        """Transforma respuesta API Gateway al formato interno del motor."""
-        moneda = ind.get("moneda", {})
-        uf  = Decimal(str(moneda.get("CLF", 40610.69)))
-        utm = Decimal(str(moneda.get("UTM", 70588)))
+        uf = _dec(ind.get("UFValPeriodo"), "40610.69")
+        utm = _dec(ind.get("UTMVal"), "70588")
 
-        # AFC
-        afc_raw = ind.get("afc", {})
         afc = {
-            "indefinido_empleador":  Decimal(str(afc_raw.get("plazo_indefinido_empleador", 0.024))),
-            "indefinido_trabajador": Decimal(str(afc_raw.get("plazo_indefinido_trabajador", 0.006))),
-            "plazo_fijo_empleador":  Decimal(str(afc_raw.get("plazo_fijo_empleador", 0.030))),
-            "plazo_fijo_trabajador": Decimal(str(afc_raw.get("plazo_fijo_trabajador", 0))),
-            "por_obra_empleador":    Decimal(str(afc_raw.get("plazo_fijo_empleador", 0.030))),
-            "por_obra_trabajador":   Decimal(str(afc_raw.get("plazo_fijo_trabajador", 0))),
+            "indefinido_empleador":  _dec(ind.get("AFCCpiEmpleador")) / 100,
+            "indefinido_trabajador": _dec(ind.get("AFCCpiTrabajador")) / 100,
+            "plazo_fijo_empleador":  _dec(ind.get("AFCCpfEmpleador")) / 100,
+            "plazo_fijo_trabajador": _dec(ind.get("AFCCpfTrabajador")) / 100,
+            "por_obra_empleador":    _dec(ind.get("AFCCpfEmpleador")) / 100,
+            "por_obra_trabajador":   _dec(ind.get("AFCCpfTrabajador")) / 100,
         }
 
-        # SIS
-        afp_raw = ind.get("afp", {})
-        sis = Decimal(str(afp_raw.get("sis", 0.0249)))
-        base_trabajador = Decimal(str(afp_raw.get("trabajador", 0.10)))
-        comisiones = {str(k): Decimal(str(v)) for k, v in afp_raw.get("comision", {}).items()}
-
-        # Construir tasas AFP: base + comisión por código
         afp_tasas = {}
-        for codigo_str, nombre in AFP_CODIGOS.items():
-            comision = comisiones.get(codigo_str, Decimal("0.014"))
+        for nombre in AFP_NOMBRES:
+            tasa = _dec(ind.get(f"AFP{nombre}TasaDepTrab"))
+            codigo = AFP_FALLBACK[nombre]["codigo"]
             afp_tasas[nombre] = {
-                "tasa_trabajador": base_trabajador + comision,
-                "codigo": int(codigo_str),
+                "tasa_trabajador": tasa / 100 if tasa else AFP_FALLBACK[nombre]["tasa_trabajador"],
+                "codigo": codigo,
             }
 
-        # Rentas topes
-        topes = ind.get("renta_imponible_tope", {})
-        tope_afp = Decimal(str(topes.get("afp", 3581157)))
-        tope_afc = Decimal(str(topes.get("afc", 5379693)))
-
-        # Sueldo mínimo
-        renta_min = ind.get("renta_imponible_minima", {})
-        sueldo_min = Decimal(str(renta_min.get("general", 539000)))
-
-        # Tope gratificación = 4.75 * UTM (redondeado)
+        sis = _dec(ind.get("TasaSIS"), "2.49") / 100
+        tope_afp = _dec(ind.get("RTIAfpPesos"), "3581157")
+        tope_afc = _dec(ind.get("RTISegCesPesos"), "5379693")
+        sueldo_min = _dec(ind.get("RMITrabDepeInd"), "539000")
         tope_gratif = (utm * Decimal("4.75")).quantize(Decimal("1"))
-
-        # Aporte empleador AFP (0.1%) y seguro social (0.9%)
-        aporte_emp_afp = Decimal(str(afp_raw.get("empleador", 0.001)))
-        seg_social_raw = ind.get("seguro_social", {})
-        seg_social = Decimal(str(seg_social_raw.get("expectativa_vida", 0.009)))
+        seg_social = _dec(ind.get("ExpVida"), "0.9") / 100
 
         return {
             "periodo":             periodo,
@@ -163,15 +144,14 @@ class PreviredService:
             "renta_tope_afc":      tope_afc,
             "afc":                 afc,
             "afp":                 afp_tasas,
-            "aporte_empleador_afp": aporte_emp_afp,   # 0.1% aporte patronal AFP
-            "seguro_social":        seg_social,        # 0.9% expectativa de vida
+            "aporte_empleador_afp": Decimal("0.001"),
+            "seguro_social":        seg_social,
         }
 
     def limpiar_cache(self):
         self._cache.clear()
 
 
-# Instancia global (se configura con token desde settings)
 _service_instance: Optional[PreviredService] = None
 
 def get_previred_service(token: Optional[str] = None) -> PreviredService:

@@ -15,7 +15,6 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.models.rrhh import Empleado, ValorUfUtm, TramoImpuestoUnico
 from app.services.liquidaciones import IndicadoresPrevired, TRAMOS_IU_2026
 from app.services.previred import get_previred_service
@@ -39,9 +38,9 @@ async def asegurar_indicadores(db: AsyncSession, periodo: str) -> None:
     """Si el período no está versionado en BD, lo siembra desde Previred/fallback."""
     if await obtener_valor_periodo(db, periodo) is None:
         year, month = int(periodo[:4]), int(periodo[5:7])
-        svc = get_previred_service(getattr(settings, "APIGATEWAY_TOKEN", None))
+        svc = get_previred_service()
         raw = await svc.obtener_indicadores(year, month)
-        fuente = "API_GATEWAY" if svc.token else "FALLBACK"
+        fuente = raw.get("_fuente", "FALLBACK")
 
         db.add(ValorUfUtm(
             periodo=periodo,
