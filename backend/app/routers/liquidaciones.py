@@ -15,7 +15,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion
 )
@@ -81,6 +81,13 @@ class LiquidacionOut(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
+async def _verificar_periodo_abierto(periodo: str, db: AsyncSession):
+    result = await db.execute(select(ValorUfUtm).where(ValorUfUtm.periodo == periodo))
+    val = result.scalar_one_or_none()
+    if val and val.cerrado:
+        raise HTTPException(409, f"El período {periodo} está cerrado y no admite nuevas liquidaciones ni pagos")
+
+
 async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
     result = await db.execute(
         select(Empleado)
@@ -136,6 +143,7 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
     return {
         "periodo": periodo,
         "fuente": val.fuente,
+        "cerrado": val.cerrado,
         "indicadores": {
             "uf": float(val.valor_uf), "utm": float(val.valor_utm),
             "sueldo_minimo": float(val.sueldo_minimo), "tope_gratif": float(val.tope_gratificacion),
@@ -151,7 +159,7 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
     }
 
 
-@router.post("/calcular")
+@router.post("/calcular", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = Depends(get_db)):
     """
     Calcula una liquidación sin guardarla (preview), usando los indicadores
@@ -223,6 +231,8 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
     )
     if dup.scalar_one_or_none():
         raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
+
+    await _verificar_periodo_abierto(req.periodo, db)
 
     emp     = await _get_empleado(req.id_empleado, db)
     ind     = await construir_indicadores(db, emp, req.periodo)
@@ -308,7 +318,10 @@ async def _liquidaciones_y_empleados(periodo: str, id_empresa: int, db: AsyncSes
 @router.get("/periodo/{periodo}/export/previred")
 async def exportar_previred(periodo: str, id_empresa: int, db: AsyncSession = Depends(get_db)):
     liquidaciones, empleados_por_id = await _liquidaciones_y_empleados(periodo, id_empresa, db)
-    contenido = generar_csv_previred(liquidaciones, empleados_por_id)
+    try:
+        contenido = generar_csv_previred(liquidaciones, empleados_por_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     return Response(
         content=contenido,
         media_type="text/csv",
@@ -324,7 +337,10 @@ async def exportar_libro_remuneraciones(periodo: str, id_empresa: int, db: Async
     if not empresa:
         raise HTTPException(404, "Empresa no encontrada")
 
-    contenido = generar_csv_libro_remuneraciones(liquidaciones, empleados_por_id)
+    try:
+        contenido = generar_csv_libro_remuneraciones(liquidaciones, empleados_por_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     return Response(
         content=contenido,
         media_type="text/csv",
@@ -360,5 +376,27 @@ async def marcar_pagada(id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Liquidación no encontrada")
     if liq.estado != "EMITIDA":
         raise HTTPException(400, f"Solo se pueden pagar liquidaciones EMITIDAS (estado actual: {liq.estado})")
+    await _verificar_periodo_abierto(liq.periodo, db)
     liq.estado = "PAGADA"
     return liq
+
+
+@router.post("/periodo/{periodo}/cerrar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def cerrar_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
+    """Cierra un período: bloquea nuevas emisiones y pagos de liquidaciones para ese YYYY-MM."""
+    await asegurar_indicadores(db, periodo)
+    result = await db.execute(select(ValorUfUtm).where(ValorUfUtm.periodo == periodo))
+    val = result.scalar_one_or_none()
+    val.cerrado = True
+    return {"periodo": periodo, "cerrado": True}
+
+
+@router.post("/periodo/{periodo}/reabrir", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def reabrir_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
+    """Reabre un período previamente cerrado."""
+    result = await db.execute(select(ValorUfUtm).where(ValorUfUtm.periodo == periodo))
+    val = result.scalar_one_or_none()
+    if not val:
+        raise HTTPException(404, f"Período {periodo} no encontrado")
+    val.cerrado = False
+    return {"periodo": periodo, "cerrado": False}

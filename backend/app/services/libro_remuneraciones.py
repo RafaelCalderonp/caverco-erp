@@ -31,7 +31,13 @@ def generar_csv_libro_remuneraciones(liquidaciones: list[Liquidacion], empleados
     buf.write(";".join(HEADERS) + "\n")
 
     for liq in liquidaciones:
-        emp = empleados_por_id[liq.id_empleado]
+        emp = empleados_por_id.get(liq.id_empleado)
+        if emp is None:
+            raise ValueError(f"No se encontró empleado {liq.id_empleado} para la liquidación {liq.id}")
+        if not emp.rut or not emp.nombres or not emp.apellido_paterno:
+            raise ValueError(f"Empleado {emp.id} con datos incompletos (RUT/nombre) para el libro de remuneraciones")
+        if liq.total_haberes is None or liq.liquido_a_pagar is None:
+            raise ValueError(f"Liquidación {liq.id} sin totales calculados (total_haberes/liquido_a_pagar)")
         haberes_imponibles_tributables = int(liq.total_imponible or 0)
         haberes_no_imp_tributables = int((liq.aguinaldo or 0))  # ej. aguinaldo: no imponible, sí tributable
         haberes_no_imp_ni_trib = int(

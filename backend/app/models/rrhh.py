@@ -273,9 +273,14 @@ class PactoHorasExtra(Base):
     porcentaje_recargo = Column(Numeric(5, 4), nullable=False, default=Decimal("0.50"))
     created_at         = Column(TIMESTAMPTZ, server_default=func.now())
 
-# NOTA: schema_v2_multiempresa.sql todavía no define la tabla `licencias` —
-# este modelo queda mapeado pero el endpoint fallará hasta que se agregue
-# la tabla al esquema "erp" (pendiente, fuera del alcance de auth/indicadores).
+class TipoLicencia(Base):
+    __tablename__ = "tipo_licencia"
+    __table_args__ = {"schema": "erp"}
+    id     = Column(Integer, primary_key=True)
+    codigo = Column(String(30), unique=True, nullable=False)
+    nombre = Column(String(100), nullable=False)
+
+
 class Licencia(Base):
     __tablename__ = "licencias"
     __table_args__ = {"schema": "erp"}
@@ -432,6 +437,7 @@ class ValorUfUtm(Base):
     aporte_empleador_afp  = Column(Numeric(6,4), default=Decimal("0.001"))
     seguro_social         = Column(Numeric(6,4), default=Decimal("0.009"))
     fuente                = Column(String(40), default="MANUAL")  # MANUAL / API_GATEWAY / FALLBACK
+    cerrado               = Column(Boolean, nullable=False, default=False)
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
 

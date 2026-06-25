@@ -25,6 +25,8 @@ export default function Liquidaciones() {
   const [empleados, setEmpleados] = useState([])
   const [indicadores, setIndicadores] = useState(null)
   const [fuenteIndicadores, setFuenteIndicadores] = useState(null)
+  const [periodoCerrado, setPeriodoCerrado] = useState(false)
+  const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
   // Formulario calcular
   const [form, setForm] = useState({
@@ -56,6 +58,27 @@ export default function Liquidaciones() {
       .then(r => { setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente) })
       .catch(() => { setIndicadores(null); setFuenteIndicadores(null) })
   }, [periodo, tab])
+
+  useEffect(() => {
+    liquidacionesApi.indicadores(periodo)
+      .then(r => setPeriodoCerrado(!!r.data.cerrado))
+      .catch(() => setPeriodoCerrado(false))
+  }, [periodo])
+
+  const toggleCierre = async () => {
+    setCambiandoCierre(true); setMsg('')
+    try {
+      if (periodoCerrado) {
+        await liquidacionesApi.reabrirPeriodo(periodo)
+        setPeriodoCerrado(false)
+      } else {
+        await liquidacionesApi.cerrarPeriodo(periodo)
+        setPeriodoCerrado(true)
+      }
+    } catch (e) {
+      setMsg(e.response?.data?.detail || 'Error al cambiar el estado del período')
+    } finally { setCambiandoCierre(false) }
+  }
 
   const set = (k, v) => setForm(f => ({...f, [k]: v}))
 
@@ -124,8 +147,17 @@ export default function Liquidaciones() {
             onClick={() => descargar(liquidacionesApi.exportarLibroRemuneraciones, `libro_remuneraciones_${periodo}.csv`)}>
             ⬇️ Libro Remuneraciones DT
           </button>
+          <button className={`btn ${periodoCerrado ? 'btn-outline' : 'btn-danger'}`}
+            onClick={toggleCierre} disabled={cambiandoCierre}>
+            {cambiandoCierre ? '…' : periodoCerrado ? '🔓 Reabrir Período' : '🔒 Cerrar Período'}
+          </button>
         </div>
       </div>
+      {periodoCerrado && (
+        <p style={{fontSize:12,color:'var(--danger)',marginTop:-8,marginBottom:16}}>
+          Este período está cerrado: no se pueden emitir ni pagar liquidaciones para {periodo}.
+        </p>
+      )}
       <p style={{fontSize:12,color:'var(--gray-500)',marginTop:-8,marginBottom:16}}>
         Estos archivos se generan a partir de las liquidaciones EMITIDAS del período. Súbelos manualmente en
         previred.com y en el portal Mi DT — la app no inicia sesión por ti.

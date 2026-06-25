@@ -23,6 +23,33 @@ def _split_rut(rut: str) -> tuple[str, str]:
     return limpio[:-1], limpio[-1]
 
 
+def _dv_esperado(rut_num: str) -> str:
+    suma, mult = 0, 2
+    for c in reversed(rut_num):
+        suma += int(c) * mult
+        mult = 2 if mult == 7 else mult + 1
+    resto = 11 - (suma % 11)
+    return {11: "0", 10: "K"}.get(resto, str(resto))
+
+
+def _validar_empleado(emp: Empleado, liq: Liquidacion):
+    errores = []
+    if not emp.rut:
+        errores.append(f"empleado {emp.id} sin RUT")
+    else:
+        rut_num, rut_dv = _split_rut(emp.rut)
+        if not rut_num.isdigit() or _dv_esperado(rut_num) != rut_dv:
+            errores.append(f"RUT inválido para empleado {emp.id}: {emp.rut}")
+    if not emp.apellido_paterno:
+        errores.append(f"empleado {emp.id} sin apellido paterno")
+    if not emp.nombres:
+        errores.append(f"empleado {emp.id} sin nombres")
+    if liq.total_imponible is None:
+        errores.append(f"liquidación {liq.id} (empleado {emp.id}) sin total_imponible")
+    if errores:
+        raise ValueError("Datos inválidos para exportar a Previred: " + "; ".join(errores))
+
+
 def generar_csv_previred(liquidaciones: list[Liquidacion], empleados_por_id: dict[int, Empleado]) -> str:
     """
     liquidaciones: liquidaciones EMITIDAS de un período/empresa.
@@ -30,7 +57,10 @@ def generar_csv_previred(liquidaciones: list[Liquidacion], empleados_por_id: dic
     """
     buf = StringIO()
     for liq in liquidaciones:
-        emp = empleados_por_id[liq.id_empleado]
+        emp = empleados_por_id.get(liq.id_empleado)
+        if emp is None:
+            raise ValueError(f"No se encontró empleado {liq.id_empleado} para la liquidación {liq.id}")
+        _validar_empleado(emp, liq)
         rut_num, rut_dv = _split_rut(emp.rut)
         afp_codigo = emp.afp_rel.codigo if emp.afp_rel else 0
         es_fonasa = emp.isapre_rel.es_fonasa if emp.isapre_rel else True
