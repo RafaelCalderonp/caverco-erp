@@ -78,5 +78,11 @@ INSERT INTO empleados (
     0
 );
 
+-- Usuario administrador de prueba (usuario: admin / password: admin123 — CAMBIAR en producción)
+INSERT INTO usuarios (username, email, hashed_password, rol)
+VALUES ('admin', 'admin@prodiarq.cl',
+        '$2b$12$eywYVhG.11owaMZWK9YtkurPuu9Ica6noKM7TZm3rh4ywIYDeN1qW',
+        'SUPERADMIN');
+
 SELECT 'Datos de prueba cargados OK' as resultado;
 SELECT id, rut, nombres || ' ' || apellido_paterno as nombre, sueldo_base FROM empleados;

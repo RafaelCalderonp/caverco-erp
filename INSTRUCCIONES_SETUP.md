@@ -87,6 +87,14 @@ npm run dev
 
 ✅ Abre en el navegador: **http://localhost:5173**
 
+La app pedirá iniciar sesión. Usuario de prueba (creado por `03_datos_prueba.sql`):
+
+| Usuario | Password  | Rol        |
+|---------|-----------|------------|
+| admin   | admin123  | SUPERADMIN |
+
+⚠️ Cambia esta contraseña antes de usar datos reales.
+
 ---
 
 ## Resumen de URLs

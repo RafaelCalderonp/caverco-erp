@@ -4,10 +4,11 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.rrhh import Empleado
 from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
 
-router = APIRouter(prefix="/empleados", tags=["Empleados"])
+router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=List[EmpleadoListOut])
 async def listar_empleados(

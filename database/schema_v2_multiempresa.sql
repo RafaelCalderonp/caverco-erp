@@ -97,16 +97,24 @@ INSERT INTO tramos_impuesto_unico (desde, hasta, factor, monto_rebaja, periodo) 
     (6240600.01,16121550.00, 0.350, 1212756.60,     '2026-05'),
     (16121550.01, NULL,      0.400, 2018834.10,     '2026-05');
 
--- Valores UF/UTM históricos
+-- Valores UF/UTM e indicadores previsionales históricos (versionados por período)
 CREATE TABLE valores_uf_utm (
-    periodo  CHAR(7) PRIMARY KEY,  -- YYYY-MM
-    valor_uf NUMERIC(10,2),
-    valor_utm NUMERIC(10,2),
-    sueldo_minimo NUMERIC(10,2) DEFAULT 539000,
-    tope_gratificacion NUMERIC(10,2) DEFAULT 213354
+    periodo              CHAR(7) PRIMARY KEY,  -- YYYY-MM
+    valor_uf             NUMERIC(10,2) NOT NULL,
+    valor_utm            NUMERIC(10,2) NOT NULL,
+    sueldo_minimo        NUMERIC(10,2) DEFAULT 539000,
+    tope_gratificacion   NUMERIC(10,2) DEFAULT 213354,
+    renta_tope_afp       NUMERIC(12,2) DEFAULT 3581157,
+    renta_tope_afc       NUMERIC(12,2) DEFAULT 5379693,
+    sis                  NUMERIC(6,4)  DEFAULT 0.0249,
+    aporte_empleador_afp NUMERIC(6,4)  DEFAULT 0.001,
+    seguro_social        NUMERIC(6,4)  DEFAULT 0.009,
+    fuente               VARCHAR(40)   DEFAULT 'MANUAL',  -- MANUAL / API_GATEWAY / FALLBACK
+    created_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO valores_uf_utm VALUES ('2026-05', 40610.69, 70588, 539000, 213354);
+INSERT INTO valores_uf_utm (periodo, valor_uf, valor_utm, sueldo_minimo, tope_gratificacion, fuente)
+VALUES ('2026-05', 40610.69, 70588, 539000, 213354, 'MANUAL');
 
 -- =============================================================
 -- OBRAS / PROYECTOS
@@ -145,16 +153,25 @@ CREATE TABLE departamentos (
     id_empresa   INTEGER NOT NULL REFERENCES empresas(id),
     codigo       VARCHAR(10) NOT NULL,
     nombre       VARCHAR(100) NOT NULL,
-    activo       BOOLEAN DEFAULT TRUE
+    descripcion  TEXT,
+    activo       BOOLEAN DEFAULT TRUE,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (id_empresa, codigo)
 );
 
 CREATE TABLE cargos (
-    id         SERIAL PRIMARY KEY,
-    id_empresa INTEGER NOT NULL REFERENCES empresas(id),
-    codigo     VARCHAR(20) NOT NULL,
-    nombre     VARCHAR(100) NOT NULL,
-    nivel      SMALLINT DEFAULT 1,
-    activo     BOOLEAN DEFAULT TRUE
+    id              SERIAL PRIMARY KEY,
+    id_empresa      INTEGER NOT NULL REFERENCES empresas(id),
+    codigo          VARCHAR(20) NOT NULL,
+    nombre          VARCHAR(100) NOT NULL,
+    descripcion     TEXT,
+    nivel           SMALLINT DEFAULT 1,
+    id_departamento INTEGER REFERENCES departamentos(id),
+    activo          BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (id_empresa, codigo)
 );
 
 -- =============================================================
@@ -321,6 +338,22 @@ CREATE INDEX idx_liq_periodo  ON liquidaciones(periodo);
 CREATE INDEX idx_liq_empleado ON liquidaciones(id_empleado);
 
 -- =============================================================
+-- USUARIOS DEL SISTEMA (autenticación)
+-- =============================================================
+CREATE TABLE usuarios (
+    id              SERIAL PRIMARY KEY,
+    id_empleado     INTEGER REFERENCES empleados(id),
+    username        VARCHAR(60) UNIQUE NOT NULL,
+    email           VARCHAR(120) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    rol             VARCHAR(30) DEFAULT 'VIEWER' CHECK (rol IN ('SUPERADMIN','ADMIN','RRHH','VIEWER')),
+    activo          BOOLEAN DEFAULT TRUE,
+    ultimo_login    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =============================================================
 -- TRIGGER updated_at
 -- =============================================================
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -331,7 +364,7 @@ $$ LANGUAGE plpgsql;
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['empresas','empleados','liquidaciones']
+  FOREACH t IN ARRAY ARRAY['empresas','departamentos','cargos','empleados','liquidaciones','usuarios']
   LOOP
     EXECUTE format('CREATE TRIGGER trg_%s_upd BEFORE UPDATE ON %s FOR EACH ROW EXECUTE FUNCTION set_updated_at()', t, t);
   END LOOP;

@@ -13,15 +13,15 @@ from datetime import date
 import logging
 
 from app.core.database import get_db
+from app.core.security import get_current_user, require_roles
 from app.models.rrhh import Empleado, Liquidacion
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion
 )
-from app.services.previred import get_previred_service
-from app.core.config import settings
+from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo
 
 log = logging.getLogger(__name__)
-router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"])
+router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"], dependencies=[Depends(get_current_user)])
 
 
 # ── Schemas de entrada/salida ────────────────────────────────────────────
@@ -90,19 +90,6 @@ async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
         raise HTTPException(404, "Empleado no encontrado")
     return emp
 
-async def _get_indicadores(periodo: str) -> IndicadoresPrevired:
-    """Obtiene indicadores Previred del período, con fallback automático."""
-    year, month = int(periodo[:4]), int(periodo[5:7])
-    svc = get_previred_service(getattr(settings, "APIGATEWAY_TOKEN", None))
-    raw = await svc.obtener_indicadores(year, month)
-    return raw   # devuelve dict; se convierte según necesidad
-
-
-def _build_indicadores(emp: Empleado, raw_ind: dict, periodo: str) -> IndicadoresPrevired:
-    afp_nombre = emp.afp_rel.nombre if emp.afp_rel else "Cuprum"
-    tipo       = emp.tipo_contrato_rel.codigo if emp.tipo_contrato_rel else "POR_OBRA"
-    return IndicadoresPrevired.desde_api(raw_ind, afp_nombre, tipo, periodo)
-
 def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiquidacion:
     afp_nombre = emp.afp_rel.nombre if emp.afp_rel else "Cuprum"
     tipo       = emp.tipo_contrato_rel.codigo if emp.tipo_contrato_rel else "POR_OBRA"
@@ -133,28 +120,42 @@ def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiqu
 # ── Endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/indicadores/{periodo}")
-async def obtener_indicadores_previred(periodo: str):
+async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
     """
-    Retorna indicadores previsionales del período (YYYY-MM) desde Previred
-    vía API Gateway. Incluye AFP, AFC, SIS, UF, UTM y rentas topes.
+    Retorna los indicadores previsionales versionados del período (YYYY-MM)
+    desde erp.valores_uf_utm / erp.tramos_impuesto_unico. Si el período no
+    existe aún, se siembra automáticamente desde Previred/fallback y queda
+    registrado para trazabilidad.
     """
-    raw = await _get_indicadores(periodo)
+    await asegurar_indicadores(db, periodo)
+    val    = await obtener_valor_periodo(db, periodo)
+    tramos = await obtener_tramos_periodo(db, periodo)
     return {
         "periodo": periodo,
-        "fuente":  "API Gateway / Previred",
-        "indicadores": raw
+        "fuente": val.fuente,
+        "indicadores": {
+            "uf": float(val.valor_uf), "utm": float(val.valor_utm),
+            "sueldo_minimo": float(val.sueldo_minimo), "tope_gratif": float(val.tope_gratificacion),
+            "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
+            "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
+            "seguro_social": float(val.seguro_social),
+        },
+        "tramos_impuesto_unico": [
+            {"desde": float(t.desde), "hasta": float(t.hasta) if t.hasta is not None else None,
+             "factor": float(t.factor), "monto_rebaja": float(t.monto_rebaja)}
+            for t in tramos
+        ],
     }
 
 
 @router.post("/calcular")
 async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = Depends(get_db)):
     """
-    Calcula una liquidación sin guardarla (preview).
-    Usa datos actualizados de Previred para el período indicado.
+    Calcula una liquidación sin guardarla (preview), usando los indicadores
+    previsionales versionados del período en BD.
     """
     emp     = await _get_empleado(req.id_empleado, db)
-    raw_ind = await _get_indicadores(req.periodo)
-    ind     = _build_indicadores(emp, raw_ind, req.periodo)
+    ind     = await construir_indicadores(db, emp, req.periodo)
     entrada = _build_entrada(emp, req)
     res     = calcular_liquidacion(entrada, ind)
 
@@ -204,7 +205,7 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
     }
 
 
-@router.post("/emitir", status_code=201)
+@router.post("/emitir", status_code=201, dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = Depends(get_db)):
     """
     Calcula y persiste la liquidación con estado EMITIDA.
@@ -221,8 +222,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
 
     emp     = await _get_empleado(req.id_empleado, db)
-    raw_ind = await _get_indicadores(req.periodo)
-    ind     = _build_indicadores(emp, raw_ind, req.periodo)
+    ind     = await construir_indicadores(db, emp, req.periodo)
     entrada = _build_entrada(emp, req)
     res     = calcular_liquidacion(entrada, ind)
 
@@ -304,7 +304,8 @@ async def obtener_liquidacion(id: int, db: AsyncSession = Depends(get_db)):
     return liq
 
 
-@router.patch("/{id}/pagar", response_model=LiquidacionOut)
+@router.patch("/{id}/pagar", response_model=LiquidacionOut,
+              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def marcar_pagada(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Liquidacion).where(Liquidacion.id == id))
     liq = result.scalar_one_or_none()

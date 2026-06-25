@@ -53,6 +53,7 @@ class IndicadoresPrevired:
     afc_trabajador_tasa:  Decimal = field(default=Decimal("0"))
     aporte_empleador_afp: Decimal = field(default=Decimal("0.001"))   # 0.1% aporte patronal AFP
     seguro_social:        Decimal = field(default=Decimal("0.009"))   # 0.9% expectativa de vida
+    tramos_iu:            list    = field(default_factory=lambda: TRAMOS_IU_2026)  # tramos vigentes del período
 
     @classmethod
     def desde_api(cls, ind: dict, nombre_afp: str, tipo_contrato: str, periodo: str) -> "IndicadoresPrevired":
@@ -191,7 +192,7 @@ def calcular_liquidacion(
     base_trib = _r(total_imp - desc_afp - desc_salud - adic_salud - seg_ces)
 
     # 9. Impuesto Único
-    imp_unico = calcular_impuesto_unico(base_trib)
+    imp_unico = calcular_impuesto_unico(base_trib, ind.tramos_iu)
 
     # 10. Totales
     total_leg   = _r(desc_afp + desc_salud + adic_salud + imp_unico + seg_ces)

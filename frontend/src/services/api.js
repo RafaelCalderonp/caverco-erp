@@ -8,6 +8,27 @@ api.interceptors.request.use(cfg => {
   return cfg
 })
 
+api.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token')
+      if (!location.pathname.startsWith('/login')) location.href = '/login'
+    }
+    return Promise.reject(err)
+  }
+)
+
+export const authApi = {
+  login: (username, password) => {
+    const form = new URLSearchParams()
+    form.append('username', username)
+    form.append('password', password)
+    return api.post('/auth/login', form, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+  },
+  me: () => api.get('/auth/me'),
+}
+
 export const empleadosApi = {
   list:   (params) => api.get('/empleados', { params }),
   stats:  ()       => api.get('/empleados/stats'),

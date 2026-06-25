@@ -3,10 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.rrhh import Departamento, Cargo
 from app.schemas.rrhh import DepartamentoCreate, DepartamentoUpdate, DepartamentoOut, CargoOut
 
-router = APIRouter(prefix="/departamentos", tags=["Departamentos"])
+router = APIRouter(prefix="/departamentos", tags=["Departamentos"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=List[DepartamentoOut])
 async def listar(db: AsyncSession = Depends(get_db)):

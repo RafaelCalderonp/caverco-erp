@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import empleados, departamentos, licencias, liquidaciones
+from app.routers import auth, empleados, departamentos, licencias, liquidaciones
 
 app = FastAPI(
     title="Caverco ERP — API",
@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router,          prefix="/api/v1")
 app.include_router(empleados.router,     prefix="/api/v1")
 app.include_router(departamentos.router, prefix="/api/v1")
 app.include_router(licencias.router,     prefix="/api/v1")

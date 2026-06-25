@@ -1,4 +1,5 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 const NAV = [
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
@@ -10,7 +11,14 @@ const NAV = [
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { usuario, logout } = useAuth()
   const pageTitle = NAV.find(n => location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
+
+  function onLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="layout">
@@ -35,8 +43,9 @@ export default function Layout() {
         <header className="topbar">
           <h2>{pageTitle}</h2>
           <div className="topbar-right">
-            <div className="avatar">AD</div>
-            <span style={{fontSize:13, color:'var(--gray-700)'}}>Administrador</span>
+            <div className="avatar">{(usuario?.username || '??').slice(0, 2).toUpperCase()}</div>
+            <span style={{fontSize:13, color:'var(--gray-700)'}}>{usuario?.username} · {usuario?.rol}</span>
+            <button onClick={onLogout} style={{marginLeft: 12}}>Salir</button>
           </div>
         </header>
         <main className="content">

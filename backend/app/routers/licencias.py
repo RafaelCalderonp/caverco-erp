@@ -5,10 +5,11 @@ from sqlalchemy.orm import selectinload
 from typing import List
 from datetime import datetime
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.rrhh import Licencia
 from app.schemas.rrhh import LicenciaCreate, LicenciaUpdate, LicenciaOut
 
-router = APIRouter(prefix="/empleados/{id_empleado}/licencias", tags=["Licencias"])
+router = APIRouter(prefix="/empleados/{id_empleado}/licencias", tags=["Licencias"], dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=List[LicenciaOut])
 async def listar(id_empleado: int, db: AsyncSession = Depends(get_db)):
