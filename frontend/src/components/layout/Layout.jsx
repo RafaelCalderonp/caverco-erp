@@ -6,6 +6,7 @@ const NAV = [
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
+  { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]

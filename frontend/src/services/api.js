@@ -65,6 +65,35 @@ export const liquidacionesApi = {
     api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
 }
 
+export const contratosApi = {
+  list:        (params)        => api.get('/contratos', { params }),
+  get:         (id)            => api.get(`/contratos/${id}`),
+  create:      (data)          => api.post('/contratos', data),
+  update:      (id, d)         => api.patch(`/contratos/${id}`, d),
+  finiquitar:  (id, params)    => api.post(`/contratos/${id}/finiquitar`, null, { params }),
+  anexos: {
+    list:   (idContrato)       => api.get(`/contratos/${idContrato}/anexos`),
+    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/anexos`, d),
+  },
+  documentos: {
+    list:   (idContrato)       => api.get(`/contratos/${idContrato}/documentos`),
+    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/documentos`, d),
+  },
+  requisitosObra: {
+    list:   (idContrato)       => api.get(`/contratos/${idContrato}/requisitos-obra`),
+    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/requisitos-obra`, d),
+    update: (id, d)            => api.patch(`/contratos/requisitos-obra/${id}`, d),
+  },
+  entregasEpp: {
+    list:   (idContrato)       => api.get(`/contratos/${idContrato}/entregas-epp`),
+    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/entregas-epp`, d),
+  },
+  pactosHorasExtra: {
+    list:   (idContrato)       => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
+    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
+  },
+}
+
 export const credencialesApi = {
   list:    (idEmpresa)            => api.get(`/empresas/${idEmpresa}/credenciales`),
   guardar: (idEmpresa, tipo, data) => api.put(`/empresas/${idEmpresa}/credenciales/${tipo}`, data),

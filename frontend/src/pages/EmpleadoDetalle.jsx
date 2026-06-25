@@ -51,9 +51,9 @@ export default function EmpleadoDetalle() {
         {(!emp.contratos || emp.contratos.length === 0)
           ? <p className="text-muted">Sin contratos registrados</p>
           : emp.contratos.map(c => (
-            <div key={c.id} style={{padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
+            <Link key={c.id} to={`/contratos/${c.id}`} style={{display:'block', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
               Contrato #{c.id} — Desde {c.fecha_inicio} — {fmt(c.sueldo_bruto)}
-            </div>
+            </Link>
           ))
         }
       </div>
