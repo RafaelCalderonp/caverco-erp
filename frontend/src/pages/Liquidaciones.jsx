@@ -24,6 +24,7 @@ export default function Liquidaciones() {
   const [loading, setLoading] = useState(false)
   const [empleados, setEmpleados] = useState([])
   const [indicadores, setIndicadores] = useState(null)
+  const [fuenteIndicadores, setFuenteIndicadores] = useState(null)
 
   // Formulario calcular
   const [form, setForm] = useState({
@@ -52,8 +53,8 @@ export default function Liquidaciones() {
   useEffect(() => {
     if (tab !== 'calcular') return
     liquidacionesApi.indicadores(periodo)
-      .then(r => setIndicadores(r.data.indicadores))
-      .catch(() => setIndicadores(null))
+      .then(r => { setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente) })
+      .catch(() => { setIndicadores(null); setFuenteIndicadores(null) })
   }, [periodo, tab])
 
   const set = (k, v) => setForm(f => ({...f, [k]: v}))
@@ -133,7 +134,7 @@ export default function Liquidaciones() {
       {/* ── Indicadores Previred ── */}
       {tab === 'calcular' && indicadores && (
         <div style={{background:'var(--primary-bg)',border:'1px solid #bfdbfe',borderRadius:'var(--radius)',padding:'12px 16px',marginBottom:16,fontSize:13}}>
-          <strong>Indicadores Previred {periodo}</strong> — Fuente: API Gateway
+          <strong>Indicadores Previred {periodo}</strong> — Fuente: {fuenteIndicadores === 'API_GATEWAY' ? 'Gael Cloud (en línea)' : fuenteIndicadores === 'MANUAL' ? 'Manual' : 'Respaldo (sin conexión)'}
           <span style={{marginLeft:16}}>UF: <strong>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</strong></span>
           <span style={{marginLeft:12}}>UTM: <strong>${Number(indicadores.utm||0).toLocaleString('es-CL')}</strong></span>
           <span style={{marginLeft:12}}>SIS: <strong>{((indicadores.sis||0)*100).toFixed(2)}%</strong></span>
