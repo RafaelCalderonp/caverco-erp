@@ -94,6 +94,15 @@ export const contratosApi = {
   },
 }
 
+export const catalogosApi = {
+  tiposContrato:  () => api.get('/catalogos/tipos-contrato'),
+  motivosTermino: () => api.get('/catalogos/motivos-termino'),
+  tiposAnexo:     () => api.get('/catalogos/tipos-anexo'),
+  obras:          () => api.get('/catalogos/obras'),
+  cargos:         () => api.get('/catalogos/cargos'),
+  centrosCosto:   () => api.get('/catalogos/centros-costo'),
+}
+
 export const credencialesApi = {
   list:    (idEmpresa)            => api.get(`/empresas/${idEmpresa}/credenciales`),
   guardar: (idEmpresa, tipo, data) => api.put(`/empresas/${idEmpresa}/credenciales/${tipo}`, data),

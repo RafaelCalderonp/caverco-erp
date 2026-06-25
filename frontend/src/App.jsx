@@ -8,6 +8,7 @@ import EmpleadoNuevo from './pages/EmpleadoNuevo'
 import Departamentos from './pages/Departamentos'
 import Licencias from './pages/Licencias'
 import Contratos from './pages/Contratos'
+import ContratoNuevo from './pages/ContratoNuevo'
 import ContratoDetalle from './pages/ContratoDetalle'
 import Liquidaciones from './pages/Liquidaciones'
 import LiquidacionDetalle from './pages/LiquidacionDetalle'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="departamentos"      element={<Departamentos />} />
         <Route path="licencias"          element={<Licencias />} />
         <Route path="contratos"          element={<Contratos />} />
+        <Route path="contratos/nuevo"    element={<ContratoNuevo />} />
         <Route path="contratos/:id"      element={<ContratoDetalle />} />
         <Route path="liquidaciones"      element={<Liquidaciones />} />
         <Route path="liquidaciones/:id"  element={<LiquidacionDetalle />} />

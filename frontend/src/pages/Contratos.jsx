@@ -23,6 +23,7 @@ export default function Contratos() {
     <div>
       <div className="page-header">
         <h1>Contratos</h1>
+        <Link to="/contratos/nuevo" className="btn btn-primary">+ Nuevo Contrato</Link>
       </div>
 
       <div className="search-bar">
