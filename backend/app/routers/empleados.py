@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_roles
 from app.models.rrhh import Empleado, Departamento, Cargo
 from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
 
@@ -109,3 +109,55 @@ async def desactivar_empleado(id: int, db: AsyncSession = Depends(get_db)):
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     emp.activo = False
+
+
+@router.get("/{id}/exportar-datos-personales", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def exportar_datos_personales(id: int, db: AsyncSession = Depends(get_db)):
+    """Derecho de acceso (Ley 21.719, Art. 8): entrega en un solo documento todos los
+    datos personales que el sistema mantiene sobre el trabajador, para responder a una
+    solicitud del titular. No reemplaza la respuesta formal de la empresa al trabajador,
+    es el insumo de datos que esa respuesta debe adjuntar."""
+    result = await db.execute(
+        select(Empleado)
+        .options(
+            selectinload(Empleado.departamento), selectinload(Empleado.cargo),
+            selectinload(Empleado.contratos), selectinload(Empleado.licencias),
+        )
+        .where(Empleado.id == id)
+    )
+    emp = result.scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+
+    datos_personales = {
+        "rut": emp.rut, "nombres": emp.nombres,
+        "apellido_paterno": emp.apellido_paterno, "apellido_materno": emp.apellido_materno,
+        "fecha_nacimiento": emp.fecha_nacimiento, "genero": emp.genero, "estado_civil": emp.estado_civil,
+        "nacionalidad": emp.nacionalidad, "direccion": emp.direccion, "comuna": emp.comuna, "ciudad": emp.ciudad,
+        "telefono": emp.telefono, "email_personal": emp.email_personal, "email_corporativo": emp.email_corporativo,
+        "banco": emp.banco, "tipo_cuenta": emp.tipo_cuenta, "numero_cuenta": emp.numero_cuenta,
+    }
+    datos_laborales = {
+        "departamento": emp.departamento.nombre if emp.departamento else None,
+        "cargo": emp.cargo.nombre if emp.cargo else None,
+        "fecha_ingreso": emp.fecha_ingreso, "fecha_egreso": emp.fecha_egreso,
+        "sueldo_base": emp.sueldo_base, "activo": emp.activo,
+        "contratos": [
+            {"id": c.id, "estado": c.estado, "fecha_inicio": c.fecha_inicio,
+             "fecha_termino_real": c.fecha_termino_real, "sueldo_bruto": c.sueldo_bruto}
+            for c in emp.contratos
+        ],
+        "licencias": [
+            {"id": l.id, "fecha_inicio": l.fecha_inicio, "fecha_fin": l.fecha_fin, "estado": l.estado}
+            for l in emp.licencias
+        ],
+    }
+    return {
+        "titular": f"{emp.nombres} {emp.apellido_paterno}",
+        "rut": emp.rut,
+        "datos_personales": datos_personales,
+        "datos_laborales": datos_laborales,
+        "nota": "Datos de remuneraciones detallados disponibles en el módulo de Liquidaciones. "
+                "Los datos laborales se conservan por obligación legal (Código del Trabajo, "
+                "normativa previsional y tributaria) aun ante solicitud de cancelación/oposición.",
+    }
