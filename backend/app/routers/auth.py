@@ -10,7 +10,7 @@ from app.core.security import (
     get_current_user, require_roles,
 )
 from app.models.rrhh import Usuario
-from app.schemas.auth import Token, UsuarioOut, UsuarioCreate
+from app.schemas.auth import Token, UsuarioOut, UsuarioCreate, CambiarPasswordIn
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -58,6 +58,21 @@ async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), d
 @router.get("/me", response_model=UsuarioOut)
 async def me(usuario=Depends(get_current_user)):
     return usuario
+
+
+@router.post("/password", status_code=204)
+async def cambiar_password(
+    data: CambiarPasswordIn,
+    db: AsyncSession = Depends(get_db),
+    usuario=Depends(get_current_user),
+):
+    if not verify_password(data.password_actual, usuario.hashed_password):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "La contraseña actual no es correcta")
+    if len(data.password_nueva) < 8:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "La nueva contraseña debe tener al menos 8 caracteres")
+
+    usuario.hashed_password = hash_password(data.password_nueva)
+    await db.flush()
 
 
 @router.post("/usuarios", response_model=UsuarioOut, status_code=201,

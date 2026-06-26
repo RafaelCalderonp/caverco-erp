@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { credencialesApi } from '../services/api'
+import { credencialesApi, authApi } from '../services/api'
 
 const ID_EMPRESA = 1 // app de empresa única por ahora
 
@@ -12,6 +12,31 @@ export default function Configuracion() {
   const [guardadas, setGuardadas] = useState({})
   const [forms, setForms] = useState({ PREVIRED: { usuario: '', password: '' }, CLAVE_UNICA: { usuario: '', password: '' } })
   const [msg, setMsg] = useState({})
+
+  const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' })
+  const [passwordMsg, setPasswordMsg] = useState(null)
+  const [cambiandoPassword, setCambiandoPassword] = useState(false)
+
+  const cambiarPassword = async (e) => {
+    e.preventDefault()
+    setPasswordMsg(null)
+    if (passwordForm.nueva.length < 8) {
+      return setPasswordMsg({ tipo: 'error', texto: 'La nueva contraseña debe tener al menos 8 caracteres' })
+    }
+    if (passwordForm.nueva !== passwordForm.confirmar) {
+      return setPasswordMsg({ tipo: 'error', texto: 'Las contraseñas nuevas no coinciden' })
+    }
+    setCambiandoPassword(true)
+    try {
+      await authApi.cambiarPassword(passwordForm.actual, passwordForm.nueva)
+      setPasswordForm({ actual: '', nueva: '', confirmar: '' })
+      setPasswordMsg({ tipo: 'ok', texto: '✅ Contraseña actualizada' })
+    } catch (err) {
+      setPasswordMsg({ tipo: 'error', texto: err.response?.data?.detail || 'Error al cambiar la contraseña' })
+    } finally {
+      setCambiandoPassword(false)
+    }
+  }
 
   const cargar = () => {
     credencialesApi.list(ID_EMPRESA).then(r => {
@@ -57,6 +82,38 @@ export default function Configuracion() {
         sepa con qué usuario entrar. La aplicación <strong>no inicia sesión automáticamente</strong> en Previred
         ni en Mi DT — la subida de archivos siempre la haces tú, manualmente, en el portal oficial.
       </p>
+
+      <div className="card" style={{maxWidth:420, marginBottom:24}}>
+        <h3 style={{fontWeight:600, marginBottom:4}}>Mi cuenta</h3>
+        <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>Cambia tu contraseña de acceso al sistema.</p>
+
+        {passwordMsg && (
+          <div style={{fontSize:12, marginBottom:8, color: passwordMsg.tipo === 'ok' ? 'var(--success)' : 'var(--danger)'}}>
+            {passwordMsg.texto}
+          </div>
+        )}
+
+        <form onSubmit={cambiarPassword}>
+          <div className="form-group">
+            <label className="form-label">Contraseña actual</label>
+            <input className="input" type="password" required value={passwordForm.actual}
+              onChange={e => setPasswordForm(f => ({ ...f, actual: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Contraseña nueva</label>
+            <input className="input" type="password" required minLength={8} value={passwordForm.nueva}
+              onChange={e => setPasswordForm(f => ({ ...f, nueva: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Confirmar contraseña nueva</label>
+            <input className="input" type="password" required minLength={8} value={passwordForm.confirmar}
+              onChange={e => setPasswordForm(f => ({ ...f, confirmar: e.target.value }))} />
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={cambiandoPassword}>
+            {cambiandoPassword ? 'Guardando…' : 'Cambiar contraseña'}
+          </button>
+        </form>
+      </div>
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         {TIPOS.map(({ tipo, label, hint }) => {

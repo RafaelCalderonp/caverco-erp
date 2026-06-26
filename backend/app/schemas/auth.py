@@ -23,3 +23,7 @@ class UsuarioCreate(BaseModel):
     password: str
     rol: RolUsuario = "VIEWER"
     id_empleado: Optional[int] = None
+
+class CambiarPasswordIn(BaseModel):
+    password_actual: str
+    password_nueva: str

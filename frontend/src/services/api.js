@@ -27,6 +27,8 @@ export const authApi = {
     return api.post('/auth/login', form, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
   },
   me: () => api.get('/auth/me'),
+  cambiarPassword: (passwordActual, passwordNueva) =>
+    api.post('/auth/password', { password_actual: passwordActual, password_nueva: passwordNueva }),
 }
 
 export const empleadosApi = {
