@@ -3,6 +3,7 @@ import { empresasApi } from '../services/api'
 
 const VACIO = {
   rut: '', razon_social: '', nombre_fantasia: '', direccion: '',
+  contacto: '', telefono_contacto: '', email_contacto: '',
   representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '',
 }
 
@@ -77,6 +78,35 @@ export default function Empresas() {
               onChange={e => setCampo('direccion', e.target.value)} />
           </div>
           <div className="form-group">
+            <label className="form-label">Teléfono Empresa</label>
+            <input className="input" value={form.telefono || ''}
+              onChange={e => setCampo('telefono', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Correo Empresa</label>
+            <input className="input" type="email" required value={form.email || ''}
+              onChange={e => setCampo('email', e.target.value)} />
+          </div>
+
+          <h3 style={{marginTop:20, marginBottom:8, fontSize:14, color:'var(--gray-600)'}}>Contacto</h3>
+          <div className="form-group">
+            <label className="form-label">Nombre Contacto</label>
+            <input className="input" value={form.contacto || ''}
+              onChange={e => setCampo('contacto', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Teléfono Contacto</label>
+            <input className="input" value={form.telefono_contacto || ''}
+              onChange={e => setCampo('telefono_contacto', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Correo Contacto</label>
+            <input className="input" type="email" value={form.email_contacto || ''}
+              onChange={e => setCampo('email_contacto', e.target.value)} />
+          </div>
+
+          <h3 style={{marginTop:20, marginBottom:8, fontSize:14, color:'var(--gray-600)'}}>Representante Legal</h3>
+          <div className="form-group">
             <label className="form-label">Representante Legal</label>
             <input className="input" required value={form.representante_legal || ''}
               onChange={e => setCampo('representante_legal', e.target.value)} />
@@ -85,16 +115,6 @@ export default function Empresas() {
             <label className="form-label">RUT del Representante</label>
             <input className="input" required value={form.rut_representante_legal || ''}
               onChange={e => setCampo('rut_representante_legal', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Teléfono Contacto</label>
-            <input className="input" value={form.telefono || ''}
-              onChange={e => setCampo('telefono', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Correo</label>
-            <input className="input" type="email" required value={form.email || ''}
-              onChange={e => setCampo('email', e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">Logo (para personalizar las liquidaciones)</label>

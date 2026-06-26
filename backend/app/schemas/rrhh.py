@@ -15,6 +15,9 @@ class EmpresaBase(BaseModel):
     region: Optional[str] = None
     telefono: Optional[str] = None
     email: str
+    contacto: Optional[str] = None
+    telefono_contacto: Optional[str] = None
+    email_contacto: Optional[str] = None
     representante_legal: str
     rut_representante_legal: str
     logo_url: Optional[str] = None
@@ -31,6 +34,9 @@ class EmpresaUpdate(BaseModel):
     region: Optional[str] = None
     telefono: Optional[str] = None
     email: Optional[str] = None
+    contacto: Optional[str] = None
+    telefono_contacto: Optional[str] = None
+    email_contacto: Optional[str] = None
     representante_legal: Optional[str] = None
     rut_representante_legal: Optional[str] = None
     logo_url: Optional[str] = None
