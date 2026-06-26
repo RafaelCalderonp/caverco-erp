@@ -143,8 +143,15 @@ class ContratoOut(BaseModel):
     jornada: str
     estado: str
     id_contrato_origen: Optional[int] = None
+    finiquito_ratificado: bool = False
+    finiquito_fecha_ratificacion: Optional[date] = None
+    finiquito_ministro_fe: Optional[str] = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+class FiniquitoRatificacionCreate(BaseModel):
+    fecha_ratificacion: date
+    ministro_fe: str
 
 # ---- Anexo de Contrato ----
 class AnexoContratoCreate(BaseModel):

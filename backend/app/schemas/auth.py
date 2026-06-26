@@ -1,6 +1,8 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime
+
+RolUsuario = Literal["SUPERADMIN", "ADMIN", "RRHH", "VIEWER"]
 
 class Token(BaseModel):
     access_token: str
@@ -19,5 +21,5 @@ class UsuarioCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
-    rol: str = "VIEWER"
+    rol: RolUsuario = "VIEWER"
     id_empleado: Optional[int] = None

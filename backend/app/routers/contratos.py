@@ -18,6 +18,7 @@ from app.schemas.rrhh import (
     ContratoRequisitoObraCreate, ContratoRequisitoObraUpdate, ContratoRequisitoObraOut,
     EntregaEppCreate, EntregaEppOut,
     PactoHorasExtraCreate, PactoHorasExtraOut,
+    FiniquitoRatificacionCreate,
 )
 
 router = APIRouter(prefix="/contratos", tags=["Contratos"], dependencies=[Depends(get_current_user)])
@@ -129,6 +130,23 @@ async def finiquitar_contrato(
     contrato.estado = "finiquitado"
     contrato.id_motivo_termino = id_motivo_termino
     contrato.fecha_termino_real = fecha_termino_real
+    await db.commit()
+    await db.refresh(contrato)
+    return contrato
+
+
+@router.post("/{id}/finiquito/ratificar", response_model=ContratoOut,
+             dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def ratificar_finiquito(id: int, data: FiniquitoRatificacionCreate, db: AsyncSession = Depends(get_db)):
+    """Registra la ratificación del finiquito (Art. 177 CT): ante notario, inspector
+    del trabajo, presidente de sindicato, o firma electrónica avanzada vía DT online.
+    Sin esta ratificación el finiquito no tiene poder liberatorio."""
+    contrato = await _get_contrato_or_404(id, db)
+    if contrato.estado != "finiquitado":
+        raise HTTPException(400, "El contrato debe estar finiquitado antes de ratificar el finiquito")
+    contrato.finiquito_ratificado = True
+    contrato.finiquito_fecha_ratificacion = data.fecha_ratificacion
+    contrato.finiquito_ministro_fe = data.ministro_fe
     await db.commit()
     await db.refresh(contrato)
     return contrato

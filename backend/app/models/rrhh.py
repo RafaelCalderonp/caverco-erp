@@ -157,6 +157,9 @@ class Contrato(Base):
     jornada               = Column(String(30), default="Completa")
     estado                = Column(String(20), nullable=False, default="vigente")  # vigente / finiquitado / anulado
     id_contrato_origen    = Column(Integer, ForeignKey("erp.contratos.id"))
+    finiquito_ratificado       = Column(Boolean, nullable=False, default=False)  # Art. 177 CT: ratificación ante notario/inspector del trabajo o DT online
+    finiquito_fecha_ratificacion = Column(Date)
+    finiquito_ministro_fe      = Column(String(100))  # notario, inspector del trabajo, presidente de sindicato, etc.
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
     empleado = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
