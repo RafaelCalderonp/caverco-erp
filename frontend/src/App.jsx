@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Empresas from './pages/Empresas'
 import Empleados from './pages/Empleados'
 import EmpleadoDetalle from './pages/EmpleadoDetalle'
 import EmpleadoNuevo from './pages/EmpleadoNuevo'
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"          element={<Dashboard />} />
+        <Route path="empresas"           element={<Empresas />} />
         <Route path="empleados"          element={<Empleados />} />
         <Route path="empleados/nuevo"    element={<EmpleadoNuevo />} />
         <Route path="empleados/:id"      element={<EmpleadoDetalle />} />

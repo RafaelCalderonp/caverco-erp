@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 
 const NAV = [
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
+  { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },

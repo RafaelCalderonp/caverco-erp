@@ -3,6 +3,42 @@ from typing import Optional
 from datetime import date, datetime
 from decimal import Decimal
 
+# ---- Empresa ----
+class EmpresaBase(BaseModel):
+    rut: str
+    razon_social: str
+    nombre_fantasia: Optional[str] = None
+    giro: Optional[str] = None
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    ciudad: Optional[str] = "Santiago"
+    region: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    representante_legal: Optional[str] = None
+    logo_url: Optional[str] = None
+
+class EmpresaCreate(EmpresaBase): pass
+
+class EmpresaUpdate(BaseModel):
+    razon_social: Optional[str] = None
+    nombre_fantasia: Optional[str] = None
+    giro: Optional[str] = None
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    ciudad: Optional[str] = None
+    region: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    representante_legal: Optional[str] = None
+    logo_url: Optional[str] = None
+    activa: Optional[bool] = None
+
+class EmpresaOut(EmpresaBase):
+    id: int
+    activa: bool
+    model_config = {"from_attributes": True}
+
 # ---- Departamento ----
 class DepartamentoBase(BaseModel):
     codigo: str

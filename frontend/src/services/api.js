@@ -31,6 +31,13 @@ export const authApi = {
     api.post('/auth/password', { password_actual: passwordActual, password_nueva: passwordNueva }),
 }
 
+export const empresasApi = {
+  list:   ()      => api.get('/empresas'),
+  get:    (id)     => api.get(`/empresas/${id}`),
+  create: (data)   => api.post('/empresas', data),
+  update: (id, d)  => api.patch(`/empresas/${id}`, d),
+}
+
 export const empleadosApi = {
   list:   (params) => api.get('/empleados', { params }),
   stats:  ()       => api.get('/empleados/stats'),
