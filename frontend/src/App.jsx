@@ -3,6 +3,7 @@ import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Empresas from './pages/Empresas'
+import SeleccionarEmpresa from './pages/SeleccionarEmpresa'
 import Empleados from './pages/Empleados'
 import EmpleadoDetalle from './pages/EmpleadoDetalle'
 import EmpleadoNuevo from './pages/EmpleadoNuevo'
@@ -16,12 +17,20 @@ import LiquidacionDetalle from './pages/LiquidacionDetalle'
 import LiquidacionBoleta from './pages/LiquidacionBoleta'
 import Configuracion from './pages/Configuracion'
 import { useAuth } from './context/AuthContext'
+import { useEmpresa } from './context/EmpresaContext'
 
 function RequireAuth({ children }) {
   const { usuario, cargando } = useAuth()
   const location = useLocation()
   if (cargando) return null
   if (!usuario) return <Navigate to="/login" state={{ from: location.pathname }} replace />
+  return children
+}
+
+function RequireEmpresa({ children }) {
+  const { empresaActual, cargando } = useEmpresa()
+  if (cargando) return null
+  if (!empresaActual) return <Navigate to="/seleccionar-empresa" replace />
   return children
 }
 
@@ -33,17 +42,18 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"          element={<Dashboard />} />
         <Route path="empresas"           element={<Empresas />} />
-        <Route path="empleados"          element={<Empleados />} />
-        <Route path="empleados/nuevo"    element={<EmpleadoNuevo />} />
-        <Route path="empleados/:id"      element={<EmpleadoDetalle />} />
-        <Route path="departamentos"      element={<Departamentos />} />
-        <Route path="licencias"          element={<Licencias />} />
-        <Route path="contratos"          element={<Contratos />} />
-        <Route path="contratos/nuevo"    element={<ContratoNuevo />} />
-        <Route path="contratos/:id"      element={<ContratoDetalle />} />
-        <Route path="liquidaciones"      element={<Liquidaciones />} />
-        <Route path="liquidaciones/:id"  element={<LiquidacionDetalle />} />
-        <Route path="liquidaciones/:id/boleta" element={<LiquidacionBoleta />} />
+        <Route path="seleccionar-empresa" element={<SeleccionarEmpresa />} />
+        <Route path="empleados"          element={<RequireEmpresa><Empleados /></RequireEmpresa>} />
+        <Route path="empleados/nuevo"    element={<RequireEmpresa><EmpleadoNuevo /></RequireEmpresa>} />
+        <Route path="empleados/:id"      element={<RequireEmpresa><EmpleadoDetalle /></RequireEmpresa>} />
+        <Route path="departamentos"      element={<RequireEmpresa><Departamentos /></RequireEmpresa>} />
+        <Route path="licencias"          element={<RequireEmpresa><Licencias /></RequireEmpresa>} />
+        <Route path="contratos"          element={<RequireEmpresa><Contratos /></RequireEmpresa>} />
+        <Route path="contratos/nuevo"    element={<RequireEmpresa><ContratoNuevo /></RequireEmpresa>} />
+        <Route path="contratos/:id"      element={<RequireEmpresa><ContratoDetalle /></RequireEmpresa>} />
+        <Route path="liquidaciones"      element={<RequireEmpresa><Liquidaciones /></RequireEmpresa>} />
+        <Route path="liquidaciones/:id"  element={<RequireEmpresa><LiquidacionDetalle /></RequireEmpresa>} />
+        <Route path="liquidaciones/:id/boleta" element={<RequireEmpresa><LiquidacionBoleta /></RequireEmpresa>} />
         <Route path="configuracion"      element={<Configuracion />} />
       </Route>
     </Routes>

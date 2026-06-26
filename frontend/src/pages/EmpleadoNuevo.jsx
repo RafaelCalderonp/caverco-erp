@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { empleadosApi, departamentosApi } from '../services/api'
 import api from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 // Datos catálogo (en producción vendrían de la API)
 const AFPS = ['Capital','Cuprum','Habitat','PlanVital','ProVida','Modelo','Uno']
@@ -50,6 +51,7 @@ function Campo({ label, required, children, span2 }) {
 
 export default function EmpleadoNuevo() {
   const nav = useNavigate()
+  const { empresaActual } = useEmpresa()
   const [step, setStep]         = useState(1)
   const [form, setForm]         = useState(EMPTY)
   const [errors, setErrors]     = useState({})
@@ -98,6 +100,7 @@ export default function EmpleadoNuevo() {
     try {
       const payload = {
         ...form,
+        id_empresa: empresaActual.id,
         sueldo_base: form.sueldo_base ? Number(form.sueldo_base) : null,
         n_cargas: Number(form.n_cargas),
         valor_isapre_uf: form.valor_isapre_uf ? Number(form.valor_isapre_uf) : 0,

@@ -2,9 +2,16 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', timeout: 10000 })
 
+const SIN_SCOPE_EMPRESA = ['/empresas', '/auth', '/catalogos']
+
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
+
+  const idEmpresa = localStorage.getItem('empresaActualId')
+  if (idEmpresa && cfg.method === 'get' && !SIN_SCOPE_EMPRESA.some(p => cfg.url?.startsWith(p))) {
+    cfg.params = { id_empresa: idEmpresa, ...cfg.params }
+  }
   return cfg
 })
 
