@@ -65,6 +65,7 @@ export const liquidacionesApi = {
     api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
   cerrarPeriodo:   (periodo) => api.post(`/liquidaciones/periodo/${periodo}/cerrar`),
   reabrirPeriodo:  (periodo) => api.post(`/liquidaciones/periodo/${periodo}/reabrir`),
+  calcularFiniquito: (data) => api.post('/liquidaciones/finiquito/calcular', data),
 }
 
 export const contratosApi = {

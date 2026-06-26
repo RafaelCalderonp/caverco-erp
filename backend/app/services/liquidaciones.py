@@ -36,6 +36,100 @@ def calcular_gratificacion(sueldo_base: Decimal, tope_gratif: Decimal, dias: int
     return _r(gratif)
 
 
+def _meses_entre(fecha_inicio, fecha_termino) -> int:
+    """Meses completos transcurridos entre dos fechas (redondeo hacia abajo)."""
+    meses = (fecha_termino.year - fecha_inicio.year) * 12 + (fecha_termino.month - fecha_inicio.month)
+    if fecha_termino.day < fecha_inicio.day:
+        meses -= 1
+    return max(meses, 0)
+
+
+def calcular_indemnizacion_anos_servicio(
+    sueldo_base: Decimal, fecha_inicio, fecha_termino,
+    tope_uf: Decimal = Decimal("90"), valor_uf: Decimal = Decimal("40610.69"),
+    max_anos: int = 11,
+) -> Decimal:
+    """
+    IAS (Art. 163 Código del Trabajo): 1 mes de remuneración por cada año de
+    servicio y fracción superior a 6 meses, tope 11 años y tope 90 UF por año.
+    """
+    meses = _meses_entre(fecha_inicio, fecha_termino)
+    anos = meses // 12
+    if meses % 12 > 6:
+        anos += 1
+    anos = min(anos, max_anos)
+    if anos <= 0:
+        return Decimal("0")
+    tope_mensual = _r(tope_uf * valor_uf)
+    mensualidad = min(sueldo_base, tope_mensual)
+    return _r(mensualidad * Decimal(anos))
+
+
+def calcular_indemnizacion_sustitutiva_aviso_previo(sueldo_base: Decimal) -> Decimal:
+    """Art. 162: si el empleador no dio aviso previo de 30 días, debe pagar 1 mes de sueldo."""
+    return _r(sueldo_base)
+
+
+def calcular_vacaciones_proporcionales(
+    sueldo_base: Decimal, fecha_inicio, fecha_ultimo_feriado, fecha_termino,
+    dias_feriado_anual: int = 15,
+) -> Decimal:
+    """
+    Art. 73: feriado proporcional al tiempo trabajado desde el último feriado
+    legal (o desde el inicio del contrato si nunca hizo uso de feriado).
+    """
+    dias_periodo = (fecha_termino - fecha_ultimo_feriado).days
+    if dias_periodo <= 0:
+        return Decimal("0")
+    dias_proporcionales = Decimal(dias_periodo) * Decimal(dias_feriado_anual) / Decimal("365")
+    sueldo_diario = _r(sueldo_base / Decimal("30"))
+    return _r(sueldo_diario * dias_proporcionales)
+
+
+def calcular_semana_corrida(sueldo_diario: Decimal, dias_domingos_y_festivos: int) -> Decimal:
+    """
+    Art. 45: trabajadores remunerados por día tienen derecho a que el pago
+    de los días domingo y festivos se calcule sobre el promedio de lo
+    devengado en los días trabajados de la semana.
+    """
+    return _r(sueldo_diario * Decimal(dias_domingos_y_festivos))
+
+
+@dataclass
+class ResultadoFiniquito:
+    indemnizacion_anos_servicio:       Decimal
+    indemnizacion_sustitutiva_aviso:   Decimal
+    vacaciones_proporcionales:         Decimal
+    total_finiquito:                   Decimal
+
+
+def calcular_finiquito(
+    sueldo_base: Decimal, fecha_inicio, fecha_termino, fecha_ultimo_feriado,
+    valor_uf: Decimal = Decimal("40610.69"),
+    procede_indemnizacion_anos_servicio: bool = False,
+    procede_aviso_previo: bool = False,
+    dias_feriado_anual: int = 15,
+) -> ResultadoFiniquito:
+    ias = (
+        calcular_indemnizacion_anos_servicio(sueldo_base, fecha_inicio, fecha_termino, valor_uf=valor_uf)
+        if procede_indemnizacion_anos_servicio else Decimal("0")
+    )
+    aviso = (
+        calcular_indemnizacion_sustitutiva_aviso_previo(sueldo_base)
+        if procede_aviso_previo else Decimal("0")
+    )
+    vacaciones = calcular_vacaciones_proporcionales(
+        sueldo_base, fecha_inicio, fecha_ultimo_feriado, fecha_termino, dias_feriado_anual,
+    )
+    total = _r(ias + aviso + vacaciones)
+    return ResultadoFiniquito(
+        indemnizacion_anos_servicio=ias,
+        indemnizacion_sustitutiva_aviso=aviso,
+        vacaciones_proporcionales=vacaciones,
+        total_finiquito=total,
+    )
+
+
 @dataclass
 class IndicadoresPrevired:
     """Datos previsionales del período — vienen de API Gateway o fallback."""

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi } from '../services/api'
+import { contratosApi, catalogosApi, liquidacionesApi } from '../services/api'
 
 export default function ContratoDetalle() {
   const { id } = useParams()
@@ -30,6 +30,11 @@ export default function ContratoDetalle() {
   const [guardandoPacto, setGuardandoPacto] = useState(false)
   const [errorPacto, setErrorPacto] = useState('')
   const [pactos, setPactos] = useState([])
+
+  const [formFiniquito, setFormFiniquito] = useState({ fecha_ultimo_feriado: '', procede_indemnizacion_anos_servicio: false, procede_aviso_previo: false, dias_feriado_anual: 15 })
+  const [resultadoFiniquito, setResultadoFiniquito] = useState(null)
+  const [calculandoFiniquito, setCalculandoFiniquito] = useState(false)
+  const [errorFiniquito, setErrorFiniquito] = useState('')
 
   function cargar() {
     contratosApi.get(id).then(r => setContrato(r.data)).catch(() => {})
@@ -128,6 +133,22 @@ export default function ContratoDetalle() {
     } catch (err) {
       setErrorPacto(err.response?.data?.detail || 'Error al guardar el pacto de horas extra')
     } finally { setGuardandoPacto(false) }
+  }
+
+  async function calcularFiniquito() {
+    setCalculandoFiniquito(true); setErrorFiniquito(''); setResultadoFiniquito(null)
+    try {
+      const r = await liquidacionesApi.calcularFiniquito({
+        id_contrato: Number(id),
+        fecha_ultimo_feriado: formFiniquito.fecha_ultimo_feriado || null,
+        procede_indemnizacion_anos_servicio: formFiniquito.procede_indemnizacion_anos_servicio,
+        procede_aviso_previo: formFiniquito.procede_aviso_previo,
+        dias_feriado_anual: Number(formFiniquito.dias_feriado_anual),
+      })
+      setResultadoFiniquito(r.data)
+    } catch (err) {
+      setErrorFiniquito(err.response?.data?.detail || 'Error al calcular el finiquito')
+    } finally { setCalculandoFiniquito(false) }
   }
 
   if (!contrato) return <div className="card">Cargando…</div>
@@ -409,6 +430,60 @@ export default function ContratoDetalle() {
           ))
         }
       </div>
+
+      {contrato.estado === 'finiquitado' && (
+        <div className="card mt-4">
+          <h3 style={{marginBottom:12, fontWeight:600}}>Cálculo de Finiquito</h3>
+          {errorFiniquito && (
+            <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
+              {errorFiniquito}
+            </div>
+          )}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
+            <div className="form-group">
+              <label className="form-label">Fecha Último Feriado Legal</label>
+              <input className="input" type="date" value={formFiniquito.fecha_ultimo_feriado}
+                onChange={e => setFormFiniquito(f => ({ ...f, fecha_ultimo_feriado: e.target.value }))} />
+              <span style={{fontSize:11, color:'var(--gray-500)'}}>Si nunca usó feriado, deja vacío (se usa la fecha de inicio del contrato)</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Días Feriado Anual</label>
+              <input className="input" type="number" value={formFiniquito.dias_feriado_anual}
+                onChange={e => setFormFiniquito(f => ({ ...f, dias_feriado_anual: e.target.value }))} />
+            </div>
+          </div>
+          <div style={{display:'flex', gap:16, marginBottom:12}}>
+            <label style={{display:'flex', alignItems:'center', gap:6, fontSize:13}}>
+              <input type="checkbox" checked={formFiniquito.procede_indemnizacion_anos_servicio}
+                onChange={e => setFormFiniquito(f => ({ ...f, procede_indemnizacion_anos_servicio: e.target.checked }))} />
+              Procede Indemnización por Años de Servicio
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:6, fontSize:13}}>
+              <input type="checkbox" checked={formFiniquito.procede_aviso_previo}
+                onChange={e => setFormFiniquito(f => ({ ...f, procede_aviso_previo: e.target.checked }))} />
+              Procede Indemnización Sustitutiva de Aviso Previo
+            </label>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={calcularFiniquito} disabled={calculandoFiniquito}>
+            {calculandoFiniquito ? 'Calculando…' : 'Calcular Finiquito'}
+          </button>
+
+          {resultadoFiniquito && (
+            <div style={{marginTop:16, padding:'12px', background:'var(--gray-50)', borderRadius:8}}>
+              {[['Indemnización Años de Servicio', resultadoFiniquito.indemnizacion_anos_servicio],
+                ['Indemnización Sustitutiva Aviso Previo', resultadoFiniquito.indemnizacion_sustitutiva_aviso],
+                ['Vacaciones Proporcionales', resultadoFiniquito.vacaciones_proporcionales]].map(([k,v]) => (
+                <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}>
+                  <span className="text-muted">{k}</span><span>{fmt(v)}</span>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderTop:'1px solid var(--gray-200)',marginTop:6,fontWeight:700}}>
+                <span>Total Finiquito</span><span>{fmt(resultadoFiniquito.total_finiquito)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

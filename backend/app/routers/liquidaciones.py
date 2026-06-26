@@ -15,9 +15,9 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato
 from app.services.liquidaciones import (
-    EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion
+    EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
 )
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo
 from app.services.previred_export import generar_csv_previred
@@ -45,6 +45,13 @@ class LiquidacionPreviewRequest(BaseModel):
     prestamo:        Decimal = Decimal("0")
     otros_descuentos:Decimal = Decimal("0")
     observacion:     Optional[str] = None
+
+class FiniquitoRequest(BaseModel):
+    id_contrato: int
+    fecha_ultimo_feriado: Optional[date] = None   # default: fecha_inicio del contrato
+    procede_indemnizacion_anos_servicio: bool = False
+    procede_aviso_previo: bool = False
+    dias_feriado_anual: int = 15
 
 class LiquidacionOut(BaseModel):
     id: int
@@ -213,6 +220,45 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
             "seguro_social":        int(res.seguro_social_empleador),
             "total":                int(res.total_costo_empleador),
         }
+    }
+
+
+@router.post("/finiquito/calcular", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def calcular_finiquito_preview(req: FiniquitoRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Calcula el finiquito (indemnización por años de servicio, sustitutiva de
+    aviso previo y vacaciones proporcionales) para un contrato finiquitado.
+    Es un cálculo de previsualización: no persiste nada.
+    """
+    result = await db.execute(select(Contrato).where(Contrato.id == req.id_contrato))
+    contrato = result.scalar_one_or_none()
+    if not contrato:
+        raise HTTPException(404, "Contrato no encontrado")
+    if not contrato.fecha_termino_real:
+        raise HTTPException(400, "El contrato no tiene fecha de término real; finiquítalo primero")
+
+    periodo = contrato.fecha_termino_real.strftime("%Y-%m")
+    val = await obtener_valor_periodo(db, periodo)
+    valor_uf = val.valor_uf if val else Decimal("40610.69")
+
+    res = calcular_finiquito(
+        sueldo_base=contrato.sueldo_bruto,
+        fecha_inicio=contrato.fecha_inicio,
+        fecha_termino=contrato.fecha_termino_real,
+        fecha_ultimo_feriado=req.fecha_ultimo_feriado or contrato.fecha_inicio,
+        valor_uf=valor_uf,
+        procede_indemnizacion_anos_servicio=req.procede_indemnizacion_anos_servicio,
+        procede_aviso_previo=req.procede_aviso_previo,
+        dias_feriado_anual=req.dias_feriado_anual,
+    )
+    return {
+        "id_contrato": contrato.id,
+        "fecha_inicio": contrato.fecha_inicio,
+        "fecha_termino": contrato.fecha_termino_real,
+        "indemnizacion_anos_servicio": int(res.indemnizacion_anos_servicio),
+        "indemnizacion_sustitutiva_aviso": int(res.indemnizacion_sustitutiva_aviso),
+        "vacaciones_proporcionales": int(res.vacaciones_proporcionales),
+        "total_finiquito": int(res.total_finiquito),
     }
 
 

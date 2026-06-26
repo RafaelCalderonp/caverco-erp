@@ -2,11 +2,14 @@
 Tests unitarios puros (sin BD) para el motor de cálculo de liquidaciones
 y la validación de RUT del exportador Previred.
 """
+from datetime import date
 from decimal import Decimal
 
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion,
     calcular_impuesto_unico, calcular_gratificacion, _r,
+    calcular_indemnizacion_anos_servicio, calcular_indemnizacion_sustitutiva_aviso_previo,
+    calcular_vacaciones_proporcionales, calcular_semana_corrida, calcular_finiquito,
 )
 from app.services.previred_export import _dv_esperado, _split_rut
 
@@ -81,3 +84,74 @@ def test_rut_split_y_validacion_dv():
 def test_rut_dv_invalido_detectado():
     num, dv = _split_rut("12345678-9")
     assert _dv_esperado(num) != dv
+
+
+def test_ias_redondea_anos_por_fraccion_superior_a_6_meses():
+    sueldo = Decimal("1000000")
+    # 2020-01-15 a 2026-08-01: 6 años y 6 meses exactos (fracción no > 6 meses) -> 6 años
+    seis_anos = calcular_indemnizacion_anos_servicio(
+        sueldo, date(2020, 1, 15), date(2026, 8, 1), valor_uf=Decimal("40000"),
+    )
+    assert seis_anos == sueldo * Decimal("6")
+    # un día más de fracción (8 meses) -> redondea a 7 años
+    siete_anos = calcular_indemnizacion_anos_servicio(
+        sueldo, date(2020, 1, 15), date(2026, 10, 1), valor_uf=Decimal("40000"),
+    )
+    assert siete_anos == sueldo * Decimal("7")
+
+
+def test_ias_sin_anos_completos_es_cero():
+    ias = calcular_indemnizacion_anos_servicio(Decimal("1000000"), date(2026, 1, 1), date(2026, 5, 1))
+    assert ias == Decimal("0")
+
+
+def test_ias_respeta_tope_90_uf():
+    sueldo = Decimal("10000000")  # muy por sobre el tope mensual de 90 UF
+    valor_uf = Decimal("40000")
+    ias = calcular_indemnizacion_anos_servicio(sueldo, date(2015, 1, 1), date(2026, 1, 1), valor_uf=valor_uf)
+    tope_mensual = Decimal("90") * valor_uf
+    assert ias == _r(tope_mensual) * Decimal("11")  # tope 11 años
+
+
+def test_indemnizacion_sustitutiva_aviso_previo_es_un_mes():
+    assert calcular_indemnizacion_sustitutiva_aviso_previo(Decimal("800000")) == Decimal("800000")
+
+
+def test_vacaciones_proporcionales_crecen_con_el_tiempo():
+    sueldo = Decimal("900000")
+    corto = calcular_vacaciones_proporcionales(sueldo, date(2026, 1, 1), date(2026, 1, 1), date(2026, 2, 1))
+    largo = calcular_vacaciones_proporcionales(sueldo, date(2026, 1, 1), date(2026, 1, 1), date(2026, 7, 1))
+    assert largo > corto > Decimal("0")
+
+
+def test_semana_corrida_basico():
+    assert calcular_semana_corrida(Decimal("20000"), 2) == Decimal("40000")
+
+
+def test_finiquito_suma_componentes_activados():
+    res = calcular_finiquito(
+        sueldo_base=Decimal("1000000"),
+        fecha_inicio=date(2020, 1, 1),
+        fecha_termino=date(2026, 6, 1),
+        fecha_ultimo_feriado=date(2025, 6, 1),
+        procede_indemnizacion_anos_servicio=True,
+        procede_aviso_previo=True,
+    )
+    assert res.indemnizacion_anos_servicio > Decimal("0")
+    assert res.indemnizacion_sustitutiva_aviso == Decimal("1000000")
+    assert res.vacaciones_proporcionales > Decimal("0")
+    assert res.total_finiquito == _r(
+        res.indemnizacion_anos_servicio + res.indemnizacion_sustitutiva_aviso + res.vacaciones_proporcionales
+    )
+
+
+def test_finiquito_sin_componentes_opcionales():
+    res = calcular_finiquito(
+        sueldo_base=Decimal("1000000"),
+        fecha_inicio=date(2026, 1, 1),
+        fecha_termino=date(2026, 6, 1),
+        fecha_ultimo_feriado=date(2026, 1, 1),
+    )
+    assert res.indemnizacion_anos_servicio == Decimal("0")
+    assert res.indemnizacion_sustitutiva_aviso == Decimal("0")
+    assert res.vacaciones_proporcionales > Decimal("0")
