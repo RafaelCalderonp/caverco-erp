@@ -3,7 +3,7 @@ import { empresasApi } from '../services/api'
 
 const VACIO = {
   rut: '', razon_social: '', nombre_fantasia: '', direccion: '',
-  representante_legal: '', telefono: '', email: '', logo_url: '',
+  representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '',
 }
 
 export default function Empresas() {
@@ -77,9 +77,14 @@ export default function Empresas() {
               onChange={e => setCampo('direccion', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Contacto</label>
-            <input className="input" value={form.representante_legal || ''}
+            <label className="form-label">Representante Legal</label>
+            <input className="input" required value={form.representante_legal || ''}
               onChange={e => setCampo('representante_legal', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">RUT del Representante</label>
+            <input className="input" required value={form.rut_representante_legal || ''}
+              onChange={e => setCampo('rut_representante_legal', e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">Teléfono Contacto</label>
@@ -87,8 +92,8 @@ export default function Empresas() {
               onChange={e => setCampo('telefono', e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Email</label>
-            <input className="input" type="email" value={form.email || ''}
+            <label className="form-label">Correo</label>
+            <input className="input" type="email" required value={form.email || ''}
               onChange={e => setCampo('email', e.target.value)} />
           </div>
           <div className="form-group">
@@ -120,7 +125,7 @@ export default function Empresas() {
       <table className="table">
         <thead>
           <tr>
-            <th>RUT</th><th>Razón Social</th><th>Contacto</th><th>Teléfono</th><th></th>
+            <th>RUT</th><th>Razón Social</th><th>Representante Legal</th><th>Teléfono</th><th></th>
           </tr>
         </thead>
         <tbody>

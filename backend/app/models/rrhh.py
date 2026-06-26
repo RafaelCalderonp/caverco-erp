@@ -23,6 +23,7 @@ class Empresa(Base):
     telefono            = Column(String(20))
     email               = Column(String(120))
     representante_legal = Column(String(120))
+    rut_representante_legal = Column(String(15))
     logo_url            = Column(Text)
     activa              = Column(Boolean, default=True)
     created_at          = Column(TIMESTAMPTZ, server_default=func.now())

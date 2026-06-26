@@ -14,8 +14,9 @@ class EmpresaBase(BaseModel):
     ciudad: Optional[str] = "Santiago"
     region: Optional[str] = None
     telefono: Optional[str] = None
-    email: Optional[str] = None
-    representante_legal: Optional[str] = None
+    email: str
+    representante_legal: str
+    rut_representante_legal: str
     logo_url: Optional[str] = None
 
 class EmpresaCreate(EmpresaBase): pass
@@ -31,6 +32,7 @@ class EmpresaUpdate(BaseModel):
     telefono: Optional[str] = None
     email: Optional[str] = None
     representante_legal: Optional[str] = None
+    rut_representante_legal: Optional[str] = None
     logo_url: Optional[str] = None
     activa: Optional[bool] = None
 
