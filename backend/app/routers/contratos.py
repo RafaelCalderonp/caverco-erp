@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
     Contrato, AnexoContrato, ContratoDocumento, ContratoRequisitoObra,
-    EntregaEpp, PactoHorasExtra,
+    EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
 )
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
@@ -44,9 +44,12 @@ async def listar_contratos(
     id_empleado: Optional[int] = None,
     estado: Optional[str] = None,
     id_obra: Optional[int] = None,
+    id_empresa: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Contrato)
+    if id_empresa is not None:
+        query = query.join(Empleado, Empleado.id == Contrato.id_empleado).where(Empleado.id_empresa == id_empresa)
     if id_empleado is not None:
         query = query.where(Contrato.id_empleado == id_empleado)
     if estado is not None:
@@ -57,6 +60,24 @@ async def listar_contratos(
     return result.scalars().all()
 
 
+async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
+    """Valida que obra/centro de costo/cargo del contrato pertenezcan a la misma empresa del empleado."""
+    empleado = await db.get(Empleado, data["id_empleado"])
+    if empleado is None:
+        raise HTTPException(404, "Empleado no encontrado")
+    checks = [
+        (Obra, data.get("id_obra"), "La obra"),
+        (CentroCosto, data.get("id_centro_costo"), "El centro de costo"),
+        (Cargo, data.get("id_cargo"), "El cargo"),
+    ]
+    for modelo, valor, etiqueta in checks:
+        if valor is None:
+            continue
+        entidad = await db.get(modelo, valor)
+        if entidad is None or entidad.id_empresa != empleado.id_empresa:
+            raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del empleado")
+
+
 @router.get("/{id}", response_model=ContratoOut)
 async def obtener_contrato(id: int, db: AsyncSession = Depends(get_db)):
     return await _get_contrato_or_404(id, db)
@@ -65,7 +86,9 @@ async def obtener_contrato(id: int, db: AsyncSession = Depends(get_db)):
 @router.post("", response_model=ContratoOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db)):
-    contrato = Contrato(**data.model_dump())
+    payload = data.model_dump()
+    await _validar_consistencia_empresa(payload, db)
+    contrato = Contrato(**payload)
     db.add(contrato)
     await db.commit()
     await db.refresh(contrato)
@@ -76,7 +99,16 @@ async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db
               dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def actualizar_contrato(id: int, data: ContratoUpdate, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    cambios = data.model_dump(exclude_unset=True)
+    if {"id_obra", "id_centro_costo", "id_cargo"} & cambios.keys():
+        datos_validacion = {
+            "id_empleado": contrato.id_empleado,
+            "id_obra": cambios.get("id_obra", contrato.id_obra),
+            "id_centro_costo": cambios.get("id_centro_costo", contrato.id_centro_costo),
+            "id_cargo": cambios.get("id_cargo", contrato.id_cargo),
+        }
+        await _validar_consistencia_empresa(datos_validacion, db)
+    for field, value in cambios.items():
         setattr(contrato, field, value)
     await db.commit()
     await db.refresh(contrato)
@@ -116,7 +148,8 @@ async def listar_anexos(id: int, db: AsyncSession = Depends(get_db)):
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
-    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, **data.model_dump())
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **data.model_dump())
     db.add(anexo)
     await db.commit()
     await db.refresh(anexo)
@@ -135,8 +168,9 @@ async def listar_documentos(id: int, db: AsyncSession = Depends(get_db)):
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_documento(id: int, data: ContratoDocumentoCreate, db: AsyncSession = Depends(get_db),
                            usuario=Depends(get_current_user)):
-    await _get_contrato_or_404(id, db)
-    documento = ContratoDocumento(id_contrato=id, id_usuario_carga=usuario.id, **data.model_dump())
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    documento = ContratoDocumento(id_contrato=id, id_empresa=empleado.id_empresa, id_usuario_carga=usuario.id, **data.model_dump())
     db.add(documento)
     await db.commit()
     await db.refresh(documento)
@@ -154,8 +188,9 @@ async def listar_requisitos_obra(id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/{id}/requisitos-obra", response_model=ContratoRequisitoObraOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_requisito_obra(id: int, data: ContratoRequisitoObraCreate, db: AsyncSession = Depends(get_db)):
-    await _get_contrato_or_404(id, db)
-    requisito = ContratoRequisitoObra(id_contrato=id, **data.model_dump())
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    requisito = ContratoRequisitoObra(id_contrato=id, id_empresa=empleado.id_empresa, **data.model_dump())
     db.add(requisito)
     await db.commit()
     await db.refresh(requisito)
@@ -187,8 +222,9 @@ async def listar_entregas_epp(id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/{id}/entregas-epp", response_model=EntregaEppOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_entrega_epp(id: int, data: EntregaEppCreate, db: AsyncSession = Depends(get_db)):
-    await _get_contrato_or_404(id, db)
-    entrega = EntregaEpp(id_contrato=id, **data.model_dump())
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    entrega = EntregaEpp(id_contrato=id, id_empresa=empleado.id_empresa, **data.model_dump())
     db.add(entrega)
     await db.commit()
     await db.refresh(entrega)
@@ -206,8 +242,9 @@ async def listar_pactos_horas_extra(id: int, db: AsyncSession = Depends(get_db))
 @router.post("/{id}/pactos-horas-extra", response_model=PactoHorasExtraOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_pacto_horas_extra(id: int, data: PactoHorasExtraCreate, db: AsyncSession = Depends(get_db)):
-    await _get_contrato_or_404(id, db)
-    pacto = PactoHorasExtra(id_contrato=id, **data.model_dump())
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    pacto = PactoHorasExtra(id_contrato=id, id_empresa=empleado.id_empresa, **data.model_dump())
     db.add(pacto)
     await db.commit()
     await db.refresh(pacto)

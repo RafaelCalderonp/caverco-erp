@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -29,18 +29,27 @@ async def listar_tipos_anexo(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/obras")
-async def listar_obras(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Obra).where(Obra.activa == True))
+async def listar_obras(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(Obra).where(Obra.activa == True)
+    if id_empresa:
+        q = q.where(Obra.id_empresa == id_empresa)
+    result = await db.execute(q)
     return [{"id": o.id, "codigo": o.codigo, "nombre": o.nombre} for o in result.scalars().all()]
 
 
 @router.get("/cargos")
-async def listar_cargos(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Cargo).where(Cargo.activo == True))
+async def listar_cargos(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(Cargo).where(Cargo.activo == True)
+    if id_empresa:
+        q = q.where(Cargo.id_empresa == id_empresa)
+    result = await db.execute(q)
     return [{"id": c.id, "codigo": c.codigo, "nombre": c.nombre} for c in result.scalars().all()]
 
 
 @router.get("/centros-costo")
-async def listar_centros_costo(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CentroCosto).where(CentroCosto.activo == True))
+async def listar_centros_costo(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(CentroCosto).where(CentroCosto.activo == True)
+    if id_empresa:
+        q = q.where(CentroCosto.id_empresa == id_empresa)
+    result = await db.execute(q)
     return [{"id": c.id, "codigo": c.codigo, "nombre": c.nombre} for c in result.scalars().all()]

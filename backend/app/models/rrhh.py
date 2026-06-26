@@ -191,6 +191,7 @@ class AnexoContrato(Base):
     id            = Column(Integer, primary_key=True)
     id_contrato   = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
     id_empleado   = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
+    id_empresa    = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     id_tipo_anexo = Column(Integer, ForeignKey("erp.tipo_anexo.id"), nullable=False)
     fecha_anexo   = Column(Date, nullable=False)
     nuevo_sueldo  = Column(Numeric(12, 2))
@@ -213,6 +214,7 @@ class ContratoDocumento(Base):
 
     id               = Column(Integer, primary_key=True)
     id_contrato      = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_empresa       = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     id_anexo         = Column(Integer, ForeignKey("erp.anexos_contrato.id"))
     tipo_documento   = Column(String(30), nullable=False)
     onedrive_item_id = Column(String(200))
@@ -231,6 +233,7 @@ class ContratoRequisitoObra(Base):
 
     id                       = Column(Integer, primary_key=True)
     id_contrato              = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_empresa               = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     id_obra                  = Column(Integer, ForeignKey("erp.obras.id"), nullable=False)
     id_anexo                 = Column(Integer, ForeignKey("erp.anexos_contrato.id"))
     irl_ds44_folio           = Column(String(30))
@@ -251,6 +254,7 @@ class EntregaEpp(Base):
 
     id                = Column(Integer, primary_key=True)
     id_contrato       = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_empresa        = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     id_requisito_obra = Column(Integer, ForeignKey("erp.contrato_requisitos_obra.id"))
     folio             = Column(String(30))
     fecha_entrega     = Column(Date, nullable=False)
@@ -267,6 +271,7 @@ class PactoHorasExtra(Base):
 
     id                 = Column(Integer, primary_key=True)
     id_contrato        = Column(Integer, ForeignKey("erp.contratos.id"), nullable=False)
+    id_empresa         = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     fecha_inicio       = Column(Date, nullable=False)
     fecha_termino      = Column(Date, nullable=False)
     tope_horas_diarias = Column(Numeric(4, 2), nullable=False, default=Decimal("2"))

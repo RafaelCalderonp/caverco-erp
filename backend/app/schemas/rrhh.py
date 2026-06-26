@@ -55,7 +55,8 @@ class EmpleadoBase(BaseModel):
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
 
-class EmpleadoCreate(EmpleadoBase): pass
+class EmpleadoCreate(EmpleadoBase):
+    id_empresa: int
 
 class EmpleadoUpdate(BaseModel):
     nombres: Optional[str] = None

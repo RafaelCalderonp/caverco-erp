@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.rrhh import Departamento, Cargo
@@ -10,8 +10,11 @@ from app.schemas.rrhh import DepartamentoCreate, DepartamentoUpdate, Departament
 router = APIRouter(prefix="/departamentos", tags=["Departamentos"], dependencies=[Depends(get_current_user)])
 
 @router.get("", response_model=List[DepartamentoOut])
-async def listar(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Departamento).where(Departamento.activo == True).order_by(Departamento.nombre))
+async def listar(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    q = select(Departamento).where(Departamento.activo == True)
+    if id_empresa:
+        q = q.where(Departamento.id_empresa == id_empresa)
+    result = await db.execute(q.order_by(Departamento.nombre))
     return result.scalars().all()
 
 @router.post("", response_model=DepartamentoOut, status_code=201)
