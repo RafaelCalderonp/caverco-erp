@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useEmpresa } from '../context/EmpresaContext'
+import logoCaverco from '../assets/caverco-logo.png'
 
 export default function SeleccionarEmpresa() {
   const { empresas, cargando, seleccionarEmpresa } = useEmpresa()
@@ -33,9 +34,7 @@ export default function SeleccionarEmpresa() {
               className="card"
               style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              {emp.logo_url
-                ? <img src={emp.logo_url} alt="" style={{ height: 32, objectFit: 'contain', alignSelf: 'flex-start' }} />
-                : <div className="logo-mark" style={{ marginBottom: 0 }}>{emp.razon_social.slice(0, 2).toUpperCase()}</div>}
+              <img src={emp.logo_url || logoCaverco} alt="" style={{ height: 32, objectFit: 'contain', alignSelf: 'flex-start' }} />
               <strong style={{ fontSize: 14.5 }}>{emp.razon_social}</strong>
               <span className="text-muted" style={{ fontSize: 12.5 }}>{emp.rut}</span>
             </button>

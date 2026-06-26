@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useEmpresa } from '../../context/EmpresaContext'
+import logo from '../../assets/caverco-logo.png'
 
 const NAV = [
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
@@ -31,9 +32,11 @@ export default function Layout() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          {empresaActual?.logo_url
-            ? <img src={empresaActual.logo_url} alt="" style={{ height: 28, marginBottom: 6, objectFit: 'contain' }} />
-            : <h1>⚙️ Caverco ERP</h1>}
+          <img
+            src={empresaActual?.logo_url || logo}
+            alt="Caverco"
+            style={{ height: 28, marginBottom: 6, objectFit: 'contain', background: empresaActual?.logo_url ? 'transparent' : '#fff', borderRadius: 6, padding: empresaActual?.logo_url ? 0 : '4px 8px' }}
+          />
           <span>{empresaActual ? empresaActual.razon_social : 'Recursos Humanos'}</span>
         </div>
         <div className="sidebar-section">Módulos</div>

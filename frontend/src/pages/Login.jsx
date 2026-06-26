@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import logo from '../assets/caverco-logo.png'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -28,7 +29,9 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-brand">
-        <div className="login-brand-top">Caverco Partners SpA.</div>
+        <div className="login-brand-top">
+          <div className="login-logo-badge"><img src={logo} alt="Caverco Partners SpA." /></div>
+        </div>
         <div className="login-brand-mid">
           <h1>Gestión de personas y obras, sin complicaciones.</h1>
           <p>Contratos, anexos, licencias y liquidaciones de múltiples empresas, centralizados en una sola plataforma.</p>
@@ -38,7 +41,7 @@ export default function Login() {
 
       <div className="login-side">
         <div className="login-card">
-          <div className="logo-mark">CV</div>
+          <img className="login-card-logo" src={logo} alt="Caverco Partners SpA." />
           <h2>Caverco ERP</h2>
           <div className="sub">Ingresa con tu cuenta para continuar</div>
           <form onSubmit={onSubmit}>
