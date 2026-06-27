@@ -45,7 +45,8 @@ async def listar_obras(id_empresa: Optional[int] = None, db: AsyncSession = Depe
 
 @router.post("/obras", response_model=ObraOut, status_code=201)
 async def crear_obra(data: ObraCreate, db: AsyncSession = Depends(get_db)):
-    obra = Obra(**data.model_dump())
+    codigo = await siguiente_codigo(db, data.id_empresa, "OBR")
+    obra = Obra(**data.model_dump(), codigo=codigo)
     db.add(obra)
     await db.flush()
     await db.refresh(obra)

@@ -7,7 +7,7 @@ from app.models.rrhh import Empresa
 async def siguiente_codigo(db: AsyncSession, id_empresa: int, entidad: str, ancho: int = 4) -> str:
     """Genera un código correlativo atómico por empresa, ej: INST-EMP-0001."""
     empresa = await db.get(Empresa, id_empresa)
-    prefijo = (empresa.prefijo if empresa and empresa.prefijo else "EMP")
+    prefijo = (empresa.prefijo if empresa and empresa.prefijo else "GEN")
 
     result = await db.execute(
         text(
@@ -22,4 +22,4 @@ async def siguiente_codigo(db: AsyncSession, id_empresa: int, entidad: str, anch
         {"id_empresa": id_empresa, "entidad": entidad},
     )
     numero = result.scalar_one()
-    return f"{prefijo}-{entidad}-{str(numero).zfill(ancho)}"
+    return f"{prefijo}-{str(numero).zfill(ancho)}"

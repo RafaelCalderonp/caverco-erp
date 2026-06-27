@@ -32,36 +32,57 @@ function TablaSimple({ columnas, filas, renderFila }) {
   )
 }
 
+const VACIO_OBRA = { nombre: '', direccion: '', comuna: '', region: 'Metropolitana' }
+
 function PanelObras({ empresaActual }) {
   const [obras, setObras] = useState([])
-  const [form, setForm] = useState({ codigo: '', nombre: '', direccion: '', comuna: '', region: 'Metropolitana' })
+  const [form, setForm] = useState(VACIO_OBRA)
+  const [editando, setEditando] = useState(null)
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
   useEffect(() => { cargar() }, [])
 
-  const crear = async (ev) => {
+  const editar = (o) => {
+    setEditando(o.id)
+    setForm({ nombre: o.nombre, direccion: o.direccion || '', comuna: o.comuna || '', region: o.region || 'Metropolitana' })
+    setMsg('')
+  }
+
+  const cancelar = () => { setEditando(null); setForm(VACIO_OBRA); setMsg('') }
+
+  const guardar = async (ev) => {
     ev.preventDefault()
     setMsg('')
     try {
-      await catalogosApi.crearObra({ ...form, id_empresa: empresaActual.id })
-      setForm({ codigo: '', nombre: '', direccion: '', comuna: '', region: 'Metropolitana' })
+      if (editando) {
+        await catalogosApi.actualizarObra(editando, form)
+      } else {
+        await catalogosApi.crearObra({ ...form, id_empresa: empresaActual.id })
+      }
+      cancelar()
       cargar()
     } catch (err) {
-      setMsg(err.response?.data?.detail || 'No se pudo crear la obra')
+      setMsg(err.response?.data?.detail || 'No se pudo guardar la obra')
+    }
+  }
+
+  const desactivar = async (o) => {
+    if (!confirm(`¿Desactivar la obra ${o.nombre}?`)) return
+    try {
+      await catalogosApi.actualizarObra(o.id, { activa: false })
+      cargar()
+    } catch {
+      alert('No se pudo desactivar la obra')
     }
   }
 
   return (
     <>
-      <form onSubmit={crear} className="card" style={{marginBottom:16}}>
-        <h3 style={{fontWeight:600,marginBottom:12}}>Nueva Obra</h3>
+      <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
+        <h3 style={{fontWeight:600,marginBottom:12}}>{editando ? 'Editar Obra' : 'Nueva Obra'}</h3>
         {msg && <div style={{color:'var(--danger)',marginBottom:8,fontSize:13}}>{msg}</div>}
         <div className="form-grid">
-          <div className="form-group">
-            <label className="form-label">Código</label>
-            <input className="input" value={form.codigo} onChange={e=>setForm(f=>({...f,codigo:e.target.value}))} placeholder="Ej: OBR-01" />
-          </div>
           <div className="form-group">
             <label className="form-label">Nombre de Obra <span style={{color:'var(--danger)'}}>*</span></label>
             <input className="input" required value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Nombre de la obra" />
@@ -81,11 +102,14 @@ function PanelObras({ empresaActual }) {
             </select>
           </div>
         </div>
-        <button className="btn btn-primary" type="submit" style={{marginTop:8}}>+ Agregar Obra</button>
+        <div style={{display:'flex', gap:8, marginTop:8}}>
+          <button className="btn btn-primary" type="submit">{editando ? 'Guardar Cambios' : '+ Agregar Obra'}</button>
+          {editando && <button className="btn btn-outline" type="button" onClick={cancelar}>Cancelar</button>}
+        </div>
       </form>
 
       <TablaSimple
-        columnas={['Código','Nombre','Dirección','Comuna','Región']}
+        columnas={['Código','Nombre','Dirección','Comuna','Región','']}
         filas={obras}
         renderFila={o => (
           <tr key={o.id}>
@@ -94,6 +118,12 @@ function PanelObras({ empresaActual }) {
             <td className="text-muted">{o.direccion || '—'}</td>
             <td className="text-muted">{o.comuna || '—'}</td>
             <td className="text-muted">{o.region || '—'}</td>
+            <td>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={() => editar(o)}>Editar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(o)}>Desactivar</button>
+              </div>
+            </td>
           </tr>
         )}
       />
@@ -101,10 +131,13 @@ function PanelObras({ empresaActual }) {
   )
 }
 
+const VACIO_CARGO = { nombre: '', id_departamento: '' }
+
 function PanelCargos({ empresaActual }) {
   const [cargos, setCargos] = useState([])
   const [departamentos, setDepartamentos] = useState([])
-  const [form, setForm] = useState({ nombre: '', id_departamento: '' })
+  const [form, setForm] = useState(VACIO_CARGO)
+  const [editando, setEditando] = useState(null)
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
@@ -113,26 +146,45 @@ function PanelCargos({ empresaActual }) {
     departamentosApi.list().then(r => setDepartamentos(r.data)).catch(() => {})
   }, [])
 
-  const crear = async (ev) => {
+  const editar = (c) => {
+    setEditando(c.id)
+    setForm({ nombre: c.nombre, id_departamento: c.id_departamento || '' })
+    setMsg('')
+  }
+
+  const cancelar = () => { setEditando(null); setForm(VACIO_CARGO); setMsg('') }
+
+  const guardar = async (ev) => {
     ev.preventDefault()
     setMsg('')
     try {
-      await catalogosApi.crearCargo({
-        ...form,
-        id_empresa: empresaActual.id,
-        id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
-      })
-      setForm({ nombre: '', id_departamento: '' })
+      const payload = { ...form, id_departamento: form.id_departamento ? Number(form.id_departamento) : null }
+      if (editando) {
+        await catalogosApi.actualizarCargo(editando, payload)
+      } else {
+        await catalogosApi.crearCargo({ ...payload, id_empresa: empresaActual.id })
+      }
+      cancelar()
       cargar()
     } catch (err) {
-      setMsg(err.response?.data?.detail || 'No se pudo crear el cargo')
+      setMsg(err.response?.data?.detail || 'No se pudo guardar el cargo')
+    }
+  }
+
+  const desactivar = async (c) => {
+    if (!confirm(`¿Desactivar el cargo ${c.nombre}?`)) return
+    try {
+      await catalogosApi.actualizarCargo(c.id, { activo: false })
+      cargar()
+    } catch {
+      alert('No se pudo desactivar el cargo')
     }
   }
 
   return (
     <>
-      <form onSubmit={crear} className="card" style={{marginBottom:16}}>
-        <h3 style={{fontWeight:600,marginBottom:12}}>Nuevo Cargo</h3>
+      <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
+        <h3 style={{fontWeight:600,marginBottom:12}}>{editando ? 'Editar Cargo' : 'Nuevo Cargo'}</h3>
         {msg && <div style={{color:'var(--danger)',marginBottom:8,fontSize:13}}>{msg}</div>}
         <div className="form-grid">
           <div className="form-group">
@@ -147,16 +199,25 @@ function PanelCargos({ empresaActual }) {
             </select>
           </div>
         </div>
-        <button className="btn btn-primary" type="submit" style={{marginTop:8}}>+ Agregar Cargo</button>
+        <div style={{display:'flex', gap:8, marginTop:8}}>
+          <button className="btn btn-primary" type="submit">{editando ? 'Guardar Cambios' : '+ Agregar Cargo'}</button>
+          {editando && <button className="btn btn-outline" type="button" onClick={cancelar}>Cancelar</button>}
+        </div>
       </form>
 
       <TablaSimple
-        columnas={['Código','Nombre']}
+        columnas={['Código','Nombre','']}
         filas={cargos}
         renderFila={c => (
           <tr key={c.id}>
             <td><span className="badge badge-blue">{c.codigo}</span></td>
             <td style={{fontWeight:500}}>{c.nombre}</td>
+            <td>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={() => editar(c)}>Editar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(c)}>Desactivar</button>
+              </div>
+            </td>
           </tr>
         )}
       />
@@ -164,30 +225,55 @@ function PanelCargos({ empresaActual }) {
   )
 }
 
+const VACIO_CENTRO = { codigo: '', nombre: '' }
+
 function PanelCentrosCosto({ empresaActual }) {
   const [centros, setCentros] = useState([])
-  const [form, setForm] = useState({ codigo: '', nombre: '' })
+  const [form, setForm] = useState(VACIO_CENTRO)
+  const [editando, setEditando] = useState(null)
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.centrosCosto().then(r => setCentros(r.data)).catch(() => {})
   useEffect(() => { cargar() }, [])
 
-  const crear = async (ev) => {
+  const editar = (c) => {
+    setEditando(c.id)
+    setForm({ codigo: c.codigo, nombre: c.nombre })
+    setMsg('')
+  }
+
+  const cancelar = () => { setEditando(null); setForm(VACIO_CENTRO); setMsg('') }
+
+  const guardar = async (ev) => {
     ev.preventDefault()
     setMsg('')
     try {
-      await catalogosApi.crearCentroCosto({ ...form, id_empresa: empresaActual.id })
-      setForm({ codigo: '', nombre: '' })
+      if (editando) {
+        await catalogosApi.actualizarCentroCosto(editando, form)
+      } else {
+        await catalogosApi.crearCentroCosto({ ...form, id_empresa: empresaActual.id })
+      }
+      cancelar()
       cargar()
     } catch (err) {
-      setMsg(err.response?.data?.detail || 'No se pudo crear el centro de costo')
+      setMsg(err.response?.data?.detail || 'No se pudo guardar el centro de costo')
+    }
+  }
+
+  const desactivar = async (c) => {
+    if (!confirm(`¿Desactivar el centro de costo ${c.nombre}?`)) return
+    try {
+      await catalogosApi.actualizarCentroCosto(c.id, { activo: false })
+      cargar()
+    } catch {
+      alert('No se pudo desactivar el centro de costo')
     }
   }
 
   return (
     <>
-      <form onSubmit={crear} className="card" style={{marginBottom:16}}>
-        <h3 style={{fontWeight:600,marginBottom:12}}>Nuevo Centro de Costo</h3>
+      <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
+        <h3 style={{fontWeight:600,marginBottom:12}}>{editando ? 'Editar Centro de Costo' : 'Nuevo Centro de Costo'}</h3>
         {msg && <div style={{color:'var(--danger)',marginBottom:8,fontSize:13}}>{msg}</div>}
         <div className="form-grid">
           <div className="form-group">
@@ -199,16 +285,25 @@ function PanelCentrosCosto({ empresaActual }) {
             <input className="input" required value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Ej: PERSONAL" />
           </div>
         </div>
-        <button className="btn btn-primary" type="submit" style={{marginTop:8}}>+ Agregar Centro de Costo</button>
+        <div style={{display:'flex', gap:8, marginTop:8}}>
+          <button className="btn btn-primary" type="submit">{editando ? 'Guardar Cambios' : '+ Agregar Centro de Costo'}</button>
+          {editando && <button className="btn btn-outline" type="button" onClick={cancelar}>Cancelar</button>}
+        </div>
       </form>
 
       <TablaSimple
-        columnas={['Código','Nombre']}
+        columnas={['Código','Nombre','']}
         filas={centros}
         renderFila={c => (
           <tr key={c.id}>
             <td><span className="badge badge-blue">{c.codigo}</span></td>
             <td style={{fontWeight:500}}>{c.nombre}</td>
+            <td>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={() => editar(c)}>Editar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(c)}>Desactivar</button>
+              </div>
+            </td>
           </tr>
         )}
       />

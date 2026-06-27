@@ -109,7 +109,6 @@ class CentroCostoOut(CentroCostoBase):
 
 # ---- Obra ----
 class ObraBase(BaseModel):
-    codigo: Optional[str] = None
     nombre: str
     direccion: Optional[str] = None
     comuna: Optional[str] = None
@@ -121,7 +120,6 @@ class ObraCreate(ObraBase):
     id_empresa: int
 
 class ObraUpdate(BaseModel):
-    codigo: Optional[str] = None
     nombre: Optional[str] = None
     direccion: Optional[str] = None
     comuna: Optional[str] = None
@@ -132,6 +130,7 @@ class ObraUpdate(BaseModel):
 
 class ObraOut(ObraBase):
     id: int
+    codigo: str
     activa: bool
     model_config = {"from_attributes": True}
 
