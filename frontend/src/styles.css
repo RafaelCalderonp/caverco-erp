@@ -148,6 +148,12 @@ tbody td { padding: 12px 14px; font-size: 13.5px; color: var(--gray-700); }
 .badge-orange { background: #fef3c7; color: #b45309; }
 .badge-gray   { background: var(--gray-100); color: var(--gray-500); }
 
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 16px;
+}
+
 /* Buttons */
 .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-size: 13.5px; font-weight: 600; border: none; transition: all .15s; cursor: pointer; }
 .btn-primary { background: var(--primary); color: #fff; }

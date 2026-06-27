@@ -10,7 +10,7 @@ from app.core.security import (
     get_current_user, require_roles,
 )
 from app.models.rrhh import Usuario
-from app.schemas.auth import Token, UsuarioOut, UsuarioCreate, CambiarPasswordIn
+from app.schemas.auth import Token, UsuarioOut, UsuarioCreate, UsuarioUpdate, ResetPasswordIn, CambiarPasswordIn
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -99,3 +99,73 @@ async def crear_usuario(data: UsuarioCreate, db: AsyncSession = Depends(get_db),
     await db.flush()
     await db.refresh(usuario)
     return usuario
+
+
+@router.get("/usuarios", response_model=list[UsuarioOut],
+            dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def listar_usuarios(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Usuario).order_by(Usuario.username))
+    return result.scalars().all()
+
+
+@router.get("/usuarios/{id_usuario}", response_model=UsuarioOut,
+            dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def obtener_usuario(id_usuario: int, db: AsyncSession = Depends(get_db)):
+    usuario = await db.get(Usuario, id_usuario)
+    if not usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    return usuario
+
+
+@router.patch("/usuarios/{id_usuario}", response_model=UsuarioOut,
+              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def actualizar_usuario(id_usuario: int, data: UsuarioUpdate, db: AsyncSession = Depends(get_db),
+                              solicitante=Depends(get_current_user)):
+    usuario = await db.get(Usuario, id_usuario)
+    if not usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+
+    cambios = data.model_dump(exclude_unset=True)
+    nuevo_rol = cambios.get("rol", usuario.rol)
+    if (nuevo_rol in ("SUPERADMIN", "ADMIN") or usuario.rol in ("SUPERADMIN", "ADMIN")) and solicitante.rol != "SUPERADMIN":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo SUPERADMIN puede gestionar usuarios SUPERADMIN o ADMIN")
+    if usuario.id == solicitante.id and cambios.get("activo") is False:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu propia cuenta")
+
+    for campo, valor in cambios.items():
+        setattr(usuario, campo, valor)
+    await db.flush()
+    await db.refresh(usuario)
+    return usuario
+
+
+@router.post("/usuarios/{id_usuario}/reset-password", status_code=204,
+             dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def resetear_password(id_usuario: int, data: ResetPasswordIn, db: AsyncSession = Depends(get_db),
+                             solicitante=Depends(get_current_user)):
+    usuario = await db.get(Usuario, id_usuario)
+    if not usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    if usuario.rol in ("SUPERADMIN", "ADMIN") and solicitante.rol != "SUPERADMIN":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo SUPERADMIN puede resetear esta cuenta")
+    if len(data.password_nueva) < 8:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "La nueva contraseña debe tener al menos 8 caracteres")
+
+    usuario.hashed_password = hash_password(data.password_nueva)
+    await db.flush()
+
+
+@router.delete("/usuarios/{id_usuario}", status_code=204,
+               dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def eliminar_usuario(id_usuario: int, db: AsyncSession = Depends(get_db),
+                            solicitante=Depends(get_current_user)):
+    usuario = await db.get(Usuario, id_usuario)
+    if not usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    if usuario.id == solicitante.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No puedes eliminar tu propia cuenta")
+    if usuario.rol in ("SUPERADMIN", "ADMIN") and solicitante.rol != "SUPERADMIN":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo SUPERADMIN puede eliminar esta cuenta")
+
+    await db.delete(usuario)
+    await db.flush()

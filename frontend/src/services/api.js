@@ -38,6 +38,15 @@ export const authApi = {
     api.post('/auth/password', { password_actual: passwordActual, password_nueva: passwordNueva }),
 }
 
+export const usuariosApi = {
+  list:   ()      => api.get('/auth/usuarios'),
+  get:    (id)    => api.get(`/auth/usuarios/${id}`),
+  create: (data)  => api.post('/auth/usuarios', data),
+  update: (id, d) => api.patch(`/auth/usuarios/${id}`, d),
+  delete: (id)    => api.delete(`/auth/usuarios/${id}`),
+  resetPassword: (id, passwordNueva) => api.post(`/auth/usuarios/${id}/reset-password`, { password_nueva: passwordNueva }),
+}
+
 export const empresasApi = {
   list:   ()      => api.get('/empresas'),
   get:    (id)     => api.get(`/empresas/${id}`),

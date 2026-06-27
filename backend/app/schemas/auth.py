@@ -24,6 +24,15 @@ class UsuarioCreate(BaseModel):
     rol: RolUsuario = "VIEWER"
     id_empleado: Optional[int] = None
 
+class UsuarioUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    rol: Optional[RolUsuario] = None
+    activo: Optional[bool] = None
+    id_empleado: Optional[int] = None
+
+class ResetPasswordIn(BaseModel):
+    password_nueva: str
+
 class CambiarPasswordIn(BaseModel):
     password_actual: str
     password_nueva: str

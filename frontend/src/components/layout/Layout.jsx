@@ -12,6 +12,7 @@ const NAV = [
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
+  { to: '/usuarios',      icon: '🛡️', label: 'Usuarios', roles: ['SUPERADMIN', 'ADMIN'] },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
@@ -50,7 +51,7 @@ export default function Layout() {
         </div>
         <div className="sidebar-section">Módulos</div>
         <nav>
-          {NAV.map(({ to, icon, label }) => {
+          {NAV.filter(n => !n.roles || n.roles.includes(usuario?.rol)).map(({ to, icon, label }) => {
             const disabled = REQUIERE_EMPRESA.includes(to) && !empresaActual
             return disabled ? (
               <span key={to} className="nav-item" style={{ opacity: .4, cursor: 'not-allowed' }} title="Selecciona una empresa primero">
