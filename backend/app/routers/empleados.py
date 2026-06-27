@@ -124,23 +124,30 @@ async def eliminar_empleado_definitivo(id: int, db: AsyncSession = Depends(get_d
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
-    ids_contrato = [row[0] for row in result.all()]
-    if ids_contrato:
-        await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato.in_(ids_contrato)))
-        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato.in_(ids_contrato)))
-        await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato.in_(ids_contrato)))
-        await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato.in_(ids_contrato)))
-        await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato.in_(ids_contrato)))
-        await db.execute(update(Contrato).where(Contrato.id_contrato_origen.in_(ids_contrato)).values(id_contrato_origen=None))
-        await db.execute(delete(Contrato).where(Contrato.id.in_(ids_contrato)))
+    try:
+        result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
+        ids_contrato = [row[0] for row in result.all()]
+        if ids_contrato:
+            # ContratoDocumento y ContratoRequisitoObra referencian AnexoContrato (id_anexo),
+            # y EntregaEpp referencia ContratoRequisitoObra (id_requisito_obra): deben borrarse
+            # en ese orden antes de AnexoContrato / ContratoRequisitoObra.
+            await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato.in_(ids_contrato)))
+            await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato.in_(ids_contrato)))
+            await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato.in_(ids_contrato)))
+            await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato.in_(ids_contrato)))
+            await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato.in_(ids_contrato)))
+            await db.execute(update(Contrato).where(Contrato.id_contrato_origen.in_(ids_contrato)).values(id_contrato_origen=None))
+            await db.execute(delete(Contrato).where(Contrato.id.in_(ids_contrato)))
 
-    await db.execute(update(Licencia).where(Licencia.aprobado_por == id).values(aprobado_por=None))
-    await db.execute(delete(Licencia).where(Licencia.id_empleado == id))
-    await db.execute(delete(Liquidacion).where(Liquidacion.id_empleado == id))
-    await db.execute(update(Usuario).where(Usuario.id_empleado == id).values(id_empleado=None))
-    await db.delete(emp)
-    await db.commit()
+        await db.execute(update(Licencia).where(Licencia.aprobado_por == id).values(aprobado_por=None))
+        await db.execute(delete(Licencia).where(Licencia.id_empleado == id))
+        await db.execute(delete(Liquidacion).where(Liquidacion.id_empleado == id))
+        await db.execute(update(Usuario).where(Usuario.id_empleado == id).values(id_empleado=None))
+        await db.delete(emp)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"No se pudo eliminar: {exc}")
 
 
 @router.get("/{id}/exportar-datos-personales", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
