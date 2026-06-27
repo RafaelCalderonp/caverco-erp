@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 
 from app.core.database import get_db
@@ -63,6 +64,19 @@ async def actualizar_obra(id: int, data: ObraUpdate, db: AsyncSession = Depends(
     return obra
 
 
+@router.delete("/obras/{id}", status_code=204)
+async def eliminar_obra(id: int, db: AsyncSession = Depends(get_db)):
+    obra = await db.get(Obra, id)
+    if not obra:
+        raise HTTPException(status_code=404, detail="Obra no encontrada")
+    try:
+        await db.delete(obra)
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="No se puede eliminar: la obra está en uso por algún contrato o trabajador")
+
+
 @router.get("/cargos", response_model=List[CargoOut])
 async def listar_cargos(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     q = select(Cargo).where(Cargo.activo == True)
@@ -92,6 +106,19 @@ async def actualizar_cargo(id: int, data: CargoUpdate, db: AsyncSession = Depend
     return cargo
 
 
+@router.delete("/cargos/{id}", status_code=204)
+async def eliminar_cargo(id: int, db: AsyncSession = Depends(get_db)):
+    cargo = await db.get(Cargo, id)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado")
+    try:
+        await db.delete(cargo)
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="No se puede eliminar: el cargo está en uso por algún trabajador o contrato")
+
+
 @router.get("/centros-costo", response_model=List[CentroCostoOut])
 async def listar_centros_costo(id_empresa: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     q = select(CentroCosto).where(CentroCosto.activo == True)
@@ -118,6 +145,19 @@ async def actualizar_centro_costo(id: int, data: CentroCostoUpdate, db: AsyncSes
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(centro, k, v)
     return centro
+
+
+@router.delete("/centros-costo/{id}", status_code=204)
+async def eliminar_centro_costo(id: int, db: AsyncSession = Depends(get_db)):
+    centro = await db.get(CentroCosto, id)
+    if not centro:
+        raise HTTPException(status_code=404, detail="Centro de costo no encontrado")
+    try:
+        await db.delete(centro)
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="No se puede eliminar: el centro de costo está en uso por algún trabajador o contrato")
 
 
 @router.get("/afp")

@@ -77,6 +77,16 @@ function PanelObras({ empresaActual }) {
     }
   }
 
+  const eliminar = async (o) => {
+    if (!confirm(`Esto borrará para siempre la obra ${o.nombre}. ¿Continuar?`)) return
+    try {
+      await catalogosApi.eliminarObra(o.id)
+      cargar()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar la obra')
+    }
+  }
+
   return (
     <>
       <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
@@ -122,6 +132,7 @@ function PanelObras({ empresaActual }) {
               <div className="flex items-center gap-2">
                 <button className="btn btn-outline btn-sm" onClick={() => editar(o)}>Editar</button>
                 <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(o)}>Desactivar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => eliminar(o)}>Eliminar</button>
               </div>
             </td>
           </tr>
@@ -181,6 +192,16 @@ function PanelCargos({ empresaActual }) {
     }
   }
 
+  const eliminar = async (c) => {
+    if (!confirm(`Esto borrará para siempre el cargo ${c.nombre}. ¿Continuar?`)) return
+    try {
+      await catalogosApi.eliminarCargo(c.id)
+      cargar()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el cargo')
+    }
+  }
+
   return (
     <>
       <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
@@ -216,6 +237,7 @@ function PanelCargos({ empresaActual }) {
               <div className="flex items-center gap-2">
                 <button className="btn btn-outline btn-sm" onClick={() => editar(c)}>Editar</button>
                 <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(c)}>Desactivar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => eliminar(c)}>Eliminar</button>
               </div>
             </td>
           </tr>
@@ -270,6 +292,16 @@ function PanelCentrosCosto({ empresaActual }) {
     }
   }
 
+  const eliminar = async (c) => {
+    if (!confirm(`Esto borrará para siempre el centro de costo ${c.nombre}. ¿Continuar?`)) return
+    try {
+      await catalogosApi.eliminarCentroCosto(c.id)
+      cargar()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el centro de costo')
+    }
+  }
+
   return (
     <>
       <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
@@ -302,6 +334,7 @@ function PanelCentrosCosto({ empresaActual }) {
               <div className="flex items-center gap-2">
                 <button className="btn btn-outline btn-sm" onClick={() => editar(c)}>Editar</button>
                 <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(c)}>Desactivar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => eliminar(c)}>Eliminar</button>
               </div>
             </td>
           </tr>
