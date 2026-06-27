@@ -61,6 +61,7 @@ export const empleadosApi = {
   create: (data)   => api.post('/empleados', data),
   update: (id, d)  => api.patch(`/empleados/${id}`, d),
   delete: (id)     => api.delete(`/empleados/${id}`),
+  eliminarDefinitivo: (id) => api.delete(`/empleados/${id}/definitivo`),
 }
 
 export const departamentosApi = {

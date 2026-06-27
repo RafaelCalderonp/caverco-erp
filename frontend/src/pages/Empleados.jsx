@@ -30,6 +30,16 @@ export default function Empleados() {
     }
   }
 
+  const eliminarDefinitivo = async (e) => {
+    if (!confirm(`Esto borrará para siempre a ${e.nombres} ${e.apellido_paterno} y su contrato, sin posibilidad de recuperarlo. ¿Continuar?`)) return
+    try {
+      await empleadosApi.eliminarDefinitivo(e.id)
+      cargar()
+    } catch {
+      alert('No se pudo eliminar al trabajador')
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -87,6 +97,9 @@ export default function Empleados() {
                       <Link to={`/empleados/${e.id}`} className="btn btn-outline btn-sm">Ver</Link>
                       <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(e)}>
                         Desactivar
+                      </button>
+                      <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => eliminarDefinitivo(e)}>
+                        Eliminar
                       </button>
                     </div>
                   </td>

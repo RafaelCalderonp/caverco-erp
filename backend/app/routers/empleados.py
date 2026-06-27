@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete, update
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Departamento, Cargo
+from app.models.rrhh import (
+    Empleado, Departamento, Cargo, Contrato, AnexoContrato, ContratoDocumento,
+    ContratoRequisitoObra, EntregaEpp, PactoHorasExtra, Licencia, Liquidacion, Usuario,
+)
 from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
@@ -109,6 +112,33 @@ async def desactivar_empleado(id: int, db: AsyncSession = Depends(get_db)):
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     emp.activo = False
+
+
+@router.delete("/{id}/definitivo", status_code=204,
+               dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def eliminar_empleado_definitivo(id: int, db: AsyncSession = Depends(get_db)):
+    """Borra al trabajador y todos sus registros asociados (contratos, anexos,
+    documentos, licencias, liquidaciones). Pensado para limpiar datos de prueba,
+    no para bajas reales (que deben quedar registradas vía desactivación)."""
+    emp = await db.get(Empleado, id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+
+    result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
+    ids_contrato = [row[0] for row in result.all()]
+    if ids_contrato:
+        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(Contrato).where(Contrato.id.in_(ids_contrato)))
+
+    await db.execute(delete(Licencia).where(Licencia.id_empleado == id))
+    await db.execute(delete(Liquidacion).where(Liquidacion.id_empleado == id))
+    await db.execute(update(Usuario).where(Usuario.id_empleado == id).values(id_empleado=None))
+    await db.delete(emp)
+    await db.commit()
 
 
 @router.get("/{id}/exportar-datos-personales", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
