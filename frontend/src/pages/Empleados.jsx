@@ -35,8 +35,9 @@ export default function Empleados() {
     try {
       await empleadosApi.eliminarDefinitivo(e.id)
       cargar()
-    } catch {
-      alert('No se pudo eliminar al trabajador')
+    } catch (err) {
+      const detalle = err.response?.data?.detail || err.message
+      alert(`No se pudo eliminar al trabajador: ${detalle}`)
     }
   }
 
