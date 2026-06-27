@@ -21,6 +21,7 @@ class EmpresaBase(BaseModel):
     representante_legal: str
     rut_representante_legal: str
     logo_url: Optional[str] = None
+    prefijo: Optional[str] = None
 
 class EmpresaCreate(EmpresaBase): pass
 
@@ -40,6 +41,7 @@ class EmpresaUpdate(BaseModel):
     representante_legal: Optional[str] = None
     rut_representante_legal: Optional[str] = None
     logo_url: Optional[str] = None
+    prefijo: Optional[str] = None
     activa: Optional[bool] = None
 
 class EmpresaOut(EmpresaBase):
@@ -66,7 +68,6 @@ class DepartamentoOut(DepartamentoBase):
 
 # ---- Cargo ----
 class CargoBase(BaseModel):
-    codigo: str
     nombre: str
     descripcion: Optional[str] = None
     nivel: int = 1
@@ -76,7 +77,6 @@ class CargoCreate(CargoBase):
     id_empresa: int
 
 class CargoUpdate(BaseModel):
-    codigo: Optional[str] = None
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     nivel: Optional[int] = None
@@ -85,6 +85,7 @@ class CargoUpdate(BaseModel):
 
 class CargoOut(CargoBase):
     id: int
+    codigo: str
     activo: bool
     model_config = {"from_attributes": True}
 
@@ -190,6 +191,7 @@ class EmpleadoUpdate(BaseModel):
 
 class EmpleadoOut(EmpleadoBase):
     id: int
+    codigo: Optional[str] = None
     activo: bool
     fecha_egreso: Optional[date] = None
     created_at: datetime
@@ -199,6 +201,7 @@ class EmpleadoOut(EmpleadoBase):
 
 class EmpleadoListOut(BaseModel):
     id: int
+    codigo: Optional[str] = None
     rut: str
     nombres: str
     apellido_paterno: str

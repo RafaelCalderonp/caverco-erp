@@ -5,7 +5,7 @@ import { useEmpresa } from '../context/EmpresaContext'
 const VACIO = {
   rut: '', razon_social: '', nombre_fantasia: '', direccion: '',
   contacto: '', telefono_contacto: '', email_contacto: '',
-  representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '',
+  representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '', prefijo: '',
 }
 
 export default function Empresas() {
@@ -89,6 +89,11 @@ export default function Empresas() {
             <label className="form-label">Correo Empresa</label>
             <input className="input" type="email" required value={form.email || ''}
               onChange={e => setCampo('email', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Prefijo (para códigos de trabajadores, cargos y contratos)</label>
+            <input className="input" maxLength={10} value={form.prefijo || ''}
+              onChange={e => setCampo('prefijo', e.target.value.toUpperCase())} placeholder="Ej: INST" />
           </div>
 
           <h3 style={{marginTop:20, marginBottom:8, fontSize:14, color:'var(--gray-600)'}}>Contacto</h3>

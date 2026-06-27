@@ -10,6 +10,7 @@ from app.models.rrhh import (
     ContratoRequisitoObra, EntregaEpp, PactoHorasExtra, Licencia, Liquidacion, Usuario,
 )
 from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
+from app.services.correlativos import siguiente_codigo
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
 
@@ -80,6 +81,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
 async def crear_empleado(data: EmpleadoCreate, db: AsyncSession = Depends(get_db)):
     payload = data.model_dump()
     await _validar_consistencia_empresa(payload, db)
+    payload["codigo"] = await siguiente_codigo(db, data.id_empresa, "EMP")
     emp = Empleado(**payload)
     db.add(emp)
     await db.flush()

@@ -11,6 +11,7 @@ from app.schemas.rrhh import (
     CentroCostoCreate, CentroCostoUpdate, CentroCostoOut,
     ObraCreate, ObraUpdate, ObraOut,
 )
+from app.services.correlativos import siguiente_codigo
 
 router = APIRouter(prefix="/catalogos", tags=["Catálogos"], dependencies=[Depends(get_current_user)])
 
@@ -72,7 +73,8 @@ async def listar_cargos(id_empresa: Optional[int] = None, db: AsyncSession = Dep
 
 @router.post("/cargos", response_model=CargoOut, status_code=201)
 async def crear_cargo(data: CargoCreate, db: AsyncSession = Depends(get_db)):
-    cargo = Cargo(**data.model_dump())
+    codigo = await siguiente_codigo(db, data.id_empresa, "CAR")
+    cargo = Cargo(**data.model_dump(), codigo=codigo)
     db.add(cargo)
     await db.flush()
     await db.refresh(cargo)

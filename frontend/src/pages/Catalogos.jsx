@@ -104,7 +104,7 @@ function PanelObras({ empresaActual }) {
 function PanelCargos({ empresaActual }) {
   const [cargos, setCargos] = useState([])
   const [departamentos, setDepartamentos] = useState([])
-  const [form, setForm] = useState({ codigo: '', nombre: '', id_departamento: '' })
+  const [form, setForm] = useState({ nombre: '', id_departamento: '' })
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
@@ -122,7 +122,7 @@ function PanelCargos({ empresaActual }) {
         id_empresa: empresaActual.id,
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
       })
-      setForm({ codigo: '', nombre: '', id_departamento: '' })
+      setForm({ nombre: '', id_departamento: '' })
       cargar()
     } catch (err) {
       setMsg(err.response?.data?.detail || 'No se pudo crear el cargo')
@@ -135,10 +135,6 @@ function PanelCargos({ empresaActual }) {
         <h3 style={{fontWeight:600,marginBottom:12}}>Nuevo Cargo</h3>
         {msg && <div style={{color:'var(--danger)',marginBottom:8,fontSize:13}}>{msg}</div>}
         <div className="form-grid">
-          <div className="form-group">
-            <label className="form-label">Código <span style={{color:'var(--danger)'}}>*</span></label>
-            <input className="input" required value={form.codigo} onChange={e=>setForm(f=>({...f,codigo:e.target.value}))} placeholder="Ej: INST-01" />
-          </div>
           <div className="form-group">
             <label className="form-label">Nombre <span style={{color:'var(--danger)'}}>*</span></label>
             <input className="input" required value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Ej: Instalador" />

@@ -245,7 +245,6 @@ export default function ContratoNuevo() {
               <Campo label="Tipo de Contrato" required>
                 {sel('id_tipo_contrato', tiposContrato.map(t => ({ value: t.id, label: t.nombre })))}
               </Campo>
-              <Campo label="N° de Contrato">{inp('numero_contrato', 'text', 'Ej: C-2026-001')}</Campo>
               <Campo label="Fecha del Contrato" required>{inp('fecha_contrato', 'date')}</Campo>
               <Campo label="Fecha de Inicio" required>{inp('fecha_inicio', 'date')}</Campo>
               <Campo label="Fecha Término Pactada">{inp('fecha_termino_pactada', 'date')}</Campo>

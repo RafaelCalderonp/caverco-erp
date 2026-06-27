@@ -28,9 +28,20 @@ class Empresa(Base):
     representante_legal = Column(String(120))
     rut_representante_legal = Column(String(15))
     logo_url            = Column(Text)
+    prefijo             = Column(String(10))
     activa              = Column(Boolean, default=True)
     created_at          = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at          = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
+
+
+class Contador(Base):
+    __tablename__ = "contadores"
+    __table_args__ = (UniqueConstraint("id_empresa", "entidad"), {"schema": "erp"})
+
+    id            = Column(Integer, primary_key=True)
+    id_empresa    = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
+    entidad       = Column(String(20), nullable=False)
+    ultimo_numero = Column(Integer, nullable=False, default=0)
 
 
 class Obra(Base):
@@ -102,6 +113,7 @@ class Empleado(Base):
     id_empresa        = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
     id_centro_costo   = Column(Integer, ForeignKey("erp.centros_costo.id"))
     id_obra           = Column(Integer, ForeignKey("erp.obras.id"))
+    codigo            = Column(String(30))
     rut               = Column(String(12), nullable=False)
     nombres           = Column(String(100), nullable=False)
     apellido_paterno  = Column(String(60), nullable=False)

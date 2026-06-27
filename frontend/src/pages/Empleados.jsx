@@ -58,6 +58,7 @@ export default function Empleados() {
           <table>
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Trabajador</th>
                 <th>RUT</th>
                 <th>Cargo</th>
@@ -70,13 +71,14 @@ export default function Empleados() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Cargando…</td></tr>
+                <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Cargando…</td></tr>
               )}
               {!loading && empleados.length === 0 && (
-                <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
+                <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
               )}
               {empleados.map(e => (
                 <tr key={e.id}>
+                  <td><span className="badge badge-blue">{e.codigo || '—'}</span></td>
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="avatar">{initials(e)}</div>

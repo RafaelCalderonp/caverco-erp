@@ -15,6 +15,7 @@ from app.models.rrhh import (
     Empresa, AFP, Isapre, TipoContrato,
 )
 from app.services.contrato_word import generar_contrato_docx
+from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
     ContratoConTrabajadorCreate, ContratoConTrabajadorOut,
@@ -142,16 +143,22 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
     datos_empleado["id_obra"] = data.id_obra
     datos_empleado["id_tipo_contrato"] = data.id_tipo_contrato
 
+    datos_empleado["codigo"] = await siguiente_codigo(db, data.id_empresa, "EMP")
     empleado = Empleado(**datos_empleado)
     db.add(empleado)
     await db.flush()
 
     datos_contrato = {
         "id_tipo_contrato", "id_obra", "id_centro_costo", "id_cargo",
-        "numero_contrato", "fecha_contrato", "fecha_inicio", "fecha_termino_pactada",
+        "fecha_contrato", "fecha_inicio", "fecha_termino_pactada",
         "sueldo_bruto", "horas_semanales", "jornada", "horario_detalle",
     }
-    contrato = Contrato(id_empleado=empleado.id, **{k: v for k, v in payload.items() if k in datos_contrato})
+    numero_contrato = await siguiente_codigo(db, data.id_empresa, "CT")
+    contrato = Contrato(
+        id_empleado=empleado.id,
+        numero_contrato=numero_contrato,
+        **{k: v for k, v in payload.items() if k in datos_contrato},
+    )
     db.add(contrato)
     await db.commit()
     await db.refresh(empleado)
@@ -164,6 +171,9 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
 async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db)):
     payload = data.model_dump()
     await _validar_consistencia_empresa(payload, db)
+    if not payload.get("numero_contrato"):
+        empleado = await db.get(Empleado, data.id_empleado)
+        payload["numero_contrato"] = await siguiente_codigo(db, empleado.id_empresa, "CT")
     contrato = Contrato(**payload)
     db.add(contrato)
     await db.commit()
