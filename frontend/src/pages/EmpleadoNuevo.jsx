@@ -33,8 +33,8 @@ const EMPTY = {
   telefono: '', email_personal: '', email_corporativo: '',
   // Paso 2
   codigo_interno: '', fecha_ingreso: '', sueldo_base: '',
-  id_tipo_contrato: '', id_departamento: '', id_cargo: '',
-  id_obra: '', id_centro_costo: '',
+  id_tipo_contrato: '', id_departamento: '',
+  cargo_nombre: '', centro_costo_nombre: '', obra_nombre: '',
   // Paso 3
   id_afp: '', id_isapre: '', valor_isapre_uf: '', n_cargas: 0,
   tiene_sindicato: false,
@@ -98,9 +98,13 @@ export default function EmpleadoNuevo() {
     if (Object.keys(e).length) { setErrors(e); return }
     setSaving(true); setMsg('')
     try {
+      const { cargo_nombre, centro_costo_nombre, obra_nombre, ...resto } = form
       const payload = {
-        ...form,
+        ...resto,
         id_empresa: empresaActual.id,
+        fecha_nacimiento: form.fecha_nacimiento || null,
+        genero: form.genero || null,
+        estado_civil: form.estado_civil || null,
         sueldo_base: form.sueldo_base ? Number(form.sueldo_base) : null,
         n_cargas: Number(form.n_cargas),
         valor_isapre_uf: form.valor_isapre_uf ? Number(form.valor_isapre_uf) : 0,
@@ -109,7 +113,13 @@ export default function EmpleadoNuevo() {
       await empleadosApi.create(payload)
       nav('/empleados')
     } catch (err) {
-      setMsg(err.response?.data?.detail || 'Error al guardar el trabajador')
+      const detalle = err.response?.data?.detail
+      const texto = typeof detalle === 'string'
+        ? detalle
+        : Array.isArray(detalle)
+          ? detalle.map(d => d.msg || JSON.stringify(d)).join(' · ')
+          : 'Error al guardar el trabajador'
+      setMsg(texto)
     } finally { setSaving(false) }
   }
 
@@ -241,14 +251,14 @@ export default function EmpleadoNuevo() {
               <Campo label="Departamento">
                 {sel('id_departamento', departamentos.map(d=>({value:d.id,label:`${d.codigo} — ${d.nombre}`})))}
               </Campo>
-              <Campo label="Cargo">
-                {inp('id_cargo','text','Ej: Instalador, Supervisor')}
+              <Campo label="Cargo (nombre referencial)">
+                {inp('cargo_nombre','text','Ej: Instalador, Supervisor')}
               </Campo>
-              <Campo label="Centro de Costo">
-                {inp('id_centro_costo','text','Ej: E01, PERSONAL')}
+              <Campo label="Centro de Costo (referencial)">
+                {inp('centro_costo_nombre','text','Ej: E01, PERSONAL')}
               </Campo>
-              <Campo label="Obra Actual">
-                {inp('id_obra','text','Nombre o código de obra')}
+              <Campo label="Obra Actual (referencial)">
+                {inp('obra_nombre','text','Nombre o código de obra')}
               </Campo>
               <Campo label="Horas Semanales">
                 {sel('horas_semanales',[
