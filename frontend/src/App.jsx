@@ -41,7 +41,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard"          element={<Dashboard />} />
+        <Route path="dashboard"          element={<RequireEmpresa><Dashboard /></RequireEmpresa>} />
         <Route path="empresas"           element={<Empresas />} />
         <Route path="seleccionar-empresa" element={<SeleccionarEmpresa />} />
         <Route path="empleados"          element={<RequireEmpresa><Empleados /></RequireEmpresa>} />

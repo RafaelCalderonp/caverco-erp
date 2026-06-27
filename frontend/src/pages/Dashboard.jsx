@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { empleadosApi } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, activos: 0, inactivos: 0 })
+  const { empresaActual } = useEmpresa()
 
   useEffect(() => {
     empleadosApi.stats().then(r => setStats(r.data)).catch(() => {})
-  }, [])
+  }, [empresaActual])
 
   return (
     <div>
       <div className="page-header">
-        <h1>Dashboard RRHH</h1>
+        <h1>Dashboard RRHH {empresaActual && <span className="text-muted" style={{fontWeight:400, fontSize:15}}>· {empresaActual.razon_social}</span>}</h1>
         <Link to="/empleados/nuevo" className="btn btn-primary">+ Nuevo Empleado</Link>
       </div>
 
