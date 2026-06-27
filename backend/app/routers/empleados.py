@@ -127,13 +127,15 @@ async def eliminar_empleado_definitivo(id: int, db: AsyncSession = Depends(get_d
     result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
     ids_contrato = [row[0] for row in result.all()]
     if ids_contrato:
-        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato.in_(ids_contrato)))
         await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato.in_(ids_contrato)))
+        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato.in_(ids_contrato)))
         await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato.in_(ids_contrato)))
         await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato.in_(ids_contrato)))
         await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato.in_(ids_contrato)))
+        await db.execute(update(Contrato).where(Contrato.id_contrato_origen.in_(ids_contrato)).values(id_contrato_origen=None))
         await db.execute(delete(Contrato).where(Contrato.id.in_(ids_contrato)))
 
+    await db.execute(update(Licencia).where(Licencia.aprobado_por == id).values(aprobado_por=None))
     await db.execute(delete(Licencia).where(Licencia.id_empleado == id))
     await db.execute(delete(Liquidacion).where(Liquidacion.id_empleado == id))
     await db.execute(update(Usuario).where(Usuario.id_empleado == id).values(id_empleado=None))
