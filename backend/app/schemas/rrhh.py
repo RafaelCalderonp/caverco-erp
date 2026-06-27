@@ -72,10 +72,66 @@ class CargoBase(BaseModel):
     nivel: int = 1
     id_departamento: Optional[int] = None
 
-class CargoCreate(CargoBase): pass
+class CargoCreate(CargoBase):
+    id_empresa: int
+
+class CargoUpdate(BaseModel):
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    nivel: Optional[int] = None
+    id_departamento: Optional[int] = None
+    activo: Optional[bool] = None
+
 class CargoOut(CargoBase):
     id: int
     activo: bool
+    model_config = {"from_attributes": True}
+
+# ---- CentroCosto ----
+class CentroCostoBase(BaseModel):
+    codigo: str
+    nombre: str
+
+class CentroCostoCreate(CentroCostoBase):
+    id_empresa: int
+
+class CentroCostoUpdate(BaseModel):
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
+    activo: Optional[bool] = None
+
+class CentroCostoOut(CentroCostoBase):
+    id: int
+    activo: bool
+    model_config = {"from_attributes": True}
+
+# ---- Obra ----
+class ObraBase(BaseModel):
+    codigo: Optional[str] = None
+    nombre: str
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    region: Optional[str] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+
+class ObraCreate(ObraBase):
+    id_empresa: int
+
+class ObraUpdate(BaseModel):
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    region: Optional[str] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    activa: Optional[bool] = None
+
+class ObraOut(ObraBase):
+    id: int
+    activa: bool
     model_config = {"from_attributes": True}
 
 # ---- Empleado ----

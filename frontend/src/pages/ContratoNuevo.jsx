@@ -30,6 +30,24 @@ const EMPTY = {
   banco: '', tipo_cuenta: '', numero_cuenta: '',
 }
 
+function formatearRut(valor) {
+  const limpio = valor.replace(/[^0-9kK]/g, '')
+  if (limpio.length < 2) return valor
+  const cuerpo = limpio.slice(0, -1)
+  const verificador = limpio.slice(-1).toUpperCase()
+  const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${cuerpoConPuntos}-${verificador}`
+}
+
+function formatearTelefono(valor) {
+  let digitos = valor.replace(/\D/g, '')
+  if (digitos.startsWith('56')) digitos = digitos.slice(2)
+  if (digitos.startsWith('0')) digitos = digitos.slice(1)
+  if (digitos.startsWith('9') && digitos.length === 9) digitos = digitos.slice(1)
+  if (digitos.length !== 8) return valor
+  return `+56 9 ${digitos.slice(0, 4)} ${digitos.slice(4, 8)}`
+}
+
 function Campo({ label, required, children, span2 }) {
   return (
     <div className={`form-group${span2 ? ' span2' : ''}`}>
@@ -139,11 +157,12 @@ export default function ContratoNuevo() {
     <span style={{fontSize:11,color:'var(--danger)',marginTop:2,display:'block'}}>{errors[k]}</span>
   ) : null
 
-  const inp = (k, type='text', placeholder='') => (
+  const inp = (k, type='text', placeholder='', formatear=null) => (
     <>
       <input className={`input${errors[k]?' input-error':''}`} type={type}
         placeholder={placeholder} value={form[k]}
         onChange={e => set(k, e.target.value)}
+        onBlur={formatear ? () => set(k, formatear(form[k] || '')) : undefined}
         style={errors[k]?{borderColor:'var(--danger)'}:{}} />
       {err(k)}
     </>
@@ -193,7 +212,7 @@ export default function ContratoNuevo() {
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h3>
             <div className="form-grid">
-              <Campo label="RUT" required>{inp('rut','text','Ej: 12.345.678-9')}</Campo>
+              <Campo label="RUT" required>{inp('rut','text','Ej: 12.345.678-9', formatearRut)}</Campo>
               <Campo label="Nombres" required>{inp('nombres','text','Nombres completos')}</Campo>
               <Campo label="Apellido Paterno" required>{inp('apellido_paterno')}</Campo>
               <Campo label="Apellido Materno">{inp('apellido_materno')}</Campo>
@@ -205,7 +224,7 @@ export default function ContratoNuevo() {
                 {sel('estado_civil',['Soltero','Casado','Conviviente civil','Divorciado','Viudo'])}
               </Campo>
               <Campo label="Nacionalidad">{inp('nacionalidad','text')}</Campo>
-              <Campo label="Teléfono">{inp('telefono','tel','+56 9 XXXX XXXX')}</Campo>
+              <Campo label="Teléfono">{inp('telefono','tel','+56 9 XXXX XXXX', formatearTelefono)}</Campo>
               <Campo label="Email Personal">{inp('email_personal','email')}</Campo>
               <Campo label="Email Corporativo">{inp('email_corporativo','email')}</Campo>
               <Campo label="Dirección" span2>{inp('direccion','text','Calle, número, departamento')}</Campo>

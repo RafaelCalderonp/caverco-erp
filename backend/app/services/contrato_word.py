@@ -28,8 +28,7 @@ def _parrafo(doc, partes, bold_default=False, align=None, space_after=10):
     """partes: lista de (texto, bold) o strings sueltos (heredan bold_default)."""
     p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(space_after)
-    if align is not None:
-        p.alignment = align
+    p.alignment = align if align is not None else WD_ALIGN_PARAGRAPH.JUSTIFY
     for parte in partes:
         if isinstance(parte, tuple):
             texto, bold = parte
