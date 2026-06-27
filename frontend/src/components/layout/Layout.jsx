@@ -5,6 +5,7 @@ import { useEmpresa } from '../../context/EmpresaContext'
 import logo from '../../assets/caverco-logo.png'
 
 const NAV = [
+  { to: '/seleccionar-empresa', icon: '🏠', label: 'Home' },
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
