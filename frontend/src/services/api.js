@@ -132,6 +132,8 @@ export const catalogosApi = {
   obras:          () => api.get('/catalogos/obras'),
   cargos:         () => api.get('/catalogos/cargos'),
   centrosCosto:   () => api.get('/catalogos/centros-costo'),
+  afp:            () => api.get('/catalogos/afp'),
+  isapre:         () => api.get('/catalogos/isapre'),
 }
 
 export const credencialesApi = {

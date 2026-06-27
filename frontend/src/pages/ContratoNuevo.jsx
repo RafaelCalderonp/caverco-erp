@@ -3,8 +3,6 @@ import { useNavigate, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, departamentosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
 
-const AFPS = ['Capital','Cuprum','Habitat','PlanVital','ProVida','Modelo','Uno']
-const ISAPRES = ['Fonasa','Consalud','Cruz Blanca','Nueva MasVida']
 const REGIONES = [
   'Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo',
   'Valparaíso','Metropolitana','O\'Higgins','Maule','Ñuble',
@@ -55,12 +53,16 @@ export default function ContratoNuevo() {
   const [centrosCosto, setCentrosCosto] = useState([])
   const [cargos, setCargos] = useState([])
   const [departamentos, setDepartamentos] = useState([])
+  const [afps, setAfps] = useState([])
+  const [isapres, setIsapres] = useState([])
 
   useEffect(() => {
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
     catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
     catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
     catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
+    catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
+    catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
     departamentosApi.list().then(r => setDepartamentos(r.data)).catch(() => {})
   }, [])
 
@@ -115,8 +117,8 @@ export default function ContratoNuevo() {
         sueldo_bruto: Number(form.sueldo_bruto),
         horas_semanales: Number(form.horas_semanales),
         horario_detalle: form.horario_detalle || null,
-        id_afp: form.id_afp || null,
-        id_isapre: form.id_isapre || null,
+        id_afp: form.id_afp ? Number(form.id_afp) : null,
+        id_isapre: form.id_isapre ? Number(form.id_isapre) : null,
         valor_isapre_uf: form.valor_isapre_uf ? Number(form.valor_isapre_uf) : 0,
         n_cargas: Number(form.n_cargas),
       }
@@ -270,14 +272,14 @@ export default function ContratoNuevo() {
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>🏦 Previsión Social</h3>
             <div className="form-grid">
-              <Campo label="AFP" required>{sel('id_afp', AFPS)}</Campo>
-              <Campo label="Sistema de Salud" required>{sel('id_isapre', ISAPRES)}</Campo>
+              <Campo label="AFP" required>{sel('id_afp', afps.map(a => ({ value: a.id, label: a.nombre })))}</Campo>
+              <Campo label="Sistema de Salud" required>{sel('id_isapre', isapres.map(i => ({ value: i.id, label: i.nombre })))}</Campo>
               <Campo label="Valor Isapre (UF)">
                 <input className="input" type="number" step="0.0001"
                   placeholder="Solo si tiene Isapre (ej: 3.2)"
                   value={form.valor_isapre_uf}
                   onChange={e => set('valor_isapre_uf', e.target.value)}
-                  disabled={form.id_isapre === 'Fonasa'} />
+                  disabled={isapres.find(i => i.id === Number(form.id_isapre))?.es_fonasa} />
                 <span style={{fontSize:11,color:'var(--gray-500)',marginTop:2,display:'block'}}>
                   Dejar en 0 si es Fonasa
                 </span>
@@ -301,8 +303,8 @@ export default function ContratoNuevo() {
                   ['RUT', form.rut],
                   ['Ingreso', form.fecha_inicio || '—'],
                   ['Sueldo bruto', form.sueldo_bruto ? `$${Number(form.sueldo_bruto).toLocaleString('es-CL')}` : '—'],
-                  ['AFP', form.id_afp || '—'],
-                  ['Salud', form.id_isapre || '—'],
+                  ['AFP', afps.find(a => a.id === Number(form.id_afp))?.nombre || '—'],
+                  ['Salud', isapres.find(i => i.id === Number(form.id_isapre))?.nombre || '—'],
                   ['Cargas', form.n_cargas],
                 ].map(([k,v]) => (
                   <div key={k} style={{display:'flex',gap:6}}>

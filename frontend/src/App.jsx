@@ -6,7 +6,6 @@ import Empresas from './pages/Empresas'
 import SeleccionarEmpresa from './pages/SeleccionarEmpresa'
 import Empleados from './pages/Empleados'
 import EmpleadoDetalle from './pages/EmpleadoDetalle'
-import EmpleadoNuevo from './pages/EmpleadoNuevo'
 import Departamentos from './pages/Departamentos'
 import Licencias from './pages/Licencias'
 import Contratos from './pages/Contratos'
@@ -45,7 +44,7 @@ export default function App() {
         <Route path="empresas"           element={<Empresas />} />
         <Route path="seleccionar-empresa" element={<SeleccionarEmpresa />} />
         <Route path="empleados"          element={<RequireEmpresa><Empleados /></RequireEmpresa>} />
-        <Route path="empleados/nuevo"    element={<RequireEmpresa><EmpleadoNuevo /></RequireEmpresa>} />
+        <Route path="empleados/nuevo"    element={<Navigate to="/contratos/nuevo" replace />} />
         <Route path="empleados/:id"      element={<RequireEmpresa><EmpleadoDetalle /></RequireEmpresa>} />
         <Route path="departamentos"      element={<RequireEmpresa><Departamentos /></RequireEmpresa>} />
         <Route path="licencias"          element={<RequireEmpresa><Licencias /></RequireEmpresa>} />

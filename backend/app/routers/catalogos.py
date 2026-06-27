@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.rrhh import TipoContrato, MotivoTermino, TipoAnexo, Obra, Cargo, CentroCosto
+from app.models.rrhh import TipoContrato, MotivoTermino, TipoAnexo, Obra, Cargo, CentroCosto, AFP, Isapre
 
 router = APIRouter(prefix="/catalogos", tags=["Catálogos"], dependencies=[Depends(get_current_user)])
 
@@ -53,3 +53,15 @@ async def listar_centros_costo(id_empresa: Optional[int] = None, db: AsyncSessio
         q = q.where(CentroCosto.id_empresa == id_empresa)
     result = await db.execute(q)
     return [{"id": c.id, "codigo": c.codigo, "nombre": c.nombre} for c in result.scalars().all()]
+
+
+@router.get("/afp")
+async def listar_afp(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(AFP).where(AFP.activa == True))
+    return [{"id": a.id, "nombre": a.nombre, "tasa": a.tasa} for a in result.scalars().all()]
+
+
+@router.get("/isapre")
+async def listar_isapre(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Isapre).where(Isapre.activa == True))
+    return [{"id": i.id, "nombre": i.nombre, "es_fonasa": i.es_fonasa} for i in result.scalars().all()]
