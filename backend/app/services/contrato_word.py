@@ -79,7 +79,8 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         ", nacionalidad ", (empleado.nacionalidad or "Chilena", True),
         ", nacido el ", (_fecha_larga(empleado.fecha_nacimiento), True),
         ", estado civil ", (empleado.estado_civil or "", True),
-        ", domiciliado en ", (empleado.direccion or "", True), ", ", (empleado.comuna or "", True),
+        ", domiciliado en ", (empleado.direccion or "", True), ", comuna de ", (empleado.comuna or "", True),
+        ", región ", (empleado.region or "", True),
         ", correo electrónico ", (empleado.email_personal or empleado.email_corporativo or "", True),
         ' en adelante "EL TRABAJADOR" se ha convenido el siguiente contrato de trabajo, en adelante el "CONTRATO":',
     ])
@@ -101,12 +102,20 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         "Los servicios serán prestados en el establecimiento ubicado en ", (lugar, True), ".",
     ])
 
-    _parrafo(doc, [
-        ("TERCERO: ", True),
-        f"La jornada de trabajo será de ", (str(contrato.horas_semanales or 45), True),
-        f" horas semanales, distribuidas conforme a las necesidades de la empresa, bajo jornada ",
-        (contrato.jornada or "Completa", True), ".",
-    ])
+    if contrato.horario_detalle:
+        _parrafo(doc, [
+            ("TERCERO: ", True),
+            f"La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
+            f" horas semanales, bajo jornada ", (contrato.jornada or "Completa", True),
+            ", distribuidas de la siguiente manera: ", (contrato.horario_detalle, True), ".",
+        ])
+    else:
+        _parrafo(doc, [
+            ("TERCERO: ", True),
+            f"La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
+            f" horas semanales, distribuidas conforme a las necesidades de la empresa, bajo jornada ",
+            (contrato.jornada or "Completa", True), ".",
+        ])
 
     _parrafo(doc, [
         ("CUARTO: ", True),

@@ -15,12 +15,12 @@ export default function Dashboard() {
     <div>
       <div className="page-header">
         <h1>Dashboard RRHH {empresaActual && <span className="text-muted" style={{fontWeight:400, fontSize:15}}>· {empresaActual.razon_social}</span>}</h1>
-        <Link to="/empleados/nuevo" className="btn btn-primary">+ Nuevo Empleado</Link>
+        <Link to="/contratos/nuevo" className="btn btn-primary">+ Nuevo Contrato</Link>
       </div>
 
       <div className="stat-grid">
         <div className="stat-card blue">
-          <span className="label">Total Empleados</span>
+          <span className="label">Total Trabajadores</span>
           <span className="value">{stats.total}</span>
           <span className="sub">En la organización</span>
         </div>

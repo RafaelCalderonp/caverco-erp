@@ -7,22 +7,34 @@ export default function Empleados() {
   const [buscar, setBuscar] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const cargar = () => {
     setLoading(true)
     empleadosApi.list({ buscar: buscar || undefined, activo: true })
       .then(r => setEmpleados(r.data))
       .catch(() => setEmpleados([]))
       .finally(() => setLoading(false))
-  }, [buscar])
+  }
+
+  useEffect(() => { cargar() }, [buscar])
 
   const initials = (e) => `${e.nombres?.[0] || ''}${e.apellido_paterno?.[0] || ''}`.toUpperCase()
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 
+  const desactivar = async (e) => {
+    if (!confirm(`¿Desactivar a ${e.nombres} ${e.apellido_paterno}?`)) return
+    try {
+      await empleadosApi.delete(e.id)
+      cargar()
+    } catch {
+      alert('No se pudo desactivar al trabajador')
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
-        <h1>Empleados</h1>
-        <Link to="/empleados/nuevo" className="btn btn-primary">+ Nuevo Empleado</Link>
+        <h1>Trabajadores</h1>
+        <Link to="/empleados/nuevo" className="btn btn-primary">+ Nuevo Trabajador</Link>
       </div>
 
       <div className="search-bar">
@@ -35,7 +47,7 @@ export default function Empleados() {
           <table>
             <thead>
               <tr>
-                <th>Empleado</th>
+                <th>Trabajador</th>
                 <th>RUT</th>
                 <th>Cargo</th>
                 <th>Departamento</th>
@@ -71,7 +83,12 @@ export default function Empleados() {
                     </span>
                   </td>
                   <td>
-                    <Link to={`/empleados/${e.id}`} className="btn btn-outline btn-sm">Ver</Link>
+                    <div className="flex items-center gap-2">
+                      <Link to={`/empleados/${e.id}`} className="btn btn-outline btn-sm">Ver</Link>
+                      <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(e)}>
+                        Desactivar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

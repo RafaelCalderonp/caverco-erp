@@ -91,6 +91,7 @@ class EmpleadoBase(BaseModel):
     direccion: Optional[str] = None
     comuna: Optional[str] = None
     ciudad: str = "Santiago"
+    region: Optional[str] = None
     telefono: Optional[str] = None
     email_personal: Optional[str] = None
     email_corporativo: Optional[str] = None
@@ -114,6 +115,7 @@ class EmpleadoUpdate(BaseModel):
     nombres: Optional[str] = None
     apellido_paterno: Optional[str] = None
     apellido_materno: Optional[str] = None
+    region: Optional[str] = None
     telefono: Optional[str] = None
     email_corporativo: Optional[str] = None
     id_departamento: Optional[int] = None
@@ -168,6 +170,7 @@ class ContratoCreate(BaseModel):
     sueldo_bruto: Decimal
     horas_semanales: int = 42
     jornada: str = "Completa"
+    horario_detalle: Optional[str] = None
     id_contrato_origen: Optional[int] = None
 
 class ContratoUpdate(BaseModel):
@@ -182,6 +185,7 @@ class ContratoUpdate(BaseModel):
     sueldo_bruto: Optional[Decimal] = None
     horas_semanales: Optional[int] = None
     jornada: Optional[str] = None
+    horario_detalle: Optional[str] = None
     estado: Optional[str] = None
 
 class ContratoOut(BaseModel):
@@ -201,6 +205,7 @@ class ContratoOut(BaseModel):
     sueldo_bruto: Decimal
     horas_semanales: int
     jornada: str
+    horario_detalle: Optional[str] = None
     estado: str
     id_contrato_origen: Optional[int] = None
     finiquito_ratificado: bool = False
@@ -212,6 +217,52 @@ class ContratoOut(BaseModel):
 class FiniquitoRatificacionCreate(BaseModel):
     fecha_ratificacion: date
     ministro_fe: str
+
+# ---- Contrato + Trabajador unificado (alta en un solo paso) ----
+class ContratoConTrabajadorCreate(BaseModel):
+    # Datos del trabajador
+    id_empresa: int
+    rut: str
+    nombres: str
+    apellido_paterno: str
+    apellido_materno: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    genero: Optional[str] = None
+    estado_civil: Optional[str] = None
+    nacionalidad: str = "Chilena"
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    region: Optional[str] = None
+    ciudad: str = "Santiago"
+    telefono: Optional[str] = None
+    email_personal: Optional[str] = None
+    email_corporativo: Optional[str] = None
+    id_departamento: Optional[int] = None
+    id_afp: Optional[int] = None
+    id_isapre: Optional[int] = None
+    valor_isapre_uf: Optional[Decimal] = None
+    n_cargas: Optional[int] = 0
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+
+    # Datos del contrato
+    id_tipo_contrato: int
+    id_obra: Optional[int] = None
+    id_centro_costo: Optional[int] = None
+    id_cargo: Optional[int] = None
+    numero_contrato: Optional[str] = None
+    fecha_contrato: date
+    fecha_inicio: date
+    fecha_termino_pactada: Optional[date] = None
+    sueldo_bruto: Decimal
+    horas_semanales: int = 42
+    jornada: str = "Completa"
+    horario_detalle: Optional[str] = None
+
+class ContratoConTrabajadorOut(BaseModel):
+    id_empleado: int
+    id_contrato: int
 
 # ---- Anexo de Contrato ----
 class AnexoContratoCreate(BaseModel):

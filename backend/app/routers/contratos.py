@@ -17,6 +17,7 @@ from app.models.rrhh import (
 from app.services.contrato_word import generar_contrato_docx
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
+    ContratoConTrabajadorCreate, ContratoConTrabajadorOut,
     AnexoContratoCreate, AnexoContratoOut,
     ContratoDocumentoCreate, ContratoDocumentoOut,
     ContratoRequisitoObraCreate, ContratoRequisitoObraUpdate, ContratoRequisitoObraOut,
@@ -117,6 +118,45 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
     )
+
+
+@router.post("/con-trabajador", response_model=ContratoConTrabajadorOut, status_code=201,
+             dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: AsyncSession = Depends(get_db)):
+    """Alta en un solo paso: crea el trabajador y su contrato a partir de un único formulario,
+    evitando ingresar los mismos datos dos veces."""
+    payload = data.model_dump()
+    campos_empleado = {
+        "id_empresa", "rut", "nombres", "apellido_paterno", "apellido_materno",
+        "fecha_nacimiento", "genero", "estado_civil", "nacionalidad",
+        "direccion", "comuna", "region", "ciudad", "telefono",
+        "email_personal", "email_corporativo", "id_departamento",
+        "id_afp", "id_isapre", "valor_isapre_uf", "n_cargas",
+        "banco", "tipo_cuenta", "numero_cuenta",
+    }
+    datos_empleado = {k: v for k, v in payload.items() if k in campos_empleado}
+    datos_empleado["fecha_ingreso"] = data.fecha_inicio
+    datos_empleado["sueldo_base"] = data.sueldo_bruto
+    datos_empleado["id_cargo"] = data.id_cargo
+    datos_empleado["id_centro_costo"] = data.id_centro_costo
+    datos_empleado["id_obra"] = data.id_obra
+    datos_empleado["id_tipo_contrato"] = data.id_tipo_contrato
+
+    empleado = Empleado(**datos_empleado)
+    db.add(empleado)
+    await db.flush()
+
+    datos_contrato = {
+        "id_tipo_contrato", "id_obra", "id_centro_costo", "id_cargo",
+        "numero_contrato", "fecha_contrato", "fecha_inicio", "fecha_termino_pactada",
+        "sueldo_bruto", "horas_semanales", "jornada", "horario_detalle",
+    }
+    contrato = Contrato(id_empleado=empleado.id, **{k: v for k, v in payload.items() if k in datos_contrato})
+    db.add(contrato)
+    await db.commit()
+    await db.refresh(empleado)
+    await db.refresh(contrato)
+    return ContratoConTrabajadorOut(id_empleado=empleado.id, id_contrato=contrato.id)
 
 
 @router.post("", response_model=ContratoOut, status_code=201,

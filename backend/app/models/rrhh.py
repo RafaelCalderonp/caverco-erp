@@ -113,6 +113,7 @@ class Empleado(Base):
     direccion         = Column(String(200))
     comuna            = Column(String(80))
     ciudad            = Column(String(80), default="Santiago")
+    region            = Column(String(80))
     telefono          = Column(String(20))
     email_personal    = Column(String(120))
     email_corporativo = Column(String(120))
@@ -160,6 +161,7 @@ class Contrato(Base):
     sueldo_bruto          = Column(Numeric(12, 2), nullable=False)
     horas_semanales       = Column(SmallInteger, default=42)
     jornada               = Column(String(30), default="Completa")
+    horario_detalle       = Column(Text)
     estado                = Column(String(20), nullable=False, default="vigente")  # vigente / finiquitado / anulado
     id_contrato_origen    = Column(Integer, ForeignKey("erp.contratos.id"))
     finiquito_ratificado       = Column(Boolean, nullable=False, default=False)  # Art. 177 CT: ratificación ante notario/inspector del trabajo o DT online
