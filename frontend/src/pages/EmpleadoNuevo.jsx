@@ -32,7 +32,7 @@ const EMPTY = {
   direccion: '', comuna: '', region: 'Metropolitana', ciudad: 'Santiago',
   telefono: '', email_personal: '', email_corporativo: '',
   // Paso 2
-  codigo_interno: '', fecha_ingreso: '', sueldo_base: '',
+  codigo_interno: '', fecha_ingreso: '', sueldo_base: '553553',
   id_tipo_contrato: '', id_departamento: '',
   cargo_nombre: '', centro_costo_nombre: '', obra_nombre: '',
   // Paso 3

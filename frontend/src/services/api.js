@@ -99,6 +99,7 @@ export const contratosApi = {
   create:      (data)          => api.post('/contratos', data),
   update:      (id, d)         => api.patch(`/contratos/${id}`, d),
   finiquitar:  (id, params)    => api.post(`/contratos/${id}/finiquitar`, null, { params }),
+  descargarWord: (id)          => api.get(`/contratos/${id}/word`, { responseType: 'blob' }),
   anexos: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/anexos`),
     create: (idContrato, d)    => api.post(`/contratos/${idContrato}/anexos`, d),

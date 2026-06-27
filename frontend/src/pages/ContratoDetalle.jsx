@@ -36,6 +36,26 @@ export default function ContratoDetalle() {
   const [calculandoFiniquito, setCalculandoFiniquito] = useState(false)
   const [errorFiniquito, setErrorFiniquito] = useState('')
 
+  const [descargando, setDescargando] = useState(false)
+  const [errorDescarga, setErrorDescarga] = useState('')
+
+  async function descargarWord() {
+    setDescargando(true); setErrorDescarga('')
+    try {
+      const r = await contratosApi.descargarWord(id)
+      const disposition = r.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `Contrato_${id}.docx`
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a = document.createElement('a')
+      a.href = url; a.download = nombre
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setErrorDescarga('No se pudo generar el documento Word')
+    } finally { setDescargando(false) }
+  }
+
   function cargar() {
     contratosApi.get(id).then(r => setContrato(r.data)).catch(() => {})
     contratosApi.anexos.list(id).then(r => setAnexos(r.data)).catch(() => {})
@@ -164,7 +184,15 @@ export default function ContratoDetalle() {
           <h1>{contrato.numero_contrato || `Contrato #${contrato.id}`}</h1>
           <span className={`badge ${ESTADO_BADGE[contrato.estado] || 'badge-gray'}`}>{contrato.estado}</span>
         </div>
+        <button className="btn btn-primary btn-sm" onClick={descargarWord} disabled={descargando}>
+          {descargando ? 'Generando…' : '📄 Descargar Word'}
+        </button>
       </div>
+      {errorDescarga && (
+        <div style={{padding:'8px 12px', borderRadius:6, marginBottom:12, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
+          {errorDescarga}
+        </div>
+      )}
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">

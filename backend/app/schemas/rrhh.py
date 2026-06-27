@@ -98,6 +98,14 @@ class EmpleadoBase(BaseModel):
     id_cargo: Optional[int] = None
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
+    id_afp: Optional[int] = None
+    id_isapre: Optional[int] = None
+    valor_isapre_uf: Optional[Decimal] = None
+    n_cargas: Optional[int] = 0
+    id_tipo_contrato: Optional[int] = None
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
 
 class EmpleadoCreate(EmpleadoBase):
     id_empresa: int
@@ -111,6 +119,14 @@ class EmpleadoUpdate(BaseModel):
     id_departamento: Optional[int] = None
     id_cargo: Optional[int] = None
     sueldo_base: Optional[Decimal] = None
+    id_afp: Optional[int] = None
+    id_isapre: Optional[int] = None
+    valor_isapre_uf: Optional[Decimal] = None
+    n_cargas: Optional[int] = None
+    id_tipo_contrato: Optional[int] = None
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
     activo: Optional[bool] = None
     fecha_egreso: Optional[date] = None
 

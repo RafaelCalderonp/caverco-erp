@@ -5,7 +5,7 @@ import { contratosApi, catalogosApi, empleadosApi } from '../services/api'
 const EMPTY = {
   id_empleado: '', id_tipo_contrato: '', id_obra: '', id_centro_costo: '', id_cargo: '',
   numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '',
-  sueldo_bruto: '', horas_semanales: 45, jornada: 'Completa',
+  sueldo_bruto: '553553', horas_semanales: 45, jornada: 'Completa',
 }
 
 function Campo({ label, required, children, span2 }) {

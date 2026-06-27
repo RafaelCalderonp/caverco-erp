@@ -1,16 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
+import io
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
     Contrato, AnexoContrato, ContratoDocumento, ContratoRequisitoObra,
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
+    Empresa, AFP, Isapre, TipoContrato,
 )
+from app.services.contrato_word import generar_contrato_docx
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
     AnexoContratoCreate, AnexoContratoOut,
@@ -82,6 +86,37 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
 @router.get("/{id}", response_model=ContratoOut)
 async def obtener_contrato(id: int, db: AsyncSession = Depends(get_db)):
     return await _get_contrato_or_404(id, db)
+
+
+@router.get("/{id}/word")
+async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    if empleado is None:
+        raise HTTPException(404, "Empleado no encontrado")
+    empresa = await db.get(Empresa, empleado.id_empresa)
+    cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
+    obra = await db.get(Obra, contrato.id_obra) if contrato.id_obra else None
+    afp = await db.get(AFP, empleado.id_afp) if empleado.id_afp else None
+    isapre = await db.get(Isapre, empleado.id_isapre) if empleado.id_isapre else None
+    tipo_contrato = await db.get(TipoContrato, contrato.id_tipo_contrato)
+
+    contenido = generar_contrato_docx(
+        empresa=empresa,
+        empleado=empleado,
+        contrato=contrato,
+        cargo_nombre=cargo.nombre if cargo else None,
+        obra=obra,
+        afp_nombre=afp.nombre if afp else None,
+        isapre_nombre=isapre.nombre if isapre else None,
+        tipo_contrato_codigo=tipo_contrato.codigo if tipo_contrato else None,
+    )
+    nombre_archivo = f"Contrato_{empleado.apellido_paterno}_{empleado.nombres}.docx".replace(" ", "_")
+    return StreamingResponse(
+        io.BytesIO(contenido),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+    )
 
 
 @router.post("", response_model=ContratoOut, status_code=201,
