@@ -80,7 +80,7 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         ", nacido el ", (_fecha_larga(empleado.fecha_nacimiento), True),
         ", estado civil ", (empleado.estado_civil or "", True),
         ", domiciliado en ", (empleado.direccion or "", True), ", ", (empleado.comuna or "", True),
-        ", ", (empleado.region or "", True), ", correo electrónico ", (empleado.email_personal or empleado.email_corporativo or "", True),
+        ", correo electrónico ", (empleado.email_personal or empleado.email_corporativo or "", True),
         ' en adelante "EL TRABAJADOR" se ha convenido el siguiente contrato de trabajo, en adelante el "CONTRATO":',
     ])
 

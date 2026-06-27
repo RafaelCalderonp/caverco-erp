@@ -158,7 +158,7 @@ class Contrato(Base):
     id_motivo_termino     = Column(Integer, ForeignKey("erp.motivos_termino.id"))
     aviso_previo_fecha    = Column(Date)
     sueldo_bruto          = Column(Numeric(12, 2), nullable=False)
-    horas_semanales       = Column(SmallInteger, default=45)
+    horas_semanales       = Column(SmallInteger, default=42)
     jornada               = Column(String(30), default="Completa")
     estado                = Column(String(20), nullable=False, default="vigente")  # vigente / finiquitado / anulado
     id_contrato_origen    = Column(Integer, ForeignKey("erp.contratos.id"))

@@ -166,7 +166,7 @@ class ContratoCreate(BaseModel):
     fecha_inicio: date
     fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
-    horas_semanales: int = 45
+    horas_semanales: int = 42
     jornada: str = "Completa"
     id_contrato_origen: Optional[int] = None
 

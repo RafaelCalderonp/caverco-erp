@@ -262,7 +262,8 @@ export default function EmpleadoNuevo() {
               </Campo>
               <Campo label="Horas Semanales">
                 {sel('horas_semanales',[
-                  {value:45,label:'45 horas (jornada completa)'},
+                  {value:42,label:'42 horas (jornada completa)'},
+                  {value:40,label:'40 horas'},
                   {value:30,label:'30 horas (media jornada)'},
                   {value:20,label:'20 horas'},
                 ])}
