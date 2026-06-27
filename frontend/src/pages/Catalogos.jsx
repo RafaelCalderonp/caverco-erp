@@ -38,7 +38,7 @@ function PanelObras({ empresaActual }) {
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
-  useEffect(cargar, [])
+  useEffect(() => { cargar() }, [])
 
   const crear = async (ev) => {
     ev.preventDefault()
@@ -174,7 +174,7 @@ function PanelCentrosCosto({ empresaActual }) {
   const [msg, setMsg] = useState('')
 
   const cargar = () => catalogosApi.centrosCosto().then(r => setCentros(r.data)).catch(() => {})
-  useEffect(cargar, [])
+  useEffect(() => { cargar() }, [])
 
   const crear = async (ev) => {
     ev.preventDefault()
