@@ -283,13 +283,19 @@ tbody td { padding: 12px 14px; font-size: 13.5px; color: var(--gray-700); }
   width: 360px; height: 360px; border-radius: 50%;
   background: radial-gradient(circle, rgba(200,147,46,.18), transparent 70%);
 }
-.login-brand-top { font-size: 13px; color: #b5b8c0; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
-.login-brand-logo-badge {
-  display: inline-flex; background: #fff; border-radius: 16px;
-  padding: 18px 26px; box-shadow: 0 8px 28px rgba(0,0,0,.35);
+.login-brand-hero {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
 }
-.login-brand-logo-badge img { height: 88px; width: auto; display: block; }
-.login-brand-mid h1 { font-size: 34px; font-weight: 800; line-height: 1.2; max-width: 380px; margin-top: 28px; }
+.login-brand-logo-badge {
+  display: inline-flex; background: #fff; border-radius: 18px;
+  padding: 24px 34px; box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+.login-brand-logo-badge img { height: 128px; width: auto; display: block; }
+.login-brand-modulos {
+  margin-top: 18px; font-size: 17px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent-lt);
+}
+.login-brand-mid h1 { font-size: 34px; font-weight: 800; line-height: 1.2; max-width: 380px; }
 .login-brand-mid p  { margin-top: 14px; color: #9a9da6; font-size: 14px; max-width: 360px; line-height: 1.6; }
 .login-brand-bottom { font-size: 12px; color: #6b6f78; }
 

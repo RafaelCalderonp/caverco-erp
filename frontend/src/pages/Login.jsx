@@ -29,8 +29,9 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-brand">
-        <div className="login-brand-top">
+        <div className="login-brand-hero">
           <div className="login-brand-logo-badge"><img src={logo} alt="Caverco Partners SpA." /></div>
+          <div className="login-brand-modulos">RECURSOS HUMANOS &amp; CONTABILIDAD</div>
         </div>
         <div className="login-brand-mid">
           <h1>Gestión de personas y obras, sin complicaciones.</h1>
