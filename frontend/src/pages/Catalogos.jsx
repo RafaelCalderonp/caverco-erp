@@ -227,7 +227,7 @@ export default function Catalogos() {
   return (
     <div>
       <div className="page-header">
-        <h1>Catálogos</h1>
+        <h1>Operación</h1>
       </div>
 
       <div className="wizard-steps" style={{marginBottom:16}}>

@@ -10,7 +10,7 @@ const NAV = [
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
-  { to: '/catalogos',     icon: '🗂️', label: 'Catálogos' },
+  { to: '/catalogos',     icon: '🗂️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
