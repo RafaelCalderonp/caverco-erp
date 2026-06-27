@@ -33,7 +33,7 @@ export default function Usuarios() {
       if (editando === 'nueva') {
         await usuariosApi.create(form)
       } else {
-        await usuariosApi.update(editando, { email: form.email, rol: form.rol, activo: form.activo })
+        await usuariosApi.update(editando, { username: form.username, email: form.email, rol: form.rol, activo: form.activo })
       }
       cargar()
       cerrar()
@@ -83,7 +83,7 @@ export default function Usuarios() {
           <div className="form-group">
             <label className="form-label">Usuario</label>
             <input className="input" required value={form.username}
-              onChange={e => setCampo('username', e.target.value)} disabled={editando !== 'nueva'} />
+              onChange={e => setCampo('username', e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">Correo</label>

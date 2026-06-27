@@ -25,6 +25,7 @@ class UsuarioCreate(BaseModel):
     id_empleado: Optional[int] = None
 
 class UsuarioUpdate(BaseModel):
+    username: Optional[str] = None
     email: Optional[EmailStr] = None
     rol: Optional[RolUsuario] = None
     activo: Optional[bool] = None

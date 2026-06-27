@@ -132,6 +132,12 @@ async def actualizar_usuario(id_usuario: int, data: UsuarioUpdate, db: AsyncSess
     if usuario.id == solicitante.id and cambios.get("activo") is False:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu propia cuenta")
 
+    nuevo_username = cambios.get("username")
+    if nuevo_username and nuevo_username != usuario.username:
+        existe = await db.execute(select(Usuario).where(Usuario.username == nuevo_username, Usuario.id != usuario.id))
+        if existe.scalar_one_or_none():
+            raise HTTPException(status.HTTP_409_CONFLICT, "Ese nombre de usuario ya está en uso")
+
     for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
     await db.flush()
