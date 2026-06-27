@@ -77,7 +77,7 @@ export default function Layout() {
         <header className="topbar">
           <h2>{pageTitle}</h2>
           <div className="topbar-right">
-            {empresaActual && (
+            {empresaActual && location.pathname !== '/seleccionar-empresa' && (
               <button className="btn btn-outline btn-sm" onClick={() => navigate('/seleccionar-empresa')}>
                 🏢 {empresaActual.razon_social} · Cambiar
               </button>

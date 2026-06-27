@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { empresasApi } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 const VACIO = {
   rut: '', razon_social: '', nombre_fantasia: '', direccion: '',
@@ -8,6 +9,7 @@ const VACIO = {
 }
 
 export default function Empresas() {
+  const { recargarEmpresas } = useEmpresa()
   const [empresas, setEmpresas] = useState([])
   const [editando, setEditando] = useState(null) // null = lista, 'nueva' o id
   const [form, setForm] = useState(VACIO)
@@ -42,6 +44,7 @@ export default function Empresas() {
         await empresasApi.update(editando, form)
       }
       cargar()
+      recargarEmpresas()
       cerrar()
     } catch (err) {
       setMsg(err.response?.data?.detail || 'Error al guardar la empresa')
