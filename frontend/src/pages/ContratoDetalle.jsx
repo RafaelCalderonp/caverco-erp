@@ -29,7 +29,7 @@ export default function ContratoDetalle() {
   const [guardandoContrato, setGuardandoContrato] = useState(false)
   const [errorContrato, setErrorContrato] = useState('')
   const [mostrarFormAnexo, setMostrarFormAnexo] = useState(false)
-  const [formAnexo, setFormAnexo] = useState({ id_tipo_anexo: '', fecha_anexo: '', observacion: '' })
+  const [formAnexo, setFormAnexo] = useState({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
   const [guardandoAnexo, setGuardandoAnexo] = useState(false)
   const [errorAnexo, setErrorAnexo] = useState('')
 
@@ -93,6 +93,8 @@ export default function ContratoDetalle() {
   }, [id])
 
   const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
+  const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
+  const yaProrrogado = anexos.some(a => tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo === 'PRORROGA_PLAZO')
 
   const abrirEdicion = () => {
     setFormContrato({
@@ -150,11 +152,16 @@ export default function ContratoDetalle() {
     }
     setGuardandoAnexo(true); setErrorAnexo('')
     try {
+      const { plazo_dias, ...formSinPlazo } = formAnexo
+      const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
       await contratosApi.anexos.create(id, {
-        ...formAnexo,
+        ...formSinPlazo,
         id_tipo_anexo: Number(formAnexo.id_tipo_anexo),
+        nueva_fecha_termino: esProrroga && contrato.fecha_termino_pactada
+          ? calcularFechaTermino(contrato.fecha_termino_pactada, plazo_dias)
+          : null,
       })
-      setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '' })
+      setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
       setMostrarFormAnexo(false)
       cargar()
     } catch (err) {
@@ -457,13 +464,20 @@ export default function ContratoDetalle() {
                 {errorAnexo}
               </div>
             )}
+            {yaProrrogado && (
+              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fef3c7', color:'#92400e', fontSize:13}}>
+                Este contrato ya tiene una prórroga registrada. El próximo anexo debe ser de Conversión a Indefinido.
+              </div>
+            )}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
               <div className="form-group">
                 <label className="form-label">Tipo de Anexo<span style={{color:'var(--danger)'}}> *</span></label>
                 <select className="select" value={formAnexo.id_tipo_anexo}
                   onChange={e => setFormAnexo(f => ({ ...f, id_tipo_anexo: e.target.value }))}>
                   <option value="">Seleccionar…</option>
-                  {tiposAnexo.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  {tiposAnexo.map(t => (
+                    <option key={t.id} value={t.id} disabled={yaProrrogado && t.codigo === 'PRORROGA_PLAZO'}>{t.nombre}</option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
@@ -471,6 +485,23 @@ export default function ContratoDetalle() {
                 <input className="input" type="date" value={formAnexo.fecha_anexo}
                   onChange={e => setFormAnexo(f => ({ ...f, fecha_anexo: e.target.value }))} />
               </div>
+              {esProrroga && (
+                <div className="form-group">
+                  <label className="form-label">Plazo de la Prórroga</label>
+                  <select className="select" value={formAnexo.plazo_dias}
+                    onChange={e => setFormAnexo(f => ({ ...f, plazo_dias: e.target.value }))}>
+                    <option value="30">30 días</option>
+                    <option value="60">60 días</option>
+                    <option value="90">90 días</option>
+                    <option value="120">120 días</option>
+                  </select>
+                  {contrato.fecha_termino_pactada && (
+                    <span style={{fontSize:11,color:'var(--gray-500)'}}>
+                      Nuevo vencimiento: {calcularFechaTermino(contrato.fecha_termino_pactada, formAnexo.plazo_dias)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="form-group" style={{marginBottom:10}}>
               <label className="form-label">Observación</label>

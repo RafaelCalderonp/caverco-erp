@@ -12,7 +12,7 @@ from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
     Contrato, AnexoContrato, ContratoDocumento, ContratoRequisitoObra,
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
-    Empresa, AFP, Isapre, TipoContrato,
+    Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
 from app.services.contrato_word import generar_contrato_docx
 from app.services.correlativos import siguiente_codigo
@@ -253,6 +253,29 @@ async def listar_anexos(id: int, db: AsyncSession = Depends(get_db)):
 async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
     empleado = await db.get(Empleado, contrato.id_empleado)
+    tipo_anexo = await db.get(TipoAnexo, data.id_tipo_anexo)
+    if tipo_anexo is None:
+        raise HTTPException(400, "Tipo de anexo no encontrado")
+
+    if tipo_anexo.codigo == "PRORROGA_PLAZO":
+        ya_prorrogado = (await db.execute(
+            select(AnexoContrato)
+            .join(TipoAnexo, TipoAnexo.id == AnexoContrato.id_tipo_anexo)
+            .where(AnexoContrato.id_contrato == id, TipoAnexo.codigo == "PRORROGA_PLAZO")
+        )).scalar_one_or_none() is not None
+        if ya_prorrogado:
+            raise HTTPException(400, "Este contrato ya tiene una prórroga registrada. Un contrato a plazo fijo solo puede prorrogarse una vez; el siguiente anexo debe ser de Conversión a Indefinido.")
+        if not data.nueva_fecha_termino:
+            raise HTTPException(400, "Debe indicar el plazo de la prórroga")
+        contrato.fecha_termino_pactada = data.nueva_fecha_termino
+
+    elif tipo_anexo.codigo == "CONV_INDEFINIDO":
+        tipo_indefinido = (await db.execute(select(TipoContrato).where(TipoContrato.codigo == "INDEFINIDO"))).scalar_one_or_none()
+        if tipo_indefinido is None:
+            raise HTTPException(500, "No está configurado el tipo de contrato Indefinido")
+        contrato.id_tipo_contrato = tipo_indefinido.id
+        contrato.fecha_termino_pactada = None
+
     anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **data.model_dump())
     db.add(anexo)
     await db.commit()
