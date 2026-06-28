@@ -83,10 +83,13 @@ export default function ContratoDetalle() {
     catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
   }, [id])
 
+  const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
+
   const abrirEdicion = () => {
     setFormContrato({
       numero_contrato: contrato.numero_contrato || '',
       id_tipo_contrato: contrato.id_tipo_contrato || '',
+      plazo_dias: '30',
       fecha_contrato: contrato.fecha_contrato || '',
       fecha_inicio: contrato.fecha_inicio || '',
       fecha_termino_pactada: contrato.fecha_termino_pactada || '',
@@ -108,8 +111,9 @@ export default function ContratoDetalle() {
   const guardarContrato = async () => {
     setGuardandoContrato(true); setErrorContrato('')
     try {
+      const { plazo_dias, ...formSinPlazo } = formContrato
       await contratosApi.update(id, {
-        ...formContrato,
+        ...formSinPlazo,
         id_tipo_contrato: formContrato.id_tipo_contrato ? Number(formContrato.id_tipo_contrato) : null,
         fecha_contrato: formContrato.fecha_contrato || null,
         fecha_inicio: formContrato.fecha_inicio || null,
@@ -281,6 +285,29 @@ export default function ContratoDetalle() {
                 {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
             </div>
+            {esPlazoFijo && (
+              <div className="form-group">
+                <label className="form-label">Plazo</label>
+                <select className="select" value={formContrato.plazo_dias || '30'}
+                  onChange={e => {
+                    const dias = e.target.value
+                    setFormContrato(f => {
+                      const next = { ...f, plazo_dias: dias }
+                      if (dias && f.fecha_inicio) {
+                        const fecha = new Date(f.fecha_inicio + 'T00:00:00')
+                        fecha.setDate(fecha.getDate() + Number(dias))
+                        next.fecha_termino_pactada = fecha.toISOString().slice(0, 10)
+                      }
+                      return next
+                    })
+                  }}>
+                  <option value="30">30 días</option>
+                  <option value="60">60 días</option>
+                  <option value="90">90 días</option>
+                  <option value="120">120 días</option>
+                </select>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">Sueldo Bruto</label>
               <input className="input" type="number" value={formContrato.sueldo_bruto}
