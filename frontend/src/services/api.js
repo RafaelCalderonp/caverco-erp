@@ -2,7 +2,11 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', timeout: 10000 })
 
-const SIN_SCOPE_EMPRESA = ['/empresas', '/auth', '/catalogos']
+const SIN_SCOPE_EMPRESA = [
+  '/empresas', '/auth',
+  '/catalogos/tipos-contrato', '/catalogos/motivos-termino', '/catalogos/tipos-anexo',
+  '/catalogos/afp', '/catalogos/isapre',
+]
 
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('token')
