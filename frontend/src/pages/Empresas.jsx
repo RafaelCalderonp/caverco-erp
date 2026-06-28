@@ -21,7 +21,7 @@ export default function Empresas() {
   useEffect(() => { cargar() }, [])
 
   const abrirNueva = () => { setForm(VACIO); setMsg(null); setEditando('nueva') }
-  const abrirEditar = (emp) => { setForm({ ...VACIO, ...emp }); setMsg(null); setEditando(emp.id) }
+  const abrirEditar = (emp) => { setForm({ ...VACIO, ...emp, region: emp.region || 'Metropolitana' }); setMsg(null); setEditando(emp.id) }
   const cerrar = () => setEditando(null)
 
   const setCampo = (k, v) => setForm(f => ({ ...f, [k]: v }))
