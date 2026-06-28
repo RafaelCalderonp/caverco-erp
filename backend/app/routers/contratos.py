@@ -37,6 +37,7 @@ async def _get_contrato_or_404(id: int, db: AsyncSession) -> Contrato:
             selectinload(Contrato.anexos),
             selectinload(Contrato.documentos),
             selectinload(Contrato.requisitos_obra),
+            selectinload(Contrato.empleado),
         )
         .where(Contrato.id == id)
     )
@@ -54,7 +55,7 @@ async def listar_contratos(
     id_empresa: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Contrato)
+    query = select(Contrato).options(selectinload(Contrato.empleado))
     if id_empresa is not None:
         query = query.join(Empleado, Empleado.id == Contrato.id_empleado).where(Empleado.id_empresa == id_empresa)
     if id_empleado is not None:

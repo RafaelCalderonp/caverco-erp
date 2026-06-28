@@ -52,7 +52,7 @@ export default function EmpleadoDetalle() {
           ? <p className="text-muted">Sin contratos registrados</p>
           : emp.contratos.map(c => (
             <Link key={c.id} to={`/contratos/${c.id}`} style={{display:'block', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              Contrato #{c.id} — Desde {c.fecha_inicio} — {fmt(c.sueldo_bruto)}
+              Contrato {c.numero_contrato || `#${c.id}`} — Desde {c.fecha_inicio} — {fmt(c.sueldo_bruto)}
             </Link>
           ))
         }

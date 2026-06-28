@@ -59,7 +59,9 @@ export default function Contratos() {
               {contratos.map(c => (
                 <tr key={c.id}>
                   <td>{c.numero_contrato || `#${c.id}`}</td>
-                  <td className="text-muted">Empleado #{c.id_empleado}</td>
+                  <td className="text-muted">
+                    {c.empleado ? `${c.empleado.codigo || '#' + c.empleado.id} — ${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Empleado #${c.id_empleado}`}
+                  </td>
                   <td className="text-muted">{c.fecha_inicio}</td>
                   <td>{fmt(c.sueldo_bruto)}</td>
                   <td>{c.jornada}</td>

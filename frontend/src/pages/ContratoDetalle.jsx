@@ -197,7 +197,7 @@ export default function ContratoDetalle() {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
-          {[['Empleado', `#${contrato.id_empleado}`],
+          {[['Empleado', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
             ['Fecha Contrato', contrato.fecha_contrato],
             ['Fecha Inicio', contrato.fecha_inicio],
             ['Fecha Término Pactada', contrato.fecha_termino_pactada],

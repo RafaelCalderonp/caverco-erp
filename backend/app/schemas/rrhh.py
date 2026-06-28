@@ -246,9 +246,19 @@ class ContratoUpdate(BaseModel):
     horario_detalle: Optional[str] = None
     estado: Optional[str] = None
 
+class EmpleadoMiniOut(BaseModel):
+    id: int
+    codigo: Optional[str] = None
+    nombres: str
+    apellido_paterno: str
+    apellido_materno: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
 class ContratoOut(BaseModel):
     id: int
     id_empleado: int
+    empleado: Optional[EmpleadoMiniOut] = None
     id_tipo_contrato: int
     id_obra: Optional[int] = None
     id_centro_costo: Optional[int] = None
