@@ -143,10 +143,10 @@ class EmpleadoBase(BaseModel):
     fecha_nacimiento: Optional[date] = None
     genero: Optional[str] = None
     estado_civil: Optional[str] = None
-    nacionalidad: str = "Chilena"
+    nacionalidad: Optional[str] = "Chilena"
     direccion: Optional[str] = None
     comuna: Optional[str] = None
-    ciudad: str = "Santiago"
+    ciudad: Optional[str] = "Santiago"
     region: Optional[str] = None
     telefono: Optional[str] = None
     email_personal: Optional[str] = None
