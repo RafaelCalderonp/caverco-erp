@@ -232,10 +232,13 @@ class ContratoCreate(BaseModel):
     id_contrato_origen: Optional[int] = None
 
 class ContratoUpdate(BaseModel):
+    id_tipo_contrato: Optional[int] = None
     id_obra: Optional[int] = None
     id_centro_costo: Optional[int] = None
     id_cargo: Optional[int] = None
     numero_contrato: Optional[str] = None
+    fecha_contrato: Optional[date] = None
+    fecha_inicio: Optional[date] = None
     fecha_termino_pactada: Optional[date] = None
     fecha_termino_real: Optional[date] = None
     id_motivo_termino: Optional[int] = None

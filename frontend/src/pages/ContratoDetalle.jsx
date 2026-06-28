@@ -12,6 +12,8 @@ export default function ContratoDetalle() {
   const [obras, setObras] = useState([])
   const [cargos, setCargos] = useState([])
   const [centrosCosto, setCentrosCosto] = useState([])
+  const [tiposContrato, setTiposContrato] = useState([])
+  const [motivosTermino, setMotivosTermino] = useState([])
 
   const [editando, setEditando] = useState(false)
   const [formContrato, setFormContrato] = useState(null)
@@ -77,11 +79,20 @@ export default function ContratoDetalle() {
     catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
     catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
     catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
+    catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
+    catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
   }, [id])
 
   const abrirEdicion = () => {
     setFormContrato({
       numero_contrato: contrato.numero_contrato || '',
+      id_tipo_contrato: contrato.id_tipo_contrato || '',
+      fecha_contrato: contrato.fecha_contrato || '',
+      fecha_inicio: contrato.fecha_inicio || '',
+      fecha_termino_pactada: contrato.fecha_termino_pactada || '',
+      fecha_termino_real: contrato.fecha_termino_real || '',
+      id_motivo_termino: contrato.id_motivo_termino || '',
+      aviso_previo_fecha: contrato.aviso_previo_fecha || '',
       sueldo_bruto: contrato.sueldo_bruto || '',
       horas_semanales: contrato.horas_semanales || 42,
       jornada: contrato.jornada || 'Completa',
@@ -99,6 +110,13 @@ export default function ContratoDetalle() {
     try {
       await contratosApi.update(id, {
         ...formContrato,
+        id_tipo_contrato: formContrato.id_tipo_contrato ? Number(formContrato.id_tipo_contrato) : null,
+        fecha_contrato: formContrato.fecha_contrato || null,
+        fecha_inicio: formContrato.fecha_inicio || null,
+        fecha_termino_pactada: formContrato.fecha_termino_pactada || null,
+        fecha_termino_real: formContrato.fecha_termino_real || null,
+        id_motivo_termino: formContrato.id_motivo_termino ? Number(formContrato.id_motivo_termino) : null,
+        aviso_previo_fecha: formContrato.aviso_previo_fecha || null,
         sueldo_bruto: Number(formContrato.sueldo_bruto),
         horas_semanales: Number(formContrato.horas_semanales),
         id_obra: formContrato.id_obra ? Number(formContrato.id_obra) : null,
@@ -256,6 +274,14 @@ export default function ContratoDetalle() {
                 onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
             </div>
             <div className="form-group">
+              <label className="form-label">Tipo de Contrato</label>
+              <select className="select" value={formContrato.id_tipo_contrato}
+                onChange={e => setFormContrato(f => ({ ...f, id_tipo_contrato: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
               <label className="form-label">Sueldo Bruto</label>
               <input className="input" type="number" value={formContrato.sueldo_bruto}
                 onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
@@ -272,6 +298,39 @@ export default function ContratoDetalle() {
                 <option value="Completa">Completa</option>
                 <option value="Parcial">Parcial</option>
               </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Contrato</label>
+              <input className="input" type="date" value={formContrato.fecha_contrato}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_contrato: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Inicio</label>
+              <input className="input" type="date" value={formContrato.fecha_inicio}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_inicio: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Término Pactada</label>
+              <input className="input" type="date" value={formContrato.fecha_termino_pactada}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Término Real</label>
+              <input className="input" type="date" value={formContrato.fecha_termino_real}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Motivo Término</label>
+              <select className="select" value={formContrato.id_motivo_termino}
+                onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Aviso Previo (fecha)</label>
+              <input className="input" type="date" value={formContrato.aviso_previo_fecha}
+                onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Obra</label>
@@ -315,6 +374,7 @@ export default function ContratoDetalle() {
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
           {[['Empleado', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
+            ['Tipo de Contrato', tiposContrato.find(t => t.id === contrato.id_tipo_contrato)?.nombre || (contrato.id_tipo_contrato ? `#${contrato.id_tipo_contrato}` : '—')],
             ['Fecha Contrato', contrato.fecha_contrato],
             ['Fecha Inicio', contrato.fecha_inicio],
             ['Fecha Término Pactada', contrato.fecha_termino_pactada],
@@ -330,10 +390,10 @@ export default function ContratoDetalle() {
 
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Asignación</h3>
-          {[['Obra', contrato.id_obra ? `#${contrato.id_obra}` : '—'],
-            ['Centro de Costo', contrato.id_centro_costo ? `#${contrato.id_centro_costo}` : '—'],
-            ['Cargo', contrato.id_cargo ? `#${contrato.id_cargo}` : '—'],
-            ['Motivo Término', contrato.id_motivo_termino ? `#${contrato.id_motivo_termino}` : '—'],
+          {[['Obra', obras.find(o => o.id === contrato.id_obra)?.nombre || (contrato.id_obra ? `#${contrato.id_obra}` : '—')],
+            ['Centro de Costo', centrosCosto.find(c => c.id === contrato.id_centro_costo)?.nombre || (contrato.id_centro_costo ? `#${contrato.id_centro_costo}` : '—')],
+            ['Cargo', cargos.find(c => c.id === contrato.id_cargo)?.nombre || (contrato.id_cargo ? `#${contrato.id_cargo}` : '—')],
+            ['Motivo Término', motivosTermino.find(m => m.id === contrato.id_motivo_termino)?.nombre || (contrato.id_motivo_termino ? `#${contrato.id_motivo_termino}` : '—')],
             ['Aviso Previo', contrato.aviso_previo_fecha || '—']].map(([k,v]) => (
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--gray-100)'}}>
               <span className="text-muted">{k}</span><span style={{fontWeight:500}}>{v}</span>
