@@ -10,6 +10,13 @@ export default function ContratoDetalle() {
   const [entregas, setEntregas] = useState([])
   const [tiposAnexo, setTiposAnexo] = useState([])
   const [obras, setObras] = useState([])
+  const [cargos, setCargos] = useState([])
+  const [centrosCosto, setCentrosCosto] = useState([])
+
+  const [editando, setEditando] = useState(false)
+  const [formContrato, setFormContrato] = useState(null)
+  const [guardandoContrato, setGuardandoContrato] = useState(false)
+  const [errorContrato, setErrorContrato] = useState('')
   const [mostrarFormAnexo, setMostrarFormAnexo] = useState(false)
   const [formAnexo, setFormAnexo] = useState({ id_tipo_anexo: '', fecha_anexo: '', observacion: '' })
   const [guardandoAnexo, setGuardandoAnexo] = useState(false)
@@ -68,7 +75,42 @@ export default function ContratoDetalle() {
     cargar()
     catalogosApi.tiposAnexo().then(r => setTiposAnexo(r.data)).catch(() => {})
     catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
+    catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
+    catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
   }, [id])
+
+  const abrirEdicion = () => {
+    setFormContrato({
+      numero_contrato: contrato.numero_contrato || '',
+      sueldo_bruto: contrato.sueldo_bruto || '',
+      horas_semanales: contrato.horas_semanales || 42,
+      jornada: contrato.jornada || 'Completa',
+      horario_detalle: contrato.horario_detalle || '',
+      id_obra: contrato.id_obra || '',
+      id_centro_costo: contrato.id_centro_costo || '',
+      id_cargo: contrato.id_cargo || '',
+    })
+    setErrorContrato('')
+    setEditando(true)
+  }
+
+  const guardarContrato = async () => {
+    setGuardandoContrato(true); setErrorContrato('')
+    try {
+      await contratosApi.update(id, {
+        ...formContrato,
+        sueldo_bruto: Number(formContrato.sueldo_bruto),
+        horas_semanales: Number(formContrato.horas_semanales),
+        id_obra: formContrato.id_obra ? Number(formContrato.id_obra) : null,
+        id_centro_costo: formContrato.id_centro_costo ? Number(formContrato.id_centro_costo) : null,
+        id_cargo: formContrato.id_cargo ? Number(formContrato.id_cargo) : null,
+      })
+      setEditando(false)
+      cargar()
+    } catch (err) {
+      setErrorContrato(err.response?.data?.detail || 'Error al guardar los cambios')
+    } finally { setGuardandoContrato(false) }
+  }
 
   async function guardarAnexo() {
     if (!formAnexo.id_tipo_anexo || !formAnexo.fecha_anexo) {
@@ -184,9 +226,14 @@ export default function ContratoDetalle() {
           <h1>{contrato.numero_contrato || `Contrato #${contrato.id}`}</h1>
           <span className={`badge ${ESTADO_BADGE[contrato.estado] || 'badge-gray'}`}>{contrato.estado}</span>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={descargarWord} disabled={descargando}>
-          {descargando ? 'Generando…' : '📄 Descargar Word'}
-        </button>
+        <div className="flex items-center gap-2">
+          {!editando && (
+            <button className="btn btn-outline btn-sm" onClick={abrirEdicion}>✏️ Editar</button>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={descargarWord} disabled={descargando}>
+            {descargando ? 'Generando…' : '📄 Descargar Word'}
+          </button>
+        </div>
       </div>
       {errorDescarga && (
         <div style={{padding:'8px 12px', borderRadius:6, marginBottom:12, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
@@ -194,6 +241,76 @@ export default function ContratoDetalle() {
         </div>
       )}
 
+      {editando ? (
+        <div className="card">
+          <h3 style={{marginBottom:16, fontWeight:600}}>Editar Contrato</h3>
+          {errorContrato && (
+            <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
+              {errorContrato}
+            </div>
+          )}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
+            <div className="form-group">
+              <label className="form-label">N° de Contrato</label>
+              <input className="input" value={formContrato.numero_contrato}
+                onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Sueldo Bruto</label>
+              <input className="input" type="number" value={formContrato.sueldo_bruto}
+                onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Horas Semanales</label>
+              <input className="input" type="number" value={formContrato.horas_semanales}
+                onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Jornada</label>
+              <select className="select" value={formContrato.jornada}
+                onChange={e => setFormContrato(f => ({ ...f, jornada: e.target.value }))}>
+                <option value="Completa">Completa</option>
+                <option value="Parcial">Parcial</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Obra</label>
+              <select className="select" value={formContrato.id_obra}
+                onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Centro de Costo</label>
+              <select className="select" value={formContrato.id_centro_costo}
+                onChange={e => setFormContrato(f => ({ ...f, id_centro_costo: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Cargo</label>
+              <select className="select" value={formContrato.id_cargo}
+                onChange={e => setFormContrato(f => ({ ...f, id_cargo: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group span2">
+              <label className="form-label">Detalle de Horario</label>
+              <textarea className="input" rows={2} value={formContrato.horario_detalle}
+                onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
+            </div>
+          </div>
+          <div style={{display:'flex', gap:8}}>
+            <button className="btn btn-primary btn-sm" onClick={guardarContrato} disabled={guardandoContrato}>
+              {guardandoContrato ? 'Guardando…' : 'Guardar Cambios'}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => setEditando(false)}>Cancelar</button>
+          </div>
+        </div>
+      ) : (
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
@@ -224,6 +341,7 @@ export default function ContratoDetalle() {
           ))}
         </div>
       </div>
+      )}
 
       <div className="card mt-4">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
