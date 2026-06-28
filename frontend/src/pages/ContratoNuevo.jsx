@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, departamentosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
+import { formatearRut, validarRut } from '../utils/rut'
 
 const STEPS = [
   { num: 1, label: 'Datos del Trabajador', icon: '👤' },
@@ -18,20 +19,11 @@ const EMPTY = {
   telefono: '', email_personal: '', email_corporativo: '', id_departamento: '',
   // Paso 2: contrato
   id_tipo_contrato: '', id_obra: '', id_centro_costo: '', id_cargo: '',
-  numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '',
+  numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '', plazo_dias: '30',
   sueldo_bruto: '553553', horas_semanales: 42, jornada: 'Completa', horario_detalle: '',
   // Paso 3: previsión
   id_afp: '', id_isapre: '', valor_isapre_uf: '', n_cargas: 0,
   banco: '', tipo_cuenta: '', numero_cuenta: '',
-}
-
-function formatearRut(valor) {
-  const limpio = valor.replace(/[^0-9kK]/g, '')
-  if (limpio.length < 2) return valor
-  const cuerpo = limpio.slice(0, -1)
-  const verificador = limpio.slice(-1).toUpperCase()
-  const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  return `${cuerpoConPuntos}-${verificador}`
 }
 
 function formatearTelefono(valor) {
@@ -80,11 +72,13 @@ export default function ContratoNuevo() {
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const esPlazoFijo = tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
 
   const validate = (s) => {
     const e = {}
     if (s === 1) {
       if (!form.rut.trim())              e.rut = 'RUT requerido'
+      else if (!validarRut(form.rut))    e.rut = 'RUT inválido (dígito verificador no coincide)'
       if (!form.nombres.trim())          e.nombres = 'Nombres requerido'
       if (!form.apellido_paterno.trim()) e.apellido_paterno = 'Apellido requerido'
     }
@@ -114,8 +108,9 @@ export default function ContratoNuevo() {
     if (Object.keys(e).length) { setErrors(e); return }
     setSaving(true); setMsg('')
     try {
+      const { plazo_dias, ...formSinPlazo } = form
       const payload = {
-        ...form,
+        ...formSinPlazo,
         id_empresa: empresaActual.id,
         fecha_nacimiento: form.fecha_nacimiento || null,
         genero: form.genero || null,
@@ -242,6 +237,25 @@ export default function ContratoNuevo() {
               </Campo>
               <Campo label="Fecha del Contrato" required>{inp('fecha_contrato', 'date')}</Campo>
               <Campo label="Fecha de Inicio" required>{inp('fecha_inicio', 'date')}</Campo>
+              {esPlazoFijo && (
+                <Campo label="Plazo">
+                  <select className="select" value={form.plazo_dias}
+                    onChange={e => {
+                      const dias = e.target.value
+                      set('plazo_dias', dias)
+                      if (dias && form.fecha_inicio) {
+                        const fecha = new Date(form.fecha_inicio + 'T00:00:00')
+                        fecha.setDate(fecha.getDate() + Number(dias))
+                        set('fecha_termino_pactada', fecha.toISOString().slice(0, 10))
+                      }
+                    }}>
+                    <option value="30">30 días</option>
+                    <option value="60">60 días</option>
+                    <option value="90">90 días</option>
+                    <option value="120">120 días</option>
+                  </select>
+                </Campo>
+              )}
               <Campo label="Fecha Término Pactada">{inp('fecha_termino_pactada', 'date')}</Campo>
               <Campo label="Sueldo Bruto (CLP)" required>{inp('sueldo_bruto', 'number', 'Ej: 900000')}</Campo>
               <Campo label="Horas Semanales">

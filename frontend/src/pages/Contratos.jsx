@@ -19,6 +19,13 @@ export default function Contratos() {
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 
+  const diasParaVencer = (c) => {
+    if (c.estado !== 'vigente' || !c.fecha_termino_pactada) return null
+    const hoy = new Date(); hoy.setHours(0,0,0,0)
+    const fin = new Date(c.fecha_termino_pactada + 'T00:00:00')
+    return Math.round((fin - hoy) / 86400000)
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -56,7 +63,9 @@ export default function Contratos() {
               {!loading && contratos.length === 0 && (
                 <tr><td colSpan={7} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
               )}
-              {contratos.map(c => (
+              {contratos.map(c => {
+                const dias = diasParaVencer(c)
+                return (
                 <tr key={c.id}>
                   <td>{c.numero_contrato || `#${c.id}`}</td>
                   <td className="text-muted">
@@ -67,12 +76,17 @@ export default function Contratos() {
                   <td>{c.jornada}</td>
                   <td>
                     <span className={`badge ${ESTADO_BADGE[c.estado] || 'badge-gray'}`}>{c.estado}</span>
+                    {dias !== null && dias <= 7 && (
+                      <span className={`badge ${dias <= 1 ? 'badge-red' : 'badge-orange'}`} style={{marginLeft:6}}>
+                        {dias < 0 ? `Vencido hace ${Math.abs(dias)}d` : dias === 0 ? '¡Vence hoy!' : `Vence en ${dias}d`}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <Link to={`/contratos/${c.id}`} className="btn btn-outline btn-sm">Ver</Link>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
