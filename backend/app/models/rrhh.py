@@ -149,6 +149,7 @@ class Empleado(Base):
     departamento     = relationship("Departamento", back_populates="empleados")
     cargo             = relationship("Cargo", back_populates="empleados")
     contratos         = relationship("Contrato", back_populates="empleado")
+    licencias         = relationship("Licencia", back_populates="empleado", foreign_keys="Licencia.id_empleado")
     afp_rel           = relationship("AFP")
     isapre_rel        = relationship("Isapre")
     tipo_contrato_rel = relationship("TipoContrato")
@@ -326,7 +327,7 @@ class Licencia(Base):
     created_at       = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at       = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
 
-    empleado = relationship("Empleado", foreign_keys=[id_empleado])
+    empleado = relationship("Empleado", back_populates="licencias", foreign_keys=[id_empleado])
 
 
 # ── Modelos previsionales ──────────────────────────────────────────────

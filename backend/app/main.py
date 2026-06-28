@@ -26,7 +26,7 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def manejador_excepciones_no_controladas(request: Request, exc: Exception):
     logger.exception("Error no controlado en %s %s", request.method, request.url.path)
-    respuesta = JSONResponse(status_code=500, content={"detail": f"Error interno del servidor: {exc}"})
+    respuesta = JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})
     origen = request.headers.get("origin")
     if origen and origen in settings.cors_origins_list:
         respuesta.headers["Access-Control-Allow-Origin"] = origen
