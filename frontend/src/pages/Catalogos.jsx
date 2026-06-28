@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react'
 import { catalogosApi, departamentosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
-
-const REGIONES = [
-  'Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo',
-  'Valparaíso','Metropolitana','O\'Higgins','Maule','Ñuble',
-  'Biobío','La Araucanía','Los Ríos','Los Lagos','Aysén','Magallanes',
-]
+import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 
 const TABS = [
   { key: 'obras', label: '🏗️ Obras' },
@@ -102,13 +97,16 @@ function PanelObras({ empresaActual }) {
             <input className="input" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} placeholder="Calle y número" />
           </div>
           <div className="form-group">
-            <label className="form-label">Comuna</label>
-            <input className="input" value={form.comuna} onChange={e=>setForm(f=>({...f,comuna:e.target.value}))} />
+            <label className="form-label">Región</label>
+            <select className="select" value={form.region} onChange={e=>setForm(f=>({...f,region:e.target.value, comuna:''}))}>
+              {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Región</label>
-            <select className="select" value={form.region} onChange={e=>setForm(f=>({...f,region:e.target.value}))}>
-              {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+            <label className="form-label">Comuna</label>
+            <select className="select" value={form.comuna} onChange={e=>setForm(f=>({...f,comuna:e.target.value}))}>
+              <option value="">Seleccionar…</option>
+              {(COMUNAS_POR_REGION[form.region] || []).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>

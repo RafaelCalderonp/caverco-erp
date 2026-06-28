@@ -2,12 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, departamentosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
-
-const REGIONES = [
-  'Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo',
-  'Valparaíso','Metropolitana','O\'Higgins','Maule','Ñuble',
-  'Biobío','La Araucanía','Los Ríos','Los Lagos','Aysén','Magallanes',
-]
+import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 
 const STEPS = [
   { num: 1, label: 'Datos del Trabajador', icon: '👤' },
@@ -228,8 +223,8 @@ export default function ContratoNuevo() {
               <Campo label="Email Personal">{inp('email_personal','email')}</Campo>
               <Campo label="Email Corporativo">{inp('email_corporativo','email')}</Campo>
               <Campo label="Dirección" span2>{inp('direccion','text','Calle, número, departamento')}</Campo>
-              <Campo label="Comuna">{inp('comuna')}</Campo>
               <Campo label="Región">{sel('region', REGIONES)}</Campo>
+              <Campo label="Comuna">{sel('comuna', COMUNAS_POR_REGION[form.region] || [])}</Campo>
               <Campo label="Departamento">
                 {sel('id_departamento', departamentos.map(d=>({value:d.id,label:`${d.codigo} — ${d.nombre}`})))}
               </Campo>

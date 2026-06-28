@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { empresasApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
+import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 
 const VACIO = {
-  rut: '', razon_social: '', nombre_fantasia: '', direccion: '',
+  rut: '', razon_social: '', nombre_fantasia: '', direccion: '', comuna: '', region: 'Metropolitana',
   contacto: '', telefono_contacto: '', email_contacto: '',
   representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '', prefijo: '',
 }
@@ -79,6 +80,21 @@ export default function Empresas() {
             <label className="form-label">Dirección</label>
             <input className="input" value={form.direccion || ''}
               onChange={e => setCampo('direccion', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Región</label>
+            <select className="select" value={form.region || 'Metropolitana'}
+              onChange={e => setForm(f => ({ ...f, region: e.target.value, comuna: '' }))}>
+              {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Comuna</label>
+            <select className="select" value={form.comuna || ''}
+              onChange={e => setCampo('comuna', e.target.value)}>
+              <option value="">Seleccionar…</option>
+              {(COMUNAS_POR_REGION[form.region] || []).map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">Teléfono Empresa</label>
