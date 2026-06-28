@@ -10,10 +10,21 @@ export default function EmpleadoDetalle() {
   const [form, setForm] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [errorCarga, setErrorCarga] = useState('')
 
-  const cargar = () => empleadosApi.get(id).then(r => setEmp(r.data)).catch(() => {})
+  const cargar = () => {
+    setErrorCarga('')
+    empleadosApi.get(id).then(r => setEmp(r.data))
+      .catch(err => setErrorCarga(err.response?.data?.detail || 'No se pudo cargar el trabajador'))
+  }
   useEffect(() => { cargar() }, [id])
 
+  if (errorCarga) return (
+    <div className="card">
+      <p style={{color:'#b91c1c', marginBottom:12}}>{errorCarga}</p>
+      <Link to="/empleados" className="btn btn-outline btn-sm">← Volver</Link>
+    </div>
+  )
   if (!emp) return <div className="card">Cargando…</div>
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
