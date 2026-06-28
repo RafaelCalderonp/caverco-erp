@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi } from '../services/api'
 
+function calcularFechaTermino(fechaInicioStr, dias) {
+  const fecha = new Date(fechaInicioStr + 'T00:00:00')
+  fecha.setDate(fecha.getDate() + Number(dias))
+  const diaSemana = fecha.getDay()
+  if (diaSemana === 6) fecha.setDate(fecha.getDate() + 2)
+  else if (diaSemana === 0) fecha.setDate(fecha.getDate() + 1)
+  return fecha.toISOString().slice(0, 10)
+}
+
 export default function ContratoDetalle() {
   const { id } = useParams()
   const [contrato, setContrato] = useState(null)
@@ -293,11 +302,7 @@ export default function ContratoDetalle() {
                     const dias = e.target.value
                     setFormContrato(f => {
                       const next = { ...f, plazo_dias: dias }
-                      if (dias && f.fecha_inicio) {
-                        const fecha = new Date(f.fecha_inicio + 'T00:00:00')
-                        fecha.setDate(fecha.getDate() + Number(dias))
-                        next.fecha_termino_pactada = fecha.toISOString().slice(0, 10)
-                      }
+                      if (dias && f.fecha_inicio) next.fecha_termino_pactada = calcularFechaTermino(f.fecha_inicio, dias)
                       return next
                     })
                   }}>
@@ -334,7 +339,14 @@ export default function ContratoDetalle() {
             <div className="form-group">
               <label className="form-label">Fecha Inicio</label>
               <input className="input" type="date" value={formContrato.fecha_inicio}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_inicio: e.target.value }))} />
+                onChange={e => {
+                  const fechaInicio = e.target.value
+                  setFormContrato(f => {
+                    const next = { ...f, fecha_inicio: fechaInicio }
+                    if (esPlazoFijo && f.plazo_dias && fechaInicio) next.fecha_termino_pactada = calcularFechaTermino(fechaInicio, f.plazo_dias)
+                    return next
+                  })
+                }} />
             </div>
             <div className="form-group">
               <label className="form-label">Fecha Término Pactada</label>
