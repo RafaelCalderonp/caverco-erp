@@ -202,21 +202,51 @@ async def cargar_archivo(
     if operacion not in ("COMPRA", "VENTA"):
         raise HTTPException(400, "operacion debe ser COMPRA o VENTA")
 
-    documentos_por_periodo: dict[str, list[dict]] = {}
-    for archivo in archivos:
-        contenido = (await archivo.read()).decode("utf-8-sig", errors="replace")
-        filas = contenido.splitlines()
-        for doc in parse_detalle_csv(filas, operacion):
-            if not doc.get("fecha_docto"):
-                continue
-            periodo = doc["fecha_docto"].strftime("%Y%m")
-            documentos_por_periodo.setdefault(periodo, []).append(doc)
+    try:
+        documentos_por_periodo: dict[str, list[dict]] = {}
+        for archivo in archivos:
+            raw = await archivo.read()
+            # Los CSV del SII se exportan en Windows-1252; intentamos UTF-8 primero con BOM
+            try:
+                contenido = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                contenido = raw.decode("cp1252", errors="replace")
 
-    if not documentos_por_periodo:
-        raise HTTPException(400, "Los archivos no contienen documentos válidos")
+            filas = contenido.splitlines()
+            docs_archivo = parse_detalle_csv(filas, operacion)
 
-    resultados = []
-    for periodo, documentos in documentos_por_periodo.items():
-        resultados.append(await _guardar_documentos(db, id_empresa, periodo, operacion, documentos))
-    await db.commit()
-    return resultados
+            if not docs_archivo:
+                raise HTTPException(
+                    400,
+                    f"El archivo '{archivo.filename}' no contiene documentos válidos o su formato no es compatible. "
+                    f"Descarga el CSV de detalle desde Registro de Compras y Ventas del SII (no el resumen)."
+                )
+
+            sin_fecha = 0
+            for doc in docs_archivo:
+                if not doc.get("fecha_docto"):
+                    sin_fecha += 1
+                    continue
+                periodo = doc["fecha_docto"].strftime("%Y%m")
+                documentos_por_periodo.setdefault(periodo, []).append(doc)
+
+            if sin_fecha == len(docs_archivo):
+                raise HTTPException(
+                    400,
+                    f"El archivo '{archivo.filename}' no tiene fechas legibles. "
+                    f"Verifica que sea el CSV de detalle del RCV (no el resumen)."
+                )
+
+        if not documentos_por_periodo:
+            raise HTTPException(400, "Los archivos no contienen documentos válidos con fecha de emisión.")
+
+        resultados = []
+        for periodo, documentos in documentos_por_periodo.items():
+            resultados.append(await _guardar_documentos(db, id_empresa, periodo, operacion, documentos))
+        await db.commit()
+        return resultados
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, f"Error procesando archivos: {exc}") from exc
