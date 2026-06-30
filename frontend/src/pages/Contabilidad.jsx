@@ -25,7 +25,7 @@ export default function Contabilidad() {
   const [docs, setDocs] = useState([])
   const [importando, setImportando] = useState(false)
   const [importMsg, setImportMsg] = useState(null)
-  const [archivo, setArchivo] = useState(null)
+  const [archivos, setArchivos] = useState(null)
   const [cargandoArchivo, setCargandoArchivo] = useState(false)
 
   const cargarCredencial = () => {
@@ -80,13 +80,19 @@ export default function Contabilidad() {
   }
 
   const cargarArchivo = async () => {
-    if (!archivo) return
+    if (!archivos || archivos.length === 0) return
     setCargandoArchivo(true)
     setImportMsg(null)
     try {
-      const r = await contabilidadApi.cargarArchivoRcv(idEmpresa, periodo, operacion, archivo)
-      setImportMsg(`✅ Cargados ${r.data.total_docs} documentos · Total ${CLP(r.data.monto_total)}`)
-      setArchivo(null)
+      const r = await contabilidadApi.cargarArchivoRcv(idEmpresa, operacion, archivos)
+      const totalDocs = r.data.reduce((acc, x) => acc + x.total_docs, 0)
+      const totalMonto = r.data.reduce((acc, x) => acc + x.monto_total, 0)
+      setImportMsg(
+        r.data.length > 1
+          ? `✅ Cargados ${r.data.length} períodos · ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+          : `✅ Cargados ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+      )
+      setArchivos(null)
       cargarDocs()
     } catch (err) {
       setImportMsg(err.response?.data?.detail || 'Error al cargar el archivo')
@@ -135,15 +141,16 @@ export default function Contabilidad() {
 
         <div style={{display:'flex', gap:12, alignItems:'flex-end', marginBottom:16, flexWrap:'wrap'}}>
           <div className="form-group" style={{marginBottom:0}}>
-            <label className="form-label">Cargar archivo RCV (CSV del SII, período {periodo})</label>
+            <label className="form-label">Cargar archivo(s) RCV (CSV del SII, uno o varios períodos)</label>
             <input
               type="file"
               accept=".csv,.txt"
-              onChange={e => setArchivo(e.target.files?.[0] || null)}
+              multiple
+              onChange={e => setArchivos(e.target.files?.length ? e.target.files : null)}
             />
           </div>
-          <button className="btn btn-secondary" onClick={cargarArchivo} disabled={!archivo || cargandoArchivo}>
-            {cargandoArchivo ? 'Cargando…' : 'Cargar archivo'}
+          <button className="btn btn-secondary" onClick={cargarArchivo} disabled={!archivos || cargandoArchivo}>
+            {cargandoArchivo ? 'Cargando…' : 'Cargar archivo(s)'}
           </button>
         </div>
 

@@ -163,11 +163,10 @@ export const contabilidadApi = {
     api.post(`/empresas/${idEmpresa}/contabilidad/rcv/importar`, { periodo, periodo_hasta: periodoHasta || undefined, operacion }),
   estadoImportRcv: (idEmpresa, jobId) =>
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv/importar/${jobId}`),
-  cargarArchivoRcv: (idEmpresa, periodo, operacion, archivo) => {
+  cargarArchivoRcv: (idEmpresa, operacion, archivos) => {
     const form = new FormData()
-    form.append('periodo', periodo)
     form.append('operacion', operacion)
-    form.append('archivo', archivo)
+    Array.from(archivos).forEach(f => form.append('archivos', f))
     return api.post(`/empresas/${idEmpresa}/contabilidad/rcv/cargar-archivo`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })

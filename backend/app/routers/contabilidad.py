@@ -185,26 +185,38 @@ async def estado_import(id_empresa: int, job_id: int, db: AsyncSession = Depends
 
 @router.post(
     "/rcv/cargar-archivo",
-    response_model=ImportarPeriodoOut,
+    response_model=List[ImportarPeriodoOut],
     dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))],
 )
 async def cargar_archivo(
     id_empresa: int,
-    periodo: str = Form(...),
     operacion: str = Form(...),
-    archivo: UploadFile = File(...),
+    archivos: List[UploadFile] = File(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Carga uno o varios archivos CSV del RCV exportados manualmente desde el SII.
+    Cada documento se asigna a su período (YYYYMM) según su fecha de emisión, por lo
+    que se pueden subir varios archivos de meses distintos (p.ej. los 12 de un año) en
+    una sola operación, sin importar cómo vengan agrupados los archivos."""
     operacion = operacion.upper()
     if operacion not in ("COMPRA", "VENTA"):
         raise HTTPException(400, "operacion debe ser COMPRA o VENTA")
 
-    contenido = (await archivo.read()).decode("utf-8-sig", errors="replace")
-    filas = contenido.splitlines()
-    documentos = parse_detalle_csv(filas, operacion)
-    if not documentos:
-        raise HTTPException(400, "El archivo no contiene documentos válidos")
+    documentos_por_periodo: dict[str, list[dict]] = {}
+    for archivo in archivos:
+        contenido = (await archivo.read()).decode("utf-8-sig", errors="replace")
+        filas = contenido.splitlines()
+        for doc in parse_detalle_csv(filas, operacion):
+            if not doc.get("fecha_docto"):
+                continue
+            periodo = doc["fecha_docto"].strftime("%Y%m")
+            documentos_por_periodo.setdefault(periodo, []).append(doc)
 
-    resultado = await _guardar_documentos(db, id_empresa, periodo, operacion, documentos)
+    if not documentos_por_periodo:
+        raise HTTPException(400, "Los archivos no contienen documentos válidos")
+
+    resultados = []
+    for periodo, documentos in documentos_por_periodo.items():
+        resultados.append(await _guardar_documentos(db, id_empresa, periodo, operacion, documentos))
     await db.commit()
-    return resultado
+    return resultados
