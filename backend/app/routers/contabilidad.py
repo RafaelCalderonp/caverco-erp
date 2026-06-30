@@ -205,10 +205,24 @@ async def cargar_archivo(
         raise HTTPException(400, "operacion debe ser COMPRA o VENTA")
 
     try:
+        import re as _re
+
+        def _periodo_desde_nombre(nombre: str) -> str | None:
+            """Extrae YYYYMM del nombre del archivo SII, p.ej. RCV_COMPRA_REGISTRO_77868358-K_202501.csv → '202501'."""
+            m = _re.search(r'(\d{6})(?:\.\w+)?$', nombre or '')
+            return m.group(1) if m else None
+
         documentos_por_periodo: dict[str, list[dict]] = {}
         for archivo in archivos:
+            periodo_archivo = _periodo_desde_nombre(archivo.filename)
+            if not periodo_archivo:
+                raise HTTPException(
+                    400,
+                    f"No se puede determinar el período del archivo '{archivo.filename}'. "
+                    f"El nombre debe terminar en YYYYMM, p.ej. RCV_COMPRA_REGISTRO_77868358-K_202501.csv"
+                )
+
             raw = await archivo.read()
-            # Los CSV del SII se exportan en Windows-1252; intentamos UTF-8 primero con BOM
             try:
                 contenido = raw.decode("utf-8-sig")
             except UnicodeDecodeError:
@@ -227,20 +241,7 @@ async def cargar_archivo(
                     f"Descarga el CSV de detalle desde Registro de Compras y Ventas del SII (no el resumen)."
                 )
 
-            sin_fecha = 0
-            for doc in docs_archivo:
-                if not doc.get("fecha_docto"):
-                    sin_fecha += 1
-                    continue
-                periodo = doc["fecha_docto"].strftime("%Y%m")
-                documentos_por_periodo.setdefault(periodo, []).append(doc)
-
-            if sin_fecha == len(docs_archivo):
-                raise HTTPException(
-                    400,
-                    f"El archivo '{archivo.filename}' no tiene fechas legibles. "
-                    f"Verifica que sea el CSV de detalle del RCV (no el resumen)."
-                )
+            documentos_por_periodo.setdefault(periodo_archivo, []).extend(docs_archivo)
 
         if not documentos_por_periodo:
             raise HTTPException(400, "Los archivos no contienen documentos válidos con fecha de emisión.")
