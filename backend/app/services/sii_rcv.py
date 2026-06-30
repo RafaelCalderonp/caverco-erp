@@ -1,25 +1,20 @@
 """
-Caverco ERP — Servicio SII RCV (httpx, sin browser)
+Caverco ERP — Servicio SII RCV (Playwright remoto vía Browserless)
 
-Importa el Registro de Compras y Ventas del SII autenticándose directamente
-via HTTP con httpx, sin necesidad de Playwright/Chromium.
+Importa el Registro de Compras y Ventas del SII autenticándose con un browser
+real (Chromium), conectado remotamente vía CDP a un proveedor de browser
+headless administrado (Browserless.io), en vez de lanzar Chromium localmente
+en el servidor (lo que requiere instalar dependencias de sistema como root,
+no disponible en el runtime nativo de Render).
 """
-import re
-import httpx
 from datetime import datetime
+from playwright.async_api import async_playwright
+
+from app.core.config import settings
 
 LOGIN_URL = "https://zeusr.sii.cl/cgi_AUT2000/InicioAutenticacion/IngresoRutClave.html"
 RCV_URL   = "https://www4.sii.cl/consdcvinternetui/"
 API_BASE  = "https://www4.sii.cl/consdcvinternetui/services/data"
-
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
-}
 
 
 def _split_rut(rut: str) -> tuple[str, str]:
@@ -94,51 +89,7 @@ def periodos_entre(periodo_desde: str, periodo_hasta: str) -> list[str]:
     return periodos
 
 
-async def _login(client: httpx.AsyncClient, rut: str, clave: str) -> None:
-    # Obtener página de login y extraer campos ocultos del formulario
-    resp = await client.get(LOGIN_URL, headers=_HEADERS, follow_redirects=True)
-    resp.raise_for_status()
-    html = resp.text
-
-    # Extraer acción del formulario
-    m = re.search(r'<form[^>]+action=["\']([^"\']+)["\']', html, re.IGNORECASE)
-    action = m.group(1) if m else "/cgi_AUT2000/CAutentificacion/AutentificacionDOS.cgi"
-    if not action.startswith("http"):
-        action = "https://zeusr.sii.cl" + action
-
-    # Campos hidden (dos variantes de orden de atributos)
-    hidden: dict[str, str] = {}
-    for name, value in re.findall(
-        r'<input[^>]+type=["\']hidden["\'][^>]+name=["\']([^"\']+)["\'][^>]+value=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    ):
-        hidden[name] = value
-    for name, value in re.findall(
-        r'<input[^>]+name=["\']([^"\']+)["\'][^>]+type=["\']hidden["\'][^>]+value=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    ):
-        hidden[name] = value
-
-    data = {**hidden, "rutcntr": rut, "clave": clave}
-
-    resp = await client.post(
-        action, data=data,
-        headers={**_HEADERS, "Referer": LOGIN_URL, "Content-Type": "application/x-www-form-urlencoded"},
-        follow_redirects=True,
-    )
-    resp.raise_for_status()
-
-    body = resp.text.lower()
-    if "clave incorrecta" in body or "rut inv" in body or "error de autenticaci" in body:
-        raise ValueError("Credenciales SII incorrectas (RUT o clave inválidos)")
-
-    # Visitar el portal RCV para que www4.sii.cl establezca su propia sesión
-    await client.get(RCV_URL, headers={**_HEADERS, "Referer": str(resp.url)}, follow_redirects=True)
-
-
-async def _descargar_periodo(
-    client: httpx.AsyncClient, rut: str, dv: str, periodo: str, operacion: str
-) -> list[dict]:
+async def _descargar_periodo(page, rut: str, dv: str, periodo: str, operacion: str) -> list[dict]:
     metodo = "getDetalleCompraExport" if operacion == "COMPRA" else "getDetalleVentaExport"
     payload = {
         "rutEmisor":       rut,
@@ -150,14 +101,19 @@ async def _descargar_periodo(
         "accionRecaptcha": "RCV_DDETC",
         "tokenRecaptcha":  "t-o-k-e-n-web",
     }
-    resp = await client.post(
-        f"{API_BASE}/facadeService/{metodo}",
-        json=payload,
-        headers={**_HEADERS, "Referer": RCV_URL, "Content-Type": "application/json"},
-        follow_redirects=True,
+    respuesta = await page.evaluate(
+        """async ({url, payload}) => {
+            const r = await fetch(url, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
+            return await r.json();
+        }""",
+        {"url": f"{API_BASE}/facadeService/{metodo}", "payload": payload},
     )
-    resp.raise_for_status()
-    filas = resp.json().get("data", [])
+    filas = respuesta.get("data", [])
     return parse_detalle_csv(filas, operacion)
 
 
@@ -169,10 +125,32 @@ async def importar_rcv(rut_empresa: str, clave: str, periodo: str, operacion: st
 async def importar_rcv_multi(
     rut_empresa: str, clave: str, periodos: list[str], operacion: str
 ) -> dict[str, list[dict]]:
+    """Inicia sesión una sola vez en el SII (vía browser remoto Browserless) y
+    descarga el detalle de compras o ventas para cada período YYYYMM de la lista,
+    reutilizando la misma sesión."""
+    if not settings.BROWSERLESS_API_KEY:
+        raise RuntimeError("BROWSERLESS_API_KEY no está configurada en el servidor")
+
     rut, dv = _split_rut(rut_empresa)
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        await _login(client, rut, clave)
-        resultado = {}
-        for periodo in periodos:
-            resultado[periodo] = await _descargar_periodo(client, rut, dv, periodo, operacion)
-        return resultado
+    ws_endpoint = f"{settings.BROWSERLESS_WS_URL}?token={settings.BROWSERLESS_API_KEY}"
+
+    async with async_playwright() as p:
+        browser = await p.chromium.connect_over_cdp(ws_endpoint)
+        try:
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+            page = await context.new_page()
+            try:
+                await page.goto(LOGIN_URL)
+                await page.fill("#rutcntr", rut)
+                await page.fill("#clave", clave)
+                await page.click("#bt_ingresar")
+                await page.wait_for_load_state("networkidle")
+
+                resultado = {}
+                for periodo in periodos:
+                    resultado[periodo] = await _descargar_periodo(page, rut, dv, periodo, operacion)
+                return resultado
+            finally:
+                await page.close()
+        finally:
+            await browser.close()

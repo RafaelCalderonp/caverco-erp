@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Numeric, Date, Text, ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 
 TIMESTAMPTZ = TIMESTAMP(timezone=True)
 from sqlalchemy.sql import func
@@ -48,3 +48,21 @@ class RcvDocumento(Base):
     monto_iva         = Column(Numeric(14, 2), default=0)
     monto_total       = Column(Numeric(14, 2), default=0)
     created_at        = Column(TIMESTAMPTZ, server_default=func.now())
+
+
+class RcvImportJob(Base):
+    """Job asíncrono de importación RCV (el scraping al SII puede tardar más que el
+    timeout HTTP del servidor, por lo que se ejecuta en background y se consulta su estado)."""
+    __tablename__ = "rcv_import_jobs"
+    __table_args__ = {"schema": "erp"}
+
+    id            = Column(Integer, primary_key=True)
+    id_empresa    = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
+    periodo       = Column(String(6), nullable=False)
+    periodo_hasta = Column(String(6))
+    operacion     = Column(String(10), nullable=False)
+    estado        = Column(String(15), nullable=False, default="PENDIENTE")  # PENDIENTE | OK | ERROR
+    resultado     = Column(JSONB)
+    error         = Column(Text)
+    created_at    = Column(TIMESTAMPTZ, server_default=func.now())
+    updated_at    = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())

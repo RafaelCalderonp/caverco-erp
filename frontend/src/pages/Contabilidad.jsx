@@ -46,18 +46,33 @@ export default function Contabilidad() {
     setImportMsg(null)
     try {
       const r = await contabilidadApi.importarRcv(idEmpresa, periodo, operacion, periodoHasta)
-      const resultados = r.data.resultados
-      const totalDocs = resultados.reduce((acc, x) => acc + x.total_docs, 0)
-      const totalMonto = resultados.reduce((acc, x) => acc + x.monto_total, 0)
-      setImportMsg(
-        resultados.length > 1
-          ? `✅ Importados ${resultados.length} períodos · ${totalDocs} documentos · Total ${CLP(totalMonto)}`
-          : `✅ Importados ${totalDocs} documentos · Total ${CLP(totalMonto)}`
-      )
-      cargarDocs()
+      const jobId = r.data.id
+
+      const esperar = async () => {
+        const { data: job } = await contabilidadApi.estadoImportRcv(idEmpresa, jobId)
+        if (job.estado === 'PENDIENTE') {
+          setTimeout(esperar, 2000)
+          return
+        }
+        if (job.estado === 'ERROR') {
+          setImportMsg(job.error || 'Error al importar desde el SII')
+          setImportando(false)
+          return
+        }
+        const resultados = job.resultado.resultados
+        const totalDocs = resultados.reduce((acc, x) => acc + x.total_docs, 0)
+        const totalMonto = resultados.reduce((acc, x) => acc + x.monto_total, 0)
+        setImportMsg(
+          resultados.length > 1
+            ? `✅ Importados ${resultados.length} períodos · ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+            : `✅ Importados ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+        )
+        cargarDocs()
+        setImportando(false)
+      }
+      esperar()
     } catch (err) {
       setImportMsg(err.response?.data?.detail || 'Error al importar desde el SII')
-    } finally {
       setImportando(false)
     }
   }
