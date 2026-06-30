@@ -109,6 +109,7 @@ export const contratosApi = {
   anexos: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/anexos`),
     create: (idContrato, d)    => api.post(`/contratos/${idContrato}/anexos`, d),
+    descargarWord: (idContrato, idAnexo) => api.get(`/contratos/${idContrato}/anexos/${idAnexo}/word`, { responseType: 'blob' }),
   },
   documentos: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/documentos`),

@@ -196,3 +196,90 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
     buffer = io.BytesIO()
     doc.save(buffer)
     return buffer.getvalue()
+
+
+def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, cargo_nombre) -> bytes:
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    _parrafo(doc, ["ANEXO DE CONTRATO"], bold_default=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=14)
+
+    nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+
+    _parrafo(doc, [
+        f"En {empresa.ciudad or 'Santiago'}, a ", (_fecha_larga(anexo.fecha_anexo), True),
+        ", entre ", (empresa.razon_social, True), ", RUT N° ", (empresa.rut, True),
+        f", domiciliado en {empresa.direccion or ''} comuna de {empresa.comuna or ''}, ciudad de {empresa.ciudad or ''}, correo electrónico ",
+        (empresa.email or "", True),
+        ' que en adelante se denominará "EL EMPLEADOR", y don/doña ', (nombre_completo, True),
+        ", cédula nacional de identidad N° ", (empleado.rut, True),
+        ", nacionalidad ", (empleado.nacionalidad or "Chilena", True),
+        ", nacido el ", (_fecha_larga(empleado.fecha_nacimiento), True),
+        ", de estado civil ", (empleado.estado_civil or "", True),
+        ", domiciliado en ", (empleado.direccion or "", True), ", comuna de ", (empleado.comuna or "", True),
+        ", región ", (empleado.region or "", True),
+        ", correo electrónico ", (empleado.email_personal or empleado.email_corporativo or "", True),
+        ' en adelante "EL TRABAJADOR" se ha convenido el siguiente contrato de trabajo, en adelante el "ANEXO DE CONTRATO":',
+    ])
+
+    _parrafo(doc, ["COMPARECENCIA:"], bold_default=True, space_after=6)
+    _parrafo(doc, [
+        "Con Fecha ", (_fecha_larga(contrato.fecha_contrato), True),
+        " Las partes declaran que han suscrito un contrato de trabajo en virtud del cual don/doña ",
+        (nombre_completo, True), ", ha prestado servicios en calidad de ", (cargo_nombre or "", True),
+        ', para la empresa, en adelante el "Contrato de trabajo" y que se encuentra plenamente vigente.',
+    ])
+    _parrafo(doc, [
+        "Además, Las partes acuerdan de esta fecha que se modificará la cláusula Segunda del contrato original en lo siguiente.",
+    ])
+
+    _parrafo(doc, ["CLÁUSULAS:"], bold_default=True, space_after=6)
+
+    if tipo_anexo_codigo == "PRORROGA_PLAZO":
+        fecha_anterior = (anexo.valor_anterior or {}).get("fecha_termino_pactada")
+        fecha_nueva = (anexo.valor_nuevo or {}).get("fecha_termino_pactada")
+        _parrafo(doc, [("PRIMERO: Modificación de duración Contrato: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes acuerdan prorrogar el contrato de trabajo que vence el ',
+            (_fecha_larga(date.fromisoformat(fecha_anterior)) if fecha_anterior else "", True),
+            ', hasta el ', (_fecha_larga(date.fromisoformat(fecha_nueva)) if fecha_nueva else "", True), '.',
+        ])
+    elif tipo_anexo_codigo == "CONV_INDEFINIDO":
+        _parrafo(doc, [("PRIMERO: Modificación de duración Contrato: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes vienen a acordar que el contrato de trabajo suscrito con fecha ',
+            (_fecha_larga(contrato.fecha_contrato), True),
+            ", originalmente pactado a plazo fijo, se modifica en cuanto a su duración, pasando a tener el "
+            "carácter de contrato de trabajo de duración indefinida a contar de la fecha de suscripción del "
+            "presente Anexo. En todo lo no modificado por el presente instrumento, se mantienen plenamente "
+            "vigentes las demás cláusulas y condiciones del contrato original.",
+        ])
+    else:
+        _parrafo(doc, [("PRIMERO: ", True), (anexo.observacion or "", True)])
+
+    _parrafo(doc, [("SEGUNDO: Final", True)])
+    _parrafo(doc, ["En todo lo no modificado por el presente instrumento, seguirá rigiendo el Contrato de Trabajo."])
+    _parrafo(doc, ["El presente instrumento se firma en dos ejemplares del mismo tenor, quedando uno en poder de cada parte."], space_after=40)
+
+    tabla = doc.add_table(rows=1, cols=2)
+    tabla.autofit = True
+    celda_empresa, celda_trabajador = tabla.rows[0].cells
+    celda_empresa.text = f"{empresa.razon_social}\nRUT: {empresa.rut}"
+    celda_trabajador.text = f"{nombre_completo}\nRUT: {empleado.rut}"
+    for celda in (celda_empresa, celda_trabajador):
+        for p in celda.paragraphs:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for r in p.runs:
+                r.bold = True
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()

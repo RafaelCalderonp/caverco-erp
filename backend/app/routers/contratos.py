@@ -14,7 +14,7 @@ from app.models.rrhh import (
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx
+from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx
 from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
@@ -248,6 +248,38 @@ async def listar_anexos(id: int, db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.get("/{id}/anexos/{id_anexo}/word")
+async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    anexo = await db.get(AnexoContrato, id_anexo)
+    if anexo is None or anexo.id_contrato != id:
+        raise HTTPException(404, "Anexo no encontrado")
+    tipo_anexo = await db.get(TipoAnexo, anexo.id_tipo_anexo)
+    if tipo_anexo is None or tipo_anexo.codigo not in ("PRORROGA_PLAZO", "CONV_INDEFINIDO"):
+        raise HTTPException(400, "No hay un documento Word disponible para este tipo de anexo")
+
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    if empleado is None:
+        raise HTTPException(404, "Empleado no encontrado")
+    empresa = await db.get(Empresa, empleado.id_empresa)
+    cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
+
+    contenido = generar_anexo_docx(
+        empresa=empresa,
+        empleado=empleado,
+        contrato=contrato,
+        anexo=anexo,
+        tipo_anexo_codigo=tipo_anexo.codigo,
+        cargo_nombre=cargo.nombre if cargo else None,
+    )
+    nombre_archivo = f"Anexo_{tipo_anexo.codigo}_{empleado.apellido_paterno}_{empleado.nombres}.docx".replace(" ", "_")
+    return StreamingResponse(
+        io.BytesIO(contenido),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+    )
+
+
 @router.post("/{id}/anexos", response_model=AnexoContratoOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Depends(get_db)):
@@ -256,6 +288,8 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
     tipo_anexo = await db.get(TipoAnexo, data.id_tipo_anexo)
     if tipo_anexo is None:
         raise HTTPException(400, "Tipo de anexo no encontrado")
+
+    payload = data.model_dump()
 
     if tipo_anexo.codigo == "PRORROGA_PLAZO":
         ya_prorrogado = (await db.execute(
@@ -267,16 +301,20 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
             raise HTTPException(400, "Este contrato ya tiene una prórroga registrada. Un contrato a plazo fijo solo puede prorrogarse una vez; el siguiente anexo debe ser de Conversión a Indefinido.")
         if not data.nueva_fecha_termino:
             raise HTTPException(400, "Debe indicar el plazo de la prórroga")
+        payload["valor_anterior"] = {"fecha_termino_pactada": contrato.fecha_termino_pactada.isoformat() if contrato.fecha_termino_pactada else None}
+        payload["valor_nuevo"] = {"fecha_termino_pactada": data.nueva_fecha_termino.isoformat()}
         contrato.fecha_termino_pactada = data.nueva_fecha_termino
 
     elif tipo_anexo.codigo == "CONV_INDEFINIDO":
         tipo_indefinido = (await db.execute(select(TipoContrato).where(TipoContrato.codigo == "INDEFINIDO"))).scalar_one_or_none()
         if tipo_indefinido is None:
             raise HTTPException(500, "No está configurado el tipo de contrato Indefinido")
+        payload["valor_anterior"] = {"id_tipo_contrato": contrato.id_tipo_contrato}
+        payload["valor_nuevo"] = {"id_tipo_contrato": tipo_indefinido.id}
         contrato.id_tipo_contrato = tipo_indefinido.id
         contrato.fecha_termino_pactada = None
 
-    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **data.model_dump())
+    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)
     await db.commit()
     await db.refresh(anexo)
