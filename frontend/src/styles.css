@@ -62,7 +62,7 @@ button { cursor: pointer; font-family: inherit; }
   letter-spacing: .06em; font-weight: 800; line-height: 1.25;
 }
 
-.sidebar-section { padding: 18px 16px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #6b6f78; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.sidebar-section { padding: 18px 16px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent-lt); font-weight: 600; white-space: nowrap; overflow: hidden; }
 
 .sidebar nav { flex: 1; padding: 4px 12px; overflow-y: auto; }
 

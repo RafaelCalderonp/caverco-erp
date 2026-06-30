@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { credencialesApi, contabilidadApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
+import { useAuth } from '../context/AuthContext'
 
 function periodoActual() {
   const d = new Date()
@@ -11,11 +13,11 @@ const CLP = (v) => `$${Math.round(v || 0).toLocaleString('es-CL')}`
 
 export default function Contabilidad() {
   const { empresaActual } = useEmpresa()
+  const { usuario } = useAuth()
+  const esSuperAdmin = usuario?.rol === 'SUPERADMIN'
   const idEmpresa = empresaActual?.id
 
   const [credSii, setCredSii] = useState(null)
-  const [credForm, setCredForm] = useState({ usuario: '', password: '' })
-  const [credMsg, setCredMsg] = useState(null)
 
   const [periodo, setPeriodo] = useState(periodoActual())
   const [operacion, setOperacion] = useState('COMPRA')
@@ -24,7 +26,7 @@ export default function Contabilidad() {
   const [importMsg, setImportMsg] = useState(null)
 
   const cargarCredencial = () => {
-    if (!idEmpresa) return
+    if (!idEmpresa || !esSuperAdmin) return
     credencialesApi.list(idEmpresa).then(r => {
       setCredSii(r.data.find(c => c.tipo === 'SII') || null)
     }).catch(() => {})
@@ -37,29 +39,6 @@ export default function Contabilidad() {
 
   useEffect(cargarCredencial, [idEmpresa])
   useEffect(cargarDocs, [idEmpresa, periodo, operacion])
-
-  const guardarCredencial = async () => {
-    if (!credForm.usuario || !credForm.password) {
-      return setCredMsg('Completa RUT y clave tributaria')
-    }
-    try {
-      await credencialesApi.guardar(idEmpresa, 'SII', credForm)
-      setCredForm({ usuario: '', password: '' })
-      setCredMsg('✅ Guardado (cifrado)')
-      cargarCredencial()
-    } catch {
-      setCredMsg('Error al guardar')
-    }
-  }
-
-  const eliminarCredencial = async () => {
-    try {
-      await credencialesApi.eliminar(idEmpresa, 'SII')
-      cargarCredencial()
-    } catch {
-      setCredMsg('Error al eliminar')
-    }
-  }
 
   const importar = async () => {
     setImportando(true)
@@ -81,40 +60,12 @@ export default function Contabilidad() {
     <div>
       <div className="page-header"><h1>Contabilidad</h1></div>
 
-      <div className="card" style={{maxWidth:480, marginBottom:24}}>
-        <h3 style={{fontWeight:600, marginBottom:4}}>Credencial SII</h3>
-        <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>
-          RUT empresa y clave tributaria. A diferencia de Previred/Mi DT, esta credencial
-          <strong> sí es usada por la aplicación</strong> para iniciar sesión automáticamente en el
-          SII e importar el Registro de Compras y Ventas.
-        </p>
-
-        {credSii && (
-          <div style={{background:'var(--gray-50)', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:13}}>
-            <div>RUT: <strong>{credSii.usuario}</strong></div>
-            <div>Clave: <strong>{credSii.password_mask}</strong></div>
-            <button className="btn btn-outline btn-sm" style={{marginTop:8}} onClick={eliminarCredencial}>
-              Eliminar
-            </button>
-          </div>
-        )}
-
-        {credMsg && <div style={{fontSize:12, marginBottom:8, color: credMsg.startsWith('✅') ? 'var(--success)' : 'var(--danger)'}}>{credMsg}</div>}
-
-        <div className="form-group">
-          <label className="form-label">RUT empresa</label>
-          <input className="input" value={credForm.usuario}
-            onChange={e => setCredForm(f => ({ ...f, usuario: e.target.value }))} />
+      {esSuperAdmin && (
+        <div style={{fontSize:12, color:'var(--gray-500)', marginBottom:16}}>
+          Credencial SII: {credSii ? <strong>configurada ({credSii.usuario})</strong> : <strong>no configurada</strong>}
+          {' · '}<Link to="/empresas">Administrar en Empresas</Link>
         </div>
-        <div className="form-group">
-          <label className="form-label">Clave tributaria</label>
-          <input className="input" type="password" value={credForm.password}
-            onChange={e => setCredForm(f => ({ ...f, password: e.target.value }))} />
-        </div>
-        <button className="btn btn-primary" onClick={guardarCredencial}>
-          {credSii ? 'Actualizar' : 'Guardar'}
-        </button>
-      </div>
+      )}
 
       <div className="card">
         <h3 style={{fontWeight:600, marginBottom:12}}>Registro de Compras y Ventas</h3>
@@ -130,12 +81,12 @@ export default function Contabilidad() {
               <option value="VENTA">Ventas</option>
             </select>
           </div>
-          <button className="btn btn-primary" onClick={importar} disabled={importando || !credSii}>
+          <button className="btn btn-primary" onClick={importar} disabled={importando || (esSuperAdmin && !credSii)}>
             {importando ? 'Importando…' : 'Importar desde SII'}
           </button>
         </div>
 
-        {!credSii && <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>Configura la credencial SII para poder importar.</p>}
+        {esSuperAdmin && !credSii && <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>Configura la credencial SII en Empresas para poder importar.</p>}
         {importMsg && <div style={{fontSize:13, marginBottom:12, color: importMsg.startsWith('✅') ? 'var(--success)' : 'var(--danger)'}}>{importMsg}</div>}
 
         {docs.length === 0 ? (
