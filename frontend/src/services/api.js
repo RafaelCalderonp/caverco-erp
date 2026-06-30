@@ -156,6 +156,10 @@ export const credencialesApi = {
   eliminar:(idEmpresa, tipo)      => api.delete(`/empresas/${idEmpresa}/credenciales/${tipo}`),
 }
 
+export const planCuentasApi = {
+  list: () => api.get('/plan-cuentas'),
+}
+
 export const contabilidadApi = {
   listarRcv: (idEmpresa, periodo, operacion) =>
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv`, { params: { periodo, operacion } }),

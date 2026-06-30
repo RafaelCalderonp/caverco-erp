@@ -17,6 +17,7 @@ const NAV = [
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
   { section: 'Contabilidad' },
   { to: '/contabilidad',  icon: '🧮', label: 'Contabilidad' },
+  { to: '/plan-cuentas', icon: '📒', label: 'Plan de Cuentas' },
   { section: null },
   { to: '/usuarios',      icon: '🛡️', label: 'Usuarios', roles: ['SUPERADMIN', 'ADMIN'] },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
