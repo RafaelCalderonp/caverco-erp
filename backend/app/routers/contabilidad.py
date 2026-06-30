@@ -215,7 +215,10 @@ async def cargar_archivo(
                 contenido = raw.decode("cp1252", errors="replace")
 
             filas = contenido.splitlines()
-            docs_archivo = parse_detalle_csv(filas, operacion)
+            docs_archivo = [
+                d for d in parse_detalle_csv(filas, operacion)
+                if any(d.get(f) for f in ("monto_total", "monto_neto", "monto_iva", "monto_exento"))
+            ]
 
             if not docs_archivo:
                 raise HTTPException(
