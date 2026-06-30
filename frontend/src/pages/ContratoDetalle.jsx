@@ -362,29 +362,6 @@ export default function ContratoDetalle() {
                 }} />
             </div>
             <div className="form-group">
-              <label className="form-label">Fecha Término Pactada</label>
-              <input className="input" type="date" value={formContrato.fecha_termino_pactada}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha Término Real</label>
-              <input className="input" type="date" value={formContrato.fecha_termino_real}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Motivo Término</label>
-              <select className="select" value={formContrato.id_motivo_termino}
-                onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Aviso Previo (fecha)</label>
-              <input className="input" type="date" value={formContrato.aviso_previo_fecha}
-                onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
-            </div>
-            <div className="form-group">
               <label className="form-label">Obra</label>
               <select className="select" value={formContrato.id_obra}
                 onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
@@ -412,6 +389,29 @@ export default function ContratoDetalle() {
               <label className="form-label">Detalle de Horario</label>
               <textarea className="input" rows={2} value={formContrato.horario_detalle}
                 onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Término Pactada</label>
+              <input className="input" type="date" value={formContrato.fecha_termino_pactada}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha Término Real</label>
+              <input className="input" type="date" value={formContrato.fecha_termino_real}
+                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Motivo Término</label>
+              <select className="select" value={formContrato.id_motivo_termino}
+                onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Aviso Previo (fecha)</label>
+              <input className="input" type="date" value={formContrato.aviso_previo_fecha}
+                onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
             </div>
           </div>
           <div style={{display:'flex', gap:8}}>
