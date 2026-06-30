@@ -87,8 +87,19 @@ async def _guardar_documentos(db: AsyncSession, id_empresa: int, periodo: str, o
             RcvDocumento.operacion == operacion,
         )
     )
-    monto_total = 0
+    await db.flush()
+
+    # deduplicar por la misma clave única de la tabla para evitar IntegrityError
+    vistos: set[tuple] = set()
+    unicos: list[dict] = []
     for doc in documentos:
+        llave = (doc.get("tipo_doc"), doc.get("rut_contraparte"), doc.get("folio"))
+        if llave not in vistos:
+            vistos.add(llave)
+            unicos.append(doc)
+
+    monto_total = 0
+    for doc in unicos:
         db.add(RcvDocumento(id_empresa=id_empresa, periodo=periodo, operacion=operacion, **doc))
         monto_total += doc.get("monto_total") or 0
 
