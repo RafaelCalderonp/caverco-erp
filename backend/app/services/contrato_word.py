@@ -246,11 +246,18 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
     if tipo_anexo_codigo == "PRORROGA_PLAZO":
         fecha_anterior = (anexo.valor_anterior or {}).get("fecha_termino_pactada")
         fecha_nueva = (anexo.valor_nuevo or {}).get("fecha_termino_pactada")
+        fecha_anterior_dt = date.fromisoformat(fecha_anterior) if fecha_anterior else None
+        fecha_nueva_dt = date.fromisoformat(fecha_nueva) if fecha_nueva else None
+        if fecha_anterior_dt is None and anexo.fecha_anexo:
+            from datetime import timedelta
+            fecha_anterior_dt = anexo.fecha_anexo - timedelta(days=1)
+        if fecha_nueva_dt is None:
+            fecha_nueva_dt = contrato.fecha_termino_pactada
         _parrafo(doc, [("PRIMERO: Modificación de duración Contrato: ", True)])
         _parrafo(doc, [
             'Cláusula que establece: "Las partes acuerdan prorrogar el contrato de trabajo que vence el ',
-            (_fecha_larga(date.fromisoformat(fecha_anterior)) if fecha_anterior else "", True),
-            ', hasta el ', (_fecha_larga(date.fromisoformat(fecha_nueva)) if fecha_nueva else "", True), '.',
+            (_fecha_larga(fecha_anterior_dt), True),
+            ', hasta el ', (_fecha_larga(fecha_nueva_dt), True), '.',
         ])
     elif tipo_anexo_codigo == "CONV_INDEFINIDO":
         _parrafo(doc, [("PRIMERO: Modificación de duración Contrato: ", True)])
