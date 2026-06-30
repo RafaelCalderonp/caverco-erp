@@ -79,9 +79,61 @@ def parse_detalle_csv(filas: list[str], operacion: str) -> list[dict]:
     return documentos
 
 
+def periodos_entre(periodo_desde: str, periodo_hasta: str) -> list[str]:
+    """Genera la lista de períodos YYYYMM entre dos períodos (inclusive)."""
+    desde = datetime.strptime(periodo_desde, "%Y%m")
+    hasta = datetime.strptime(periodo_hasta, "%Y%m")
+    if hasta < desde:
+        desde, hasta = hasta, desde
+    periodos = []
+    actual = desde
+    while actual <= hasta:
+        periodos.append(actual.strftime("%Y%m"))
+        mes = actual.month + 1
+        anio = actual.year + (1 if mes > 12 else 0)
+        mes = 1 if mes > 12 else mes
+        actual = actual.replace(year=anio, month=mes)
+    return periodos
+
+
+async def _descargar_periodo(page, rut: str, dv: str, periodo: str, operacion: str) -> list[dict]:
+    metodo = "getDetalleCompraExport" if operacion == "COMPRA" else "getDetalleVentaExport"
+    payload = {
+        "rutEmisor": rut,
+        "dvEmisor": dv,
+        "ptributario": periodo,
+        "codTipoDoc": 0,
+        "operacion": operacion,
+        "estadoContab": "REGISTRO",
+        "accionRecaptcha": "RCV_DDETC",
+        "tokenRecaptcha": "t-o-k-e-n-web",
+    }
+    respuesta = await page.evaluate(
+        """async ({url, payload}) => {
+            const r = await fetch(url, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
+            return await r.json();
+        }""",
+        {"url": f"{API_BASE}/facadeService/{metodo}", "payload": payload},
+    )
+    filas = respuesta.get("data", [])
+    return parse_detalle_csv(filas, operacion)
+
+
 async def importar_rcv(rut_empresa: str, clave: str, periodo: str, operacion: str) -> list[dict]:
     """Inicia sesión en el SII y descarga el detalle de compras o ventas
     (operacion: 'COMPRA' | 'VENTA') para el período YYYYMM indicado."""
+    resultado = await importar_rcv_multi(rut_empresa, clave, [periodo], operacion)
+    return resultado[periodo]
+
+
+async def importar_rcv_multi(rut_empresa: str, clave: str, periodos: list[str], operacion: str) -> dict[str, list[dict]]:
+    """Inicia sesión una sola vez en el SII y descarga el detalle de compras o
+    ventas para cada período YYYYMM de la lista, reutilizando la misma sesión."""
     rut, dv = _split_rut(rut_empresa)
 
     async with async_playwright() as p:
@@ -94,30 +146,9 @@ async def importar_rcv(rut_empresa: str, clave: str, periodo: str, operacion: st
             await page.click("#bt_ingresar")
             await page.wait_for_load_state("networkidle")
 
-            metodo = "getDetalleCompraExport" if operacion == "COMPRA" else "getDetalleVentaExport"
-            payload = {
-                "rutEmisor": rut,
-                "dvEmisor": dv,
-                "ptributario": periodo,
-                "codTipoDoc": 0,
-                "operacion": operacion,
-                "estadoContab": "REGISTRO",
-                "accionRecaptcha": "RCV_DDETC",
-                "tokenRecaptcha": "t-o-k-e-n-web",
-            }
-            respuesta = await page.evaluate(
-                """async ({url, payload}) => {
-                    const r = await fetch(url, {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify(payload),
-                        credentials: "include",
-                    });
-                    return await r.json();
-                }""",
-                {"url": f"{API_BASE}/facadeService/{metodo}", "payload": payload},
-            )
-            filas = respuesta.get("data", [])
-            return parse_detalle_csv(filas, operacion)
+            resultado = {}
+            for periodo in periodos:
+                resultado[periodo] = await _descargar_periodo(page, rut, dv, periodo, operacion)
+            return resultado
         finally:
             await browser.close()

@@ -20,6 +20,7 @@ export default function Contabilidad() {
   const [credSii, setCredSii] = useState(null)
 
   const [periodo, setPeriodo] = useState(periodoActual())
+  const [periodoHasta, setPeriodoHasta] = useState('')
   const [operacion, setOperacion] = useState('COMPRA')
   const [docs, setDocs] = useState([])
   const [importando, setImportando] = useState(false)
@@ -44,8 +45,15 @@ export default function Contabilidad() {
     setImportando(true)
     setImportMsg(null)
     try {
-      const r = await contabilidadApi.importarRcv(idEmpresa, periodo, operacion)
-      setImportMsg(`✅ Importados ${r.data.total_docs} documentos · Total ${CLP(r.data.monto_total)}`)
+      const r = await contabilidadApi.importarRcv(idEmpresa, periodo, operacion, periodoHasta)
+      const resultados = r.data.resultados
+      const totalDocs = resultados.reduce((acc, x) => acc + x.total_docs, 0)
+      const totalMonto = resultados.reduce((acc, x) => acc + x.monto_total, 0)
+      setImportMsg(
+        resultados.length > 1
+          ? `✅ Importados ${resultados.length} períodos · ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+          : `✅ Importados ${totalDocs} documentos · Total ${CLP(totalMonto)}`
+      )
       cargarDocs()
     } catch (err) {
       setImportMsg(err.response?.data?.detail || 'Error al importar desde el SII')
@@ -71,8 +79,12 @@ export default function Contabilidad() {
         <h3 style={{fontWeight:600, marginBottom:12}}>Registro de Compras y Ventas</h3>
         <div style={{display:'flex', gap:12, alignItems:'flex-end', marginBottom:16, flexWrap:'wrap'}}>
           <div className="form-group" style={{marginBottom:0}}>
-            <label className="form-label">Período (YYYYMM)</label>
+            <label className="form-label">Período desde (YYYYMM)</label>
             <input className="input" style={{width:120}} value={periodo} onChange={e => setPeriodo(e.target.value)} />
+          </div>
+          <div className="form-group" style={{marginBottom:0}}>
+            <label className="form-label">Hasta (opcional)</label>
+            <input className="input" style={{width:120}} placeholder={periodo} value={periodoHasta} onChange={e => setPeriodoHasta(e.target.value)} />
           </div>
           <div className="form-group" style={{marginBottom:0}}>
             <label className="form-label">Operación</label>

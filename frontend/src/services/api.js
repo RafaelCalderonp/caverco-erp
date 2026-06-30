@@ -159,6 +159,6 @@ export const credencialesApi = {
 export const contabilidadApi = {
   listarRcv: (idEmpresa, periodo, operacion) =>
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv`, { params: { periodo, operacion } }),
-  importarRcv: (idEmpresa, periodo, operacion) =>
-    api.post(`/empresas/${idEmpresa}/contabilidad/rcv/importar`, { periodo, operacion }),
+  importarRcv: (idEmpresa, periodo, operacion, periodoHasta) =>
+    api.post(`/empresas/${idEmpresa}/contabilidad/rcv/importar`, { periodo, periodo_hasta: periodoHasta || undefined, operacion }),
 }
