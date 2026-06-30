@@ -58,17 +58,25 @@ def parse_detalle_csv(filas: list[str], operacion: str) -> list[dict]:
         if not fila.strip():
             continue
         partes = fila.split(";")
+        # Impuestos específicos: el CSV puede traer varias columnas "Monto Impuesto"
+        # (códigos 28, 35, etc.). Las sumamos todas en un solo campo.
+        imp_especifico = sum(
+            _parse_monto(partes[i])
+            for nombre, i in idx.items()
+            if "monto impuesto" in nombre.lower() and i < len(partes)
+        )
         documentos.append({
-            "tipo_doc":        col(partes, "Tipo Doc"),
-            "rut_contraparte": col(partes, "RUT Proveedor", "Rut cliente"),
-            "razon_social":    col(partes, "Razon Social"),
-            "folio":           col(partes, "Folio"),
-            "fecha_docto":     _parse_fecha(col(partes, "Fecha Docto")),
-            "fecha_recepcion": _parse_fecha(col(partes, "Fecha Recepcion", "Fecha Recepcion Receptor")),
-            "monto_exento":    _parse_monto(col(partes, "Monto Exento")),
-            "monto_neto":      _parse_monto(col(partes, "Monto Neto")),
-            "monto_iva":       _parse_monto(col(partes, "Monto IVA Recuperable", "Monto IVA")),
-            "monto_total":     _parse_monto(col(partes, "Monto Total", "Monto total")),
+            "tipo_doc":                 col(partes, "Tipo Doc"),
+            "rut_contraparte":          col(partes, "RUT Proveedor", "Rut cliente"),
+            "razon_social":             col(partes, "Razon Social"),
+            "folio":                    col(partes, "Folio"),
+            "fecha_docto":              _parse_fecha(col(partes, "Fecha Docto")),
+            "fecha_recepcion":          _parse_fecha(col(partes, "Fecha Recepcion", "Fecha Recepcion Receptor")),
+            "monto_exento":             _parse_monto(col(partes, "Monto Exento")),
+            "monto_neto":               _parse_monto(col(partes, "Monto Neto")),
+            "monto_iva":                _parse_monto(col(partes, "Monto IVA Recuperable", "Monto IVA")),
+            "monto_impuesto_especifico": imp_especifico,
+            "monto_total":              _parse_monto(col(partes, "Monto Total", "Monto total")),
         })
     return documentos
 

@@ -37,6 +37,7 @@ class RcvDocumentoOut(BaseModel):
     monto_exento: float = 0
     monto_neto: float = 0
     monto_iva: float = 0
+    monto_impuesto_especifico: float = 0
     monto_total: float = 0
 
     class Config:

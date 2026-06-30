@@ -39,10 +39,11 @@ class RcvDocumento(Base):
     folio             = Column(String(20))
     fecha_docto       = Column(Date)
     fecha_recepcion   = Column(Date)
-    monto_exento      = Column(Numeric(14, 2), default=0)
-    monto_neto        = Column(Numeric(14, 2), default=0)
-    monto_iva         = Column(Numeric(14, 2), default=0)
-    monto_total       = Column(Numeric(14, 2), default=0)
+    monto_exento               = Column(Numeric(14, 2), default=0)
+    monto_neto                 = Column(Numeric(14, 2), default=0)
+    monto_iva                  = Column(Numeric(14, 2), default=0)
+    monto_impuesto_especifico  = Column(Numeric(14, 2), default=0)
+    monto_total                = Column(Numeric(14, 2), default=0)
     created_at        = Column(TIMESTAMPTZ, server_default=func.now())
 
 
