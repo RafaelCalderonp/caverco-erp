@@ -8,17 +8,21 @@ const NAV = [
   { to: '/seleccionar-empresa', icon: '🏠', label: 'Home' },
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
+  { section: 'RRHH' },
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/catalogos',     icon: '⚙️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
+  { section: 'Contabilidad' },
+  { to: '/contabilidad',  icon: '🧮', label: 'Contabilidad' },
+  { section: null },
   { to: '/usuarios',      icon: '🛡️', label: 'Usuarios', roles: ['SUPERADMIN', 'ADMIN'] },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
-const REQUIERE_EMPRESA = ['/empleados', '/departamentos', '/catalogos', '/licencias', '/contratos', '/liquidaciones']
+const REQUIERE_EMPRESA = ['/empleados', '/departamentos', '/catalogos', '/licencias', '/contratos', '/liquidaciones', '/contabilidad']
 const STORAGE_KEY = 'sidebarColapsado'
 
 export default function Layout() {
@@ -27,7 +31,7 @@ export default function Layout() {
   const { usuario, logout } = useAuth()
   const { empresaActual } = useEmpresa()
   const [colapsado, setColapsado] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
-  const pageTitle = NAV.find(n => location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
+  const pageTitle = NAV.find(n => n.to && location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
 
   function onLogout() {
     logout()
@@ -51,9 +55,14 @@ export default function Layout() {
           />
           <span className="sidebar-logo-label">{empresaActual ? empresaActual.razon_social : 'Recursos Humanos'}</span>
         </div>
-        <div className="sidebar-section">Módulos</div>
         <nav>
-          {NAV.filter(n => !n.roles || n.roles.includes(usuario?.rol)).map(({ to, icon, label }) => {
+          {NAV.filter(n => n.section !== undefined || !n.roles || n.roles.includes(usuario?.rol)).map((item, i) => {
+            if (item.section !== undefined) {
+              return item.section
+                ? <div key={`section-${i}`} className="sidebar-section">{item.section}</div>
+                : null
+            }
+            const { to, icon, label } = item
             const disabled = REQUIERE_EMPRESA.includes(to) && !empresaActual
             return disabled ? (
               <span key={to} className="nav-item" style={{ opacity: .4, cursor: 'not-allowed' }} title="Selecciona una empresa primero">
