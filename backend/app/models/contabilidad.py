@@ -26,11 +26,7 @@ class RcvImportacion(Base):
 class RcvDocumento(Base):
     """Línea de detalle de un documento del Registro de Compras y Ventas (SII), importada vía scraping propio."""
     __tablename__ = "rcv_documentos"
-    __table_args__ = (
-        UniqueConstraint("id_empresa", "periodo", "operacion", "tipo_doc", "rut_contraparte", "folio",
-                          name="uq_rcv_documento"),
-        {"schema": "erp"},
-    )
+    __table_args__ = {"schema": "erp"}
 
     id                = Column(Integer, primary_key=True)
     id_empresa        = Column(Integer, ForeignKey("erp.empresas.id"), nullable=False)
