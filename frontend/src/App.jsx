@@ -17,6 +17,8 @@ import LiquidacionDetalle from './pages/LiquidacionDetalle'
 import LiquidacionBoleta from './pages/LiquidacionBoleta'
 import Contabilidad from './pages/Contabilidad'
 import PlanCuentas from './pages/PlanCuentas'
+import LibroDiario from './pages/LibroDiario'
+import Balance8Columnas from './pages/Balance8Columnas'
 import Configuracion from './pages/Configuracion'
 import Usuarios from './pages/Usuarios'
 import { useAuth } from './context/AuthContext'
@@ -59,7 +61,9 @@ export default function App() {
         <Route path="liquidaciones/:id"  element={<RequireEmpresa><LiquidacionDetalle /></RequireEmpresa>} />
         <Route path="liquidaciones/:id/boleta" element={<RequireEmpresa><LiquidacionBoleta /></RequireEmpresa>} />
         <Route path="contabilidad"       element={<RequireEmpresa><Contabilidad /></RequireEmpresa>} />
-        <Route path="plan-cuentas"       element={<PlanCuentas />} />
+        <Route path="plan-cuentas"        element={<PlanCuentas />} />
+        <Route path="libro-diario"        element={<RequireEmpresa><LibroDiario /></RequireEmpresa>} />
+        <Route path="balance-8-columnas"  element={<RequireEmpresa><Balance8Columnas /></RequireEmpresa>} />
         <Route path="configuracion"      element={<Configuracion />} />
         <Route path="usuarios"           element={<Usuarios />} />
       </Route>
