@@ -5,7 +5,7 @@ Importación y consulta del Registro de Compras y Ventas (SII) por empresa.
 La importación corre como job asíncrono en background porque el scraping
 al SII puede tardar más que el timeout HTTP del servidor (Render free ~30s).
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ from app.core.security import get_current_user, require_roles
 from app.core.crypto import decrypt
 from app.models.rrhh import EmpresaCredencial
 from app.models.contabilidad import RcvDocumento, RcvImportacion, RcvImportJob
-from app.services.sii_rcv import importar_rcv_multi, periodos_entre
+from app.services.sii_rcv import importar_rcv_multi, periodos_entre, parse_detalle_csv
 
 router = APIRouter(
     prefix="/empresas/{id_empresa}/contabilidad",
@@ -78,6 +78,40 @@ async def listar_rcv(id_empresa: int, periodo: str, operacion: str, db: AsyncSes
     return result.scalars().all()
 
 
+async def _guardar_documentos(db: AsyncSession, id_empresa: int, periodo: str, operacion: str,
+                               documentos: list[dict]) -> dict:
+    await db.execute(
+        delete(RcvDocumento).where(
+            RcvDocumento.id_empresa == id_empresa,
+            RcvDocumento.periodo == periodo,
+            RcvDocumento.operacion == operacion,
+        )
+    )
+    monto_total = 0
+    for doc in documentos:
+        db.add(RcvDocumento(id_empresa=id_empresa, periodo=periodo, operacion=operacion, **doc))
+        monto_total += doc.get("monto_total") or 0
+
+    imp_result = await db.execute(
+        select(RcvImportacion).where(
+            RcvImportacion.id_empresa == id_empresa,
+            RcvImportacion.periodo == periodo,
+            RcvImportacion.operacion == operacion,
+        )
+    )
+    imp = imp_result.scalar_one_or_none()
+    if imp:
+        imp.total_docs = len(documentos)
+        imp.monto_total = monto_total
+    else:
+        db.add(RcvImportacion(
+            id_empresa=id_empresa, periodo=periodo, operacion=operacion,
+            total_docs=len(documentos), monto_total=monto_total,
+        ))
+
+    return {"periodo": periodo, "operacion": operacion, "total_docs": len(documentos), "monto_total": monto_total}
+
+
 async def _ejecutar_import_job(job_id: int, id_empresa: int, usuario: str, password_cifrada: str,
                                 periodos: list[str], operacion: str):
     async with AsyncSessionLocal() as db:
@@ -88,39 +122,7 @@ async def _ejecutar_import_job(job_id: int, id_empresa: int, usuario: str, passw
             resultados = []
             for periodo in periodos:
                 documentos = documentos_por_periodo[periodo]
-                await db.execute(
-                    delete(RcvDocumento).where(
-                        RcvDocumento.id_empresa == id_empresa,
-                        RcvDocumento.periodo == periodo,
-                        RcvDocumento.operacion == operacion,
-                    )
-                )
-                monto_total = 0
-                for doc in documentos:
-                    db.add(RcvDocumento(id_empresa=id_empresa, periodo=periodo, operacion=operacion, **doc))
-                    monto_total += doc.get("monto_total") or 0
-
-                imp_result = await db.execute(
-                    select(RcvImportacion).where(
-                        RcvImportacion.id_empresa == id_empresa,
-                        RcvImportacion.periodo == periodo,
-                        RcvImportacion.operacion == operacion,
-                    )
-                )
-                imp = imp_result.scalar_one_or_none()
-                if imp:
-                    imp.total_docs = len(documentos)
-                    imp.monto_total = monto_total
-                else:
-                    db.add(RcvImportacion(
-                        id_empresa=id_empresa, periodo=periodo, operacion=operacion,
-                        total_docs=len(documentos), monto_total=monto_total,
-                    ))
-
-                resultados.append({
-                    "periodo": periodo, "operacion": operacion,
-                    "total_docs": len(documentos), "monto_total": monto_total,
-                })
+                resultados.append(await _guardar_documentos(db, id_empresa, periodo, operacion, documentos))
 
             job.estado = "OK"
             job.resultado = {"resultados": resultados}
@@ -179,3 +181,30 @@ async def estado_import(id_empresa: int, job_id: int, db: AsyncSession = Depends
     if not job or job.id_empresa != id_empresa:
         raise HTTPException(404, "Job no encontrado")
     return job
+
+
+@router.post(
+    "/rcv/cargar-archivo",
+    response_model=ImportarPeriodoOut,
+    dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))],
+)
+async def cargar_archivo(
+    id_empresa: int,
+    periodo: str = Form(...),
+    operacion: str = Form(...),
+    archivo: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    operacion = operacion.upper()
+    if operacion not in ("COMPRA", "VENTA"):
+        raise HTTPException(400, "operacion debe ser COMPRA o VENTA")
+
+    contenido = (await archivo.read()).decode("utf-8-sig", errors="replace")
+    filas = contenido.splitlines()
+    documentos = parse_detalle_csv(filas, operacion)
+    if not documentos:
+        raise HTTPException(400, "El archivo no contiene documentos válidos")
+
+    resultado = await _guardar_documentos(db, id_empresa, periodo, operacion, documentos)
+    await db.commit()
+    return resultado

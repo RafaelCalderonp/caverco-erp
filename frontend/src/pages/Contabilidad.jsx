@@ -25,6 +25,8 @@ export default function Contabilidad() {
   const [docs, setDocs] = useState([])
   const [importando, setImportando] = useState(false)
   const [importMsg, setImportMsg] = useState(null)
+  const [archivo, setArchivo] = useState(null)
+  const [cargandoArchivo, setCargandoArchivo] = useState(false)
 
   const cargarCredencial = () => {
     if (!idEmpresa || !esSuperAdmin) return
@@ -77,6 +79,22 @@ export default function Contabilidad() {
     }
   }
 
+  const cargarArchivo = async () => {
+    if (!archivo) return
+    setCargandoArchivo(true)
+    setImportMsg(null)
+    try {
+      const r = await contabilidadApi.cargarArchivoRcv(idEmpresa, periodo, operacion, archivo)
+      setImportMsg(`✅ Cargados ${r.data.total_docs} documentos · Total ${CLP(r.data.monto_total)}`)
+      setArchivo(null)
+      cargarDocs()
+    } catch (err) {
+      setImportMsg(err.response?.data?.detail || 'Error al cargar el archivo')
+    } finally {
+      setCargandoArchivo(false)
+    }
+  }
+
   const montoTotal = docs.reduce((acc, d) => acc + (d.monto_total || 0), 0)
 
   return (
@@ -114,6 +132,21 @@ export default function Contabilidad() {
         </div>
 
         {esSuperAdmin && !credSii && <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>Configura la credencial SII en Empresas para poder importar.</p>}
+
+        <div style={{display:'flex', gap:12, alignItems:'flex-end', marginBottom:16, flexWrap:'wrap'}}>
+          <div className="form-group" style={{marginBottom:0}}>
+            <label className="form-label">Cargar archivo RCV (CSV del SII, período {periodo})</label>
+            <input
+              type="file"
+              accept=".csv,.txt"
+              onChange={e => setArchivo(e.target.files?.[0] || null)}
+            />
+          </div>
+          <button className="btn btn-secondary" onClick={cargarArchivo} disabled={!archivo || cargandoArchivo}>
+            {cargandoArchivo ? 'Cargando…' : 'Cargar archivo'}
+          </button>
+        </div>
+
         {importMsg && <div style={{fontSize:13, marginBottom:12, color: importMsg.startsWith('✅') ? 'var(--success)' : 'var(--danger)'}}>{importMsg}</div>}
 
         {docs.length === 0 ? (
