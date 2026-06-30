@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi } from '../services/api'
 
+function sumarUnDia(fechaStr) {
+  const fecha = new Date(fechaStr + 'T00:00:00')
+  fecha.setDate(fecha.getDate() + 1)
+  return fecha.toISOString().slice(0, 10)
+}
+
 function calcularFechaTermino(fechaInicioStr, dias) {
   const fecha = new Date(fechaInicioStr + 'T00:00:00')
   fecha.setDate(fecha.getDate() + Number(dias))
@@ -157,8 +163,8 @@ export default function ContratoDetalle() {
       await contratosApi.anexos.create(id, {
         ...formSinPlazo,
         id_tipo_anexo: Number(formAnexo.id_tipo_anexo),
-        nueva_fecha_termino: esProrroga && contrato.fecha_termino_pactada
-          ? calcularFechaTermino(contrato.fecha_termino_pactada, plazo_dias)
+        nueva_fecha_termino: esProrroga && formAnexo.fecha_anexo
+          ? calcularFechaTermino(formAnexo.fecha_anexo, plazo_dias)
           : null,
       })
       setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
@@ -473,7 +479,17 @@ export default function ContratoDetalle() {
               <div className="form-group">
                 <label className="form-label">Tipo de Anexo<span style={{color:'var(--danger)'}}> *</span></label>
                 <select className="select" value={formAnexo.id_tipo_anexo}
-                  onChange={e => setFormAnexo(f => ({ ...f, id_tipo_anexo: e.target.value }))}>
+                  onChange={e => {
+                    const idTipo = e.target.value
+                    setFormAnexo(f => {
+                      const next = { ...f, id_tipo_anexo: idTipo }
+                      const codigo = tiposAnexo.find(t => t.id === Number(idTipo))?.codigo
+                      if ((codigo === 'PRORROGA_PLAZO' || codigo === 'CONV_INDEFINIDO') && contrato.fecha_termino_pactada) {
+                        next.fecha_anexo = sumarUnDia(contrato.fecha_termino_pactada)
+                      }
+                      return next
+                    })
+                  }}>
                   <option value="">Seleccionar…</option>
                   {tiposAnexo.map(t => (
                     <option key={t.id} value={t.id} disabled={yaProrrogado && t.codigo === 'PRORROGA_PLAZO'}>{t.nombre}</option>
@@ -495,9 +511,9 @@ export default function ContratoDetalle() {
                     <option value="90">90 días</option>
                     <option value="120">120 días</option>
                   </select>
-                  {contrato.fecha_termino_pactada && (
+                  {formAnexo.fecha_anexo && (
                     <span style={{fontSize:11,color:'var(--gray-500)'}}>
-                      Nuevo vencimiento: {calcularFechaTermino(contrato.fecha_termino_pactada, formAnexo.plazo_dias)}
+                      Nuevo vencimiento: {calcularFechaTermino(formAnexo.fecha_anexo, formAnexo.plazo_dias)}
                     </span>
                   )}
                 </div>
