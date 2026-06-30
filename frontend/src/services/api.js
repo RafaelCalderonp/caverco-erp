@@ -155,3 +155,10 @@ export const credencialesApi = {
   guardar: (idEmpresa, tipo, data) => api.put(`/empresas/${idEmpresa}/credenciales/${tipo}`, data),
   eliminar:(idEmpresa, tipo)      => api.delete(`/empresas/${idEmpresa}/credenciales/${tipo}`),
 }
+
+export const contabilidadApi = {
+  listarRcv: (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/contabilidad/rcv`, { params: { periodo, operacion } }),
+  importarRcv: (idEmpresa, periodo, operacion) =>
+    api.post(`/empresas/${idEmpresa}/contabilidad/rcv/importar`, { periodo, operacion }),
+}
