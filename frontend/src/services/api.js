@@ -160,6 +160,21 @@ export const planCuentasApi = {
   list: () => api.get('/plan-cuentas'),
 }
 
+export const plantillasApi = {
+  listar:          (idEmpresa, tipo) =>
+    api.get(`/empresas/${idEmpresa}/plantillas-contabilizacion`, { params: tipo ? { tipo } : {} }),
+  crear:           (idEmpresa, data) =>
+    api.post(`/empresas/${idEmpresa}/plantillas-contabilizacion`, data),
+  actualizar:      (idEmpresa, id, data) =>
+    api.put(`/empresas/${idEmpresa}/plantillas-contabilizacion/${id}`, data),
+  eliminar:        (idEmpresa, id) =>
+    api.delete(`/empresas/${idEmpresa}/plantillas-contabilizacion/${id}`),
+  rutsRcv:         (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/plantillas-contabilizacion/ruts-rcv`, { params: { periodo, operacion } }),
+  generarAsientos: (idEmpresa, data) =>
+    api.post(`/empresas/${idEmpresa}/plantillas-contabilizacion/generar-asientos`, data),
+}
+
 export const libroDiarioApi = {
   listar:          (idEmpresa, periodo, params) =>
     api.get(`/empresas/${idEmpresa}/libro-diario`, { params: { periodo, ...params } }),
