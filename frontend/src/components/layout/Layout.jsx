@@ -53,9 +53,9 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <img
-            src={empresaActual?.logo_url || logo}
+            src={logo}
             alt="Caverco"
-            style={{ height: 28, objectFit: 'contain', background: empresaActual?.logo_url ? 'transparent' : '#fff', borderRadius: 6, padding: empresaActual?.logo_url ? 0 : '4px 8px', flexShrink: 0 }}
+            style={{ height: 28, objectFit: 'contain', background: '#fff', borderRadius: 6, padding: '4px 8px', flexShrink: 0 }}
           />
           <span className="sidebar-logo-label">{empresaActual ? empresaActual.razon_social : 'Recursos Humanos'}</span>
         </div>
