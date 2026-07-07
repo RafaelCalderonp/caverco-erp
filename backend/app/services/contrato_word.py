@@ -295,6 +295,88 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
     return buffer.getvalue()
 
 
+# ─── ENTREGA DE REGLAMENTO INTERNO ───────────────────────────────────────────
+
+MESES_RRHH = ["enero","febrero","marzo","abril","mayo","junio",
+               "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+
+
+def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
+    doc = Document()
+    section = doc.sections[0]
+    section.page_width    = Cm(21.59)
+    section.page_height   = Cm(27.94)
+    section.left_margin   = Cm(2.5)
+    section.right_margin  = Cm(2.5)
+    section.top_margin    = Cm(2.0)
+    section.bottom_margin = Cm(2.0)
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+    cargo_nombre    = getattr(empleado, "cargo_nombre", "") or ""
+    empresa_nombre  = empresa.razon_social or ""
+
+    # Logo
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p_logo = doc.add_paragraph()
+        p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_logo.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    # Título
+    p_titulo = doc.add_paragraph()
+    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_titulo.paragraph_format.space_after = Pt(16)
+    r = p_titulo.add_run(
+        "FORMULARIO RECEPCIÓN DEL REGLAMENTO INTERNO DE ORDEN, HIGIENE Y SEGURIDAD, "
+        "ART. 67º DE LA LEY Nº 16.744, TITULO III DEL CÓDIGO DEL TRABAJO, D.F.L. N° 1"
+    )
+    r.bold = True
+    r.font.size = Pt(11)
+
+    # Párrafos
+    for txt in [
+        f"Declaro haber recibido en forma gratuita una copia del reglamento interno de orden, higiene y seguridad "
+        f"de la empresa {empresa_nombre} de acuerdo a lo establecido en el Art. 56 del D.S N° 40 y Art. 67 de la Ley 16.744.",
+        "Asumo mi responsabilidad de dar lectura a su contenido y dar cumplimiento a las obligaciones, prohibiciones, "
+        "normas de orden, higiene y seguridad que en él están escritas, como así también a las disposiciones "
+        "establecidas por el Organismo Administrador del Seguro de Accidentes del Trabajo y Enfermedades "
+        "Profesionales a que se encuentre adherida la empresa.",
+    ]:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.space_after = Pt(10)
+        r = p.add_run(txt)
+        r.font.size = Pt(10)
+
+    doc.add_paragraph("- " * 55).runs[0].font.size = Pt(8)
+
+    # Tabla datos
+    fecha_str = f"{fecha_entrega.day:02d} {MESES_RRHH[fecha_entrega.month-1]} {fecha_entrega.year}" if fecha_entrega else ""
+    tbl = doc.add_table(rows=5, cols=2)
+    tbl.style = "Table Grid"
+    for i, (lbl, val) in enumerate([
+        ("Nombre completo",       nombre_empleado),
+        ("R.U.T.",                empleado.rut or ""),
+        ("Sección",               cargo_nombre),
+        ("Firma del trabajador",  ""),
+        ("Fecha de entrega",      fecha_str),
+    ]):
+        tbl.rows[i].cells[0].text = lbl
+        tbl.rows[i].cells[1].text = val
+        tbl.rows[i].cells[0].paragraphs[0].runs[0].bold = True if tbl.rows[i].cells[0].paragraphs[0].runs else False
+        tbl.rows[i].cells[0].width = Cm(5.5)
+        tbl.rows[i].cells[1].width = Cm(11.5)
+        if lbl == "Firma del trabajador":
+            tbl.rows[i].height = Cm(2.5)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
 # ─── ENTREGA DE EPP ───────────────────────────────────────────────────────────
 
 def _set_cell_bg_epp(cell, hex_color: str):

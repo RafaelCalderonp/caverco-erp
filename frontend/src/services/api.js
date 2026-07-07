@@ -126,6 +126,12 @@ export const contratosApi = {
     create:        (idContrato, d)       => api.post(`/contratos/${idContrato}/entregas-epp`, d),
     word:          (idContrato, eppId)   => api.get(`/contratos/${idContrato}/entregas-epp/${eppId}/word`, { responseType: 'blob' }),
   },
+  reglamento: {
+    word: (idContrato, fecha) => api.get(
+      `/contratos/${idContrato}/reglamento-interno/word`,
+      { params: fecha ? { fecha_entrega: fecha } : {}, responseType: 'blob' }
+    ),
+  },
   pactosHorasExtra: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
     create: (idContrato, d)    => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),

@@ -67,6 +67,9 @@ export default function ContratoDetalle() {
   const [descargandoEpp, setDescargandoEpp] = useState(null)
   const [errorEpp, setErrorEpp] = useState('')
 
+  const [fechaReglamento, setFechaReglamento] = useState(new Date().toISOString().slice(0, 10))
+  const [descargandoReglamento, setDescargandoReglamento] = useState(false)
+
   const [mostrarFormPacto, setMostrarFormPacto] = useState(false)
   const [formPacto, setFormPacto] = useState({ fecha_inicio: '', fecha_termino: '', tope_horas_diarias: 2, porcentaje_recargo: 0.5 })
   const [guardandoPacto, setGuardandoPacto] = useState(false)
@@ -265,6 +268,17 @@ export default function ContratoDetalle() {
     } catch (err) {
       setErrorEpp(err.response?.data?.detail || 'Error al guardar la entrega de EPP')
     } finally { setGuardandoEpp(false) }
+  }
+
+  async function descargarReglamento() {
+    setDescargandoReglamento(true)
+    try {
+      const res = await contratosApi.reglamento.word(id, fechaReglamento)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `Reglamento_Interno_${id}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar Word') }
+    finally { setDescargandoReglamento(false) }
   }
 
   async function descargarEppWord(eppId) {
@@ -676,6 +690,26 @@ export default function ContratoDetalle() {
             </div>
           ))
         }
+      </div>
+
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Reglamento Interno</h3>
+        </div>
+        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
+          Genera el formulario de recepción del Reglamento Interno de Orden, Higiene y Seguridad con los datos del trabajador.
+        </p>
+        <div style={{display:'flex', gap:12, alignItems:'flex-end'}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha de entrega</label>
+            <input className="input" type="date" value={fechaReglamento}
+              onChange={e => setFechaReglamento(e.target.value)}
+              style={{fontSize:13}} />
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={descargarReglamento} disabled={descargandoReglamento}>
+            {descargandoReglamento ? '...' : '📄 Generar Word'}
+          </button>
+        </div>
       </div>
 
       <div className="card mt-4">

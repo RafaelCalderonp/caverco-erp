@@ -9,12 +9,6 @@ const MOTIVOS = [
   { value: 'OTRAS',            label: 'Otras' },
 ]
 
-const EPP_DEFAULT = [
-  'Casco', 'Zapatos de Seguridad', 'Guantes', 'Antiparras/Lentes de Seguridad',
-  'Tapones Auditivos', 'Barbiquejo', 'Bloqueador Solar',
-  'Chaleco Reflectante', 'Arnés de Seguridad', 'Cabo de vida simple',
-]
-
 const CAP_EMPTY = {
   id_procedimiento: '', version: '01', motivo: 'CAPACITACION',
   fecha: new Date().toISOString().slice(0, 10),
@@ -22,18 +16,6 @@ const CAP_EMPTY = {
   obra: '', relator_nombre: 'Salvador Calderón',
   relator_area: 'Prevención de riesgos', relator_rut: '18.512.365-0',
   objetivo_general: '', objetivos_especificos: '', asistentes: [],
-}
-
-const REG_EMPTY = {
-  id_empleado: null, nombre_trabajador: '', rut_trabajador: '',
-  seccion: '', fecha_entrega: new Date().toISOString().slice(0, 10),
-}
-
-const EPP_EMPTY = {
-  id_empleado: null, nombre_trabajador: '', rut_trabajador: '',
-  cargo: '', obra: '', fecha_entrega: new Date().toISOString().slice(0, 10),
-  entregado_por: 'Salvador Calderón',
-  items: EPP_DEFAULT.map(e => ({ elemento: e, cantidad: 1 })),
 }
 
 const CERT_EMPTY = {
@@ -50,7 +32,7 @@ const TIPOS_CONTRATO = [
 
 export default function Capacitaciones() {
   const { empresaActual } = useEmpresa()
-  const [tab, setTab] = useState('cap')   // cap | epp | reg | cert
+  const [tab, setTab] = useState('cap')   // cap | cert
   const [capacitaciones, setCapacitaciones] = useState([])
   const [procedimientos, setProcedimientos] = useState([])
   const [empleados, setEmpleados] = useState([])
@@ -62,12 +44,6 @@ export default function Capacitaciones() {
   const [formCap, setFormCap] = useState(CAP_EMPTY)
   const [guardandoCap, setGuardandoCap] = useState(false)
   const [descargando, setDescargando] = useState(null)
-
-  const [formReg, setFormReg] = useState(REG_EMPTY)
-  const [descargandoReg, setDescargandoReg] = useState(false)
-
-  const [formEpp, setFormEpp] = useState(EPP_EMPTY)
-  const [descargandoEpp, setDescargandoEpp] = useState(false)
 
   const [formCert, setFormCert] = useState(CERT_EMPTY)
   const [descargandoCert, setDescargandoCert] = useState(false)
@@ -155,68 +131,6 @@ export default function Capacitaciones() {
     finally { setDescargando(null) }
   }
 
-  // ── Reglamento helpers ───────────────────────────────────────────────────
-  function onEmpleadoReg(e) {
-    const emp = empleados.find(x => String(x.id) === e.target.value)
-    if (!emp) { setFormReg(f => ({ ...f, id_empleado: null })); return }
-    setFormReg(f => ({
-      ...f,
-      id_empleado: emp.id,
-      nombre_trabajador: `${emp.nombre} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim(),
-      rut_trabajador: emp.rut || '',
-      seccion: emp.cargo_nombre || '',
-    }))
-  }
-
-  async function descargarReg(e) {
-    e.preventDefault()
-    setDescargandoReg(true)
-    try {
-      const res = await api.post(`/empresas/${empresaActual.id}/reglamento-interno/word`, formReg, { responseType: 'blob' })
-      _download(res.data, `Reglamento_${(formReg.nombre_trabajador || 'trabajador').replace(/ /g, '_')}.docx`)
-    } catch { alert('Error al generar Word') }
-    finally { setDescargandoReg(false) }
-  }
-
-  // ── EPP helpers ──────────────────────────────────────────────────────────
-  function onEmpleadoEpp(e) {
-    const emp = empleados.find(x => String(x.id) === e.target.value)
-    if (!emp) { setFormEpp(f => ({ ...f, id_empleado: null })); return }
-    setFormEpp(f => ({
-      ...f,
-      id_empleado: emp.id,
-      nombre_trabajador: `${emp.nombre} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim(),
-      rut_trabajador: emp.rut || '',
-      cargo: emp.cargo_nombre || '',
-    }))
-  }
-
-  function updateEppItem(idx, field, val) {
-    setFormEpp(f => {
-      const arr = [...f.items]
-      arr[idx] = { ...arr[idx], [field]: val }
-      return { ...f, items: arr }
-    })
-  }
-
-  function addEppItem() {
-    setFormEpp(f => ({ ...f, items: [...f.items, { elemento: '', cantidad: 1 }] }))
-  }
-
-  function removeEppItem(idx) {
-    setFormEpp(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))
-  }
-
-  async function descargarEpp(e) {
-    e.preventDefault()
-    setDescargandoEpp(true)
-    try {
-      const res = await api.post(`/empresas/${empresaActual.id}/entrega-epp/word`, formEpp, { responseType: 'blob' })
-      _download(res.data, `EntregaEPP_${(formEpp.nombre_trabajador || 'trabajador').replace(/ /g, '_')}.docx`)
-    } catch { alert('Error al generar Word') }
-    finally { setDescargandoEpp(false) }
-  }
-
   // ── Certificado helpers ──────────────────────────────────────────────────
   function onEmpleadoCert(e) {
     const emp = empleados.find(x => String(x.id) === e.target.value)
@@ -258,8 +172,6 @@ export default function Capacitaciones() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '2px solid var(--gray-200)' }}>
         {[
           { key: 'cap',  label: '📋 Registro de Capacitación' },
-          { key: 'epp',  label: '🦺 Entrega de EPP' },
-          { key: 'reg',  label: '📖 Reglamento Interno' },
           { key: 'cert', label: '🏆 Certificado de Antigüedad' },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -473,150 +385,6 @@ export default function Capacitaciones() {
             </table>
           )}
         </>
-      )}
-
-      {/* ═══ TAB EPP ═══ */}
-      {tab === 'epp' && (
-        <div style={{ maxWidth: 700 }}>
-          <p style={{ color: 'var(--gray-600)', marginBottom: 20, fontSize: 13 }}>
-            Genera el registro de entrega de Elementos de Protección Personal por trabajador.
-          </p>
-          <form onSubmit={descargarEpp}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label>Empleado (buscar)</label>
-                <select className="form-control" onChange={onEmpleadoEpp} defaultValue="">
-                  <option value="">-- Seleccionar empleado --</option>
-                  {empleados.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.nombre} {emp.apellido_paterno} — {emp.rut}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Nombre del Trabajador *</label>
-                <input type="text" className="form-control" required value={formEpp.nombre_trabajador}
-                  onChange={e => setFormEpp(f => ({ ...f, nombre_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>RUT</label>
-                <input type="text" className="form-control" value={formEpp.rut_trabajador}
-                  onChange={e => setFormEpp(f => ({ ...f, rut_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Cargo</label>
-                <input type="text" className="form-control" value={formEpp.cargo}
-                  onChange={e => setFormEpp(f => ({ ...f, cargo: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Área / Obra / Faena</label>
-                <input type="text" className="form-control" value={formEpp.obra}
-                  onChange={e => setFormEpp(f => ({ ...f, obra: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Fecha de Entrega *</label>
-                <input type="date" className="form-control" required value={formEpp.fecha_entrega}
-                  onChange={e => setFormEpp(f => ({ ...f, fecha_entrega: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Entregado por</label>
-                <input type="text" className="form-control" value={formEpp.entregado_por}
-                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <strong>Elementos EPP</strong>
-                <button type="button" className="btn btn-outline btn-sm" onClick={addEppItem}>+ Agregar elemento</button>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--gray-100)' }}>
-                    <th style={{ padding: '4px 8px', textAlign: 'left' }}>Elemento</th>
-                    <th style={{ padding: '4px 8px', textAlign: 'center', width: 80 }}>Cantidad</th>
-                    <th style={{ width: 30 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formEpp.items.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--gray-200)' }}>
-                      <td style={{ padding: '3px 4px' }}>
-                        <input type="text" value={item.elemento} onChange={e => updateEppItem(idx, 'elemento', e.target.value)}
-                          style={{ width: '100%', border: '1px solid var(--gray-300)', borderRadius: 4, padding: '2px 6px', fontSize: 12 }} />
-                      </td>
-                      <td style={{ padding: '3px 4px' }}>
-                        <input type="number" min="1" value={item.cantidad} onChange={e => updateEppItem(idx, 'cantidad', e.target.value)}
-                          style={{ width: '100%', border: '1px solid var(--gray-300)', borderRadius: 4, padding: '2px 6px', fontSize: 12, textAlign: 'center' }} />
-                      </td>
-                      <td style={{ padding: '3px 8px' }}>
-                        <button type="button" onClick={() => removeEppItem(idx)}
-                          style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>×</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <button type="submit" className="btn btn-primary" disabled={descargandoEpp}>
-                {descargandoEpp ? 'Generando...' : '📄 Generar Word'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ═══ TAB REGLAMENTO ═══ */}
-      {tab === 'reg' && (
-        <div style={{ maxWidth: 600 }}>
-          <p style={{ color: 'var(--gray-600)', marginBottom: 20, fontSize: 13 }}>
-            Genera el formulario de recepción del Reglamento Interno de Orden, Higiene y Seguridad.
-          </p>
-          <form onSubmit={descargarReg}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label>Empleado (buscar)</label>
-                <select className="form-control" onChange={onEmpleadoReg} defaultValue="">
-                  <option value="">-- Seleccionar empleado --</option>
-                  {empleados.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.nombre} {emp.apellido_paterno} — {emp.rut}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Nombre Completo *</label>
-                <input type="text" className="form-control" required value={formReg.nombre_trabajador}
-                  onChange={e => setFormReg(f => ({ ...f, nombre_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>RUT</label>
-                <input type="text" className="form-control" value={formReg.rut_trabajador}
-                  onChange={e => setFormReg(f => ({ ...f, rut_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Sección / Cargo</label>
-                <input type="text" className="form-control" value={formReg.seccion}
-                  onChange={e => setFormReg(f => ({ ...f, seccion: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Fecha de Entrega *</label>
-                <input type="date" className="form-control" required value={formReg.fecha_entrega}
-                  onChange={e => setFormReg(f => ({ ...f, fecha_entrega: e.target.value }))} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <button type="submit" className="btn btn-primary" disabled={descargandoReg}>
-                {descargandoReg ? 'Generando...' : '📄 Generar Word'}
-              </button>
-            </div>
-          </form>
-        </div>
       )}
 
       {/* ═══ TAB CERTIFICADO ANTIGÜEDAD ═══ */}

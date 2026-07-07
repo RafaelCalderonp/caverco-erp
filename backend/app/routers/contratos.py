@@ -14,7 +14,7 @@ from app.models.rrhh import (
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx
+from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx, generar_reglamento_docx
 from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
@@ -423,6 +423,29 @@ async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(ge
     docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
     nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
     fname  = f"EntregaEPP_{nombre}_folio{entrega.folio or epp_id}.docx"
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---- Reglamento Interno ----
+@router.get("/{id}/reglamento-interno/word")
+async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = None, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+
+    from datetime import date as date_today
+    docx_bytes = generar_reglamento_docx(
+        empresa       = empresa,
+        empleado      = empleado,
+        fecha_entrega = fecha_entrega or date_today.today(),
+    )
+    nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
+    fname  = f"Reglamento_Interno_{nombre}.docx"
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
