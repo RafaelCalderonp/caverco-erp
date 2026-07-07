@@ -473,12 +473,13 @@ async def descargar_certificado_antiguedad_word(
         nombre          = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip(),
         rut_empleado    = empleado.rut or "",
         cargo           = (await db.get(Cargo, empleado.id_cargo)).nombre if empleado.id_cargo else "",
-        fecha_ingreso   = str(contrato.fecha_inicio) if contrato.fecha_inicio else "",
+        fecha_ingreso   = contrato.fecha_inicio,
         tipo_contrato   = tipo_c.codigo if tipo_c else "INDEFINIDO",
         empresa_nombre  = empresa.razon_social or empresa.nombre_fantasia or "",
         empresa_rut     = empresa.rut or "",
         ciudad          = ciudad,
-        fecha_emision   = str(fecha_emision or date_today.today()),
+        fecha_emision   = fecha_emision or date_today.today(),
+        empresa         = empresa,
     )
     nombre = f"{empleado.nombres}_{empleado.apellido_paterno}".replace(" ", "_")
     fname  = f"Certificado_Antiguedad_{nombre}.docx"

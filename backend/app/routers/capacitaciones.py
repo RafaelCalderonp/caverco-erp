@@ -210,6 +210,7 @@ async def descargar_word_capacitacion(id_empresa: int, id: int, db: AsyncSession
         procedimiento  = cap.procedimiento,
         asistentes     = cap.asistentes,
         empresa_nombre = empresa.razon_social if empresa else "",
+        empresa        = empresa,
     )
     cod = cap.procedimiento.codigo if cap.procedimiento else str(id)
     fname = f"Capacitacion_{cod}_{cap.fecha}.docx".replace(" ", "_")
@@ -281,7 +282,7 @@ async def generar_entrega_epp(
         emp_res = await db.execute(select(Empleado).where(Empleado.id == data.id_empleado))
         emp = emp_res.scalar_one_or_none()
         if emp:
-            nombre = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
+            nombre = f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
             rut    = emp.rut or rut
             cargo  = cargo or getattr(emp, "cargo_nombre", "") or ""
 
@@ -323,7 +324,7 @@ async def generar_cert_antiguedad(
         emp_res = await db.execute(select(Empleado).where(Empleado.id == data.id_empleado))
         emp = emp_res.scalar_one_or_none()
         if emp:
-            nombre = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
+            nombre = f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
             rut    = emp.rut or rut
             cargo  = cargo or getattr(emp, "cargo_nombre", "") or ""
 
@@ -340,6 +341,7 @@ async def generar_cert_antiguedad(
         empresa_rut    = empresa_rut,
         ciudad         = data.ciudad,
         fecha_emision  = data.fecha_emision,
+        empresa        = empresa,
     )
     fname = f"Certificado_Antiguedad_{(nombre or 'trabajador').replace(' ', '_')}.docx"
 

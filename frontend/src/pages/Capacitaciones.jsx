@@ -74,7 +74,7 @@ export default function Capacitaciones() {
   }
 
   function addEmpleadoCap(emp) {
-    const nombre = `${emp.nombre} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim()
+    const nombre = `${emp.nombres} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim()
     setFormCap(f => ({
       ...f,
       asistentes: [...f.asistentes, { nombre, area: emp.cargo_nombre || '', rut: emp.rut || '' }],
@@ -258,7 +258,7 @@ export default function Capacitaciones() {
                         <option value="">+ Desde empleados...</option>
                         {empleados.map(emp => (
                           <option key={emp.id} value={emp.id}>
-                            {emp.nombre} {emp.apellido_paterno} — {emp.rut}
+                            {emp.nombres} {emp.apellido_paterno} — {emp.rut}
                           </option>
                         ))}
                       </select>

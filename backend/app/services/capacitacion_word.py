@@ -1,4 +1,5 @@
-"""Generadores de documentos Word para módulo de documentación de obra (Archimet)."""
+"""Generadores de documentos Word para módulo de documentación de obra."""
+import base64
 import io
 import os
 from datetime import date, datetime
@@ -83,12 +84,24 @@ def _checkbox_cell(cell, checked: bool, label: str, size=8):
     r2.font.size = Pt(10)
 
 
-def _add_logo(cell):
+def _logo_bytes_from_url(logo_url: str | None) -> bytes | None:
+    if not logo_url or not logo_url.startswith("data:"):
+        return None
+    try:
+        return base64.b64decode(logo_url.split(",", 1)[1])
+    except Exception:
+        return None
+
+
+def _add_logo(cell, logo_url: str | None = None):
     cell.text = ""
     p = cell.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run()
-    if os.path.exists(LOGO_PATH):
+    logo_data = _logo_bytes_from_url(logo_url)
+    if logo_data:
+        run.add_picture(io.BytesIO(logo_data), width=Cm(2.8))
+    elif os.path.exists(LOGO_PATH):
         run.add_picture(LOGO_PATH, width=Cm(2.8))
     else:
         run.text = "ARCHIMET"
@@ -130,7 +143,7 @@ def _new_doc():
 
 # ─── 1. REGISTRO DE ASISTENCIA A CAPACITACIÓN ────────────────────────────────
 
-def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_nombre: str) -> bytes:
+def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_nombre: str, empresa=None) -> bytes:
     doc = _new_doc()
 
     obj_general   = capacitacion.objetivo_general   or (procedimiento.objetivo_general   if procedimiento else "") or ""
@@ -145,7 +158,7 @@ def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_n
     logo_cell = hdr.cell(0, 0)
     logo_cell.merge(hdr.cell(1, 0))
     logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    _add_logo(logo_cell)
+    _add_logo(logo_cell, getattr(empresa, "logo_url", None))
 
     # Título centro
     _cell_para(hdr.cell(0, 1), "Documento de Prevención de Riesgos.", bold=False, size=9,
@@ -510,13 +523,24 @@ def generar_certificado_antiguedad_docx(
     empresa_nombre: str, empresa_rut: str,
     ciudad: str = "Santiago",
     fecha_emision: date = None,
+    empresa=None,
 ) -> bytes:
     doc = _new_doc()
     if fecha_emision is None:
         fecha_emision = date.today()
 
-    # Espacio superior
-    doc.add_paragraph()
+    # Logo de la empresa
+    logo_url = getattr(empresa, "logo_url", None) if empresa else None
+    logo_data = _logo_bytes_from_url(logo_url)
+    p_logo = doc.add_paragraph()
+    p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_logo.paragraph_format.space_after = Pt(12)
+    run_logo = p_logo.add_run()
+    if logo_data:
+        run_logo.add_picture(io.BytesIO(logo_data), width=Cm(4))
+    elif os.path.exists(LOGO_PATH):
+        run_logo.add_picture(LOGO_PATH, width=Cm(4))
+
     doc.add_paragraph()
 
     # Título
