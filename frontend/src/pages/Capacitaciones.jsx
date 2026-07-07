@@ -18,21 +18,10 @@ const CAP_EMPTY = {
   objetivo_general: '', objetivos_especificos: '', asistentes: [],
 }
 
-const CERT_EMPTY = {
-  id_empleado: null, nombre_trabajador: '', rut_trabajador: '',
-  cargo: '', fecha_ingreso: '', tipo_contrato: 'INDEFINIDO',
-  ciudad: 'Santiago', fecha_emision: new Date().toISOString().slice(0, 10),
-}
-
-const TIPOS_CONTRATO = [
-  { value: 'INDEFINIDO', label: 'Indefinido' },
-  { value: 'PLAZO FIJO', label: 'Plazo Fijo' },
-  { value: 'POR OBRA',   label: 'Por Obra' },
-]
 
 export default function Capacitaciones() {
   const { empresaActual } = useEmpresa()
-  const [tab, setTab] = useState('cap')   // cap | cert
+  const [tab, setTab] = useState('cap')
   const [capacitaciones, setCapacitaciones] = useState([])
   const [procedimientos, setProcedimientos] = useState([])
   const [empleados, setEmpleados] = useState([])
@@ -45,9 +34,6 @@ export default function Capacitaciones() {
   const [guardandoCap, setGuardandoCap] = useState(false)
   const [descargando, setDescargando] = useState(null)
 
-  const [formCert, setFormCert] = useState(CERT_EMPTY)
-  const [descargandoCert, setDescargandoCert] = useState(false)
-
   const cargar = useCallback(async () => {
     if (!empresaActual) return
     setCargando(true); setError('')
@@ -55,12 +41,17 @@ export default function Capacitaciones() {
       const [capRes, procRes, empRes] = await Promise.all([
         api.get(`/empresas/${empresaActual.id}/capacitaciones`),
         api.get('/procedimientos-capacitacion'),
-        api.get('/empleados'),
+        api.get('/empleados').catch(() => ({ data: [] })),
       ])
       setCapacitaciones(capRes.data)
       setProcedimientos(procRes.data)
       setEmpleados(empRes.data)
-    } catch { setError('Error cargando datos') }
+    } catch (err) {
+      const msg = err?.response?.status === 500
+        ? 'Error del servidor. Verifica que la migración 25_capacitaciones_v2.sql fue ejecutada en la base de datos.'
+        : 'Error cargando datos'
+      setError(msg)
+    }
     finally { setCargando(false) }
   }, [empresaActual])
 
@@ -131,31 +122,6 @@ export default function Capacitaciones() {
     finally { setDescargando(null) }
   }
 
-  // ── Certificado helpers ──────────────────────────────────────────────────
-  function onEmpleadoCert(e) {
-    const emp = empleados.find(x => String(x.id) === e.target.value)
-    if (!emp) { setFormCert(f => ({ ...f, id_empleado: null })); return }
-    setFormCert(f => ({
-      ...f,
-      id_empleado: emp.id,
-      nombre_trabajador: `${emp.nombre} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim(),
-      rut_trabajador: emp.rut || '',
-      cargo: emp.cargo_nombre || '',
-      fecha_ingreso: emp.fecha_ingreso || '',
-      tipo_contrato: emp.tipo_contrato || 'INDEFINIDO',
-    }))
-  }
-
-  async function descargarCert(e) {
-    e.preventDefault()
-    setDescargandoCert(true)
-    try {
-      const res = await api.post(`/empresas/${empresaActual.id}/certificado-antiguedad/word`, formCert, { responseType: 'blob' })
-      _download(res.data, `Certificado_Antiguedad_${(formCert.nombre_trabajador || 'trabajador').replace(/ /g, '_')}.docx`)
-    } catch { alert('Error al generar Word') }
-    finally { setDescargandoCert(false) }
-  }
-
   function _download(blob, fname) {
     const url = URL.createObjectURL(new Blob([blob]))
     const a = document.createElement('a'); a.href = url; a.download = fname; a.click()
@@ -171,8 +137,7 @@ export default function Capacitaciones() {
       {/* Pestañas */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '2px solid var(--gray-200)' }}>
         {[
-          { key: 'cap',  label: '📋 Registro de Capacitación' },
-          { key: 'cert', label: '🏆 Certificado de Antigüedad' },
+          { key: 'cap', label: '📋 Registro de Capacitación' },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{
@@ -387,72 +352,6 @@ export default function Capacitaciones() {
         </>
       )}
 
-      {/* ═══ TAB CERTIFICADO ANTIGÜEDAD ═══ */}
-      {tab === 'cert' && (
-        <div style={{ maxWidth: 600 }}>
-          <p style={{ color: 'var(--gray-600)', marginBottom: 20, fontSize: 13 }}>
-            Genera el certificado de antigüedad laboral del trabajador.
-          </p>
-          <form onSubmit={descargarCert}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label>Empleado (buscar)</label>
-                <select className="form-control" onChange={onEmpleadoCert} defaultValue="">
-                  <option value="">-- Seleccionar empleado --</option>
-                  {empleados.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.nombre} {emp.apellido_paterno} — {emp.rut}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Nombre Completo *</label>
-                <input type="text" className="form-control" required value={formCert.nombre_trabajador}
-                  onChange={e => setFormCert(f => ({ ...f, nombre_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>RUT (C.I.)</label>
-                <input type="text" className="form-control" value={formCert.rut_trabajador}
-                  onChange={e => setFormCert(f => ({ ...f, rut_trabajador: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Cargo</label>
-                <input type="text" className="form-control" value={formCert.cargo}
-                  onChange={e => setFormCert(f => ({ ...f, cargo: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Tipo de Contrato</label>
-                <select className="form-control" value={formCert.tipo_contrato}
-                  onChange={e => setFormCert(f => ({ ...f, tipo_contrato: e.target.value }))}>
-                  {TIPOS_CONTRATO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Fecha de Ingreso *</label>
-                <input type="date" className="form-control" required value={formCert.fecha_ingreso}
-                  onChange={e => setFormCert(f => ({ ...f, fecha_ingreso: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Ciudad</label>
-                <input type="text" className="form-control" value={formCert.ciudad}
-                  onChange={e => setFormCert(f => ({ ...f, ciudad: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Fecha de Emisión *</label>
-                <input type="date" className="form-control" required value={formCert.fecha_emision}
-                  onChange={e => setFormCert(f => ({ ...f, fecha_emision: e.target.value }))} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <button type="submit" className="btn btn-primary" disabled={descargandoCert}>
-                {descargandoCert ? 'Generando...' : '📄 Generar Word'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   )
 }

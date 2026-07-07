@@ -132,6 +132,12 @@ export const contratosApi = {
       { params: fecha ? { fecha_entrega: fecha } : {}, responseType: 'blob' }
     ),
   },
+  certificadoAntiguedad: {
+    word: (idContrato, ciudad, fechaEmision) => api.get(
+      `/contratos/${idContrato}/certificado-antiguedad/word`,
+      { params: { ciudad, fecha_emision: fechaEmision }, responseType: 'blob' }
+    ),
+  },
   pactosHorasExtra: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
     create: (idContrato, d)    => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),

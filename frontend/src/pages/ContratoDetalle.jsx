@@ -70,6 +70,10 @@ export default function ContratoDetalle() {
   const [fechaReglamento, setFechaReglamento] = useState(new Date().toISOString().slice(0, 10))
   const [descargandoReglamento, setDescargandoReglamento] = useState(false)
 
+  const [ciudadCertificado, setCiudadCertificado] = useState('Santiago')
+  const [fechaCertificado, setFechaCertificado] = useState(new Date().toISOString().slice(0, 10))
+  const [descargandoCertificado, setDescargandoCertificado] = useState(false)
+
   const [mostrarFormPacto, setMostrarFormPacto] = useState(false)
   const [formPacto, setFormPacto] = useState({ fecha_inicio: '', fecha_termino: '', tope_horas_diarias: 2, porcentaje_recargo: 0.5 })
   const [guardandoPacto, setGuardandoPacto] = useState(false)
@@ -279,6 +283,17 @@ export default function ContratoDetalle() {
       URL.revokeObjectURL(url)
     } catch { alert('Error al generar Word') }
     finally { setDescargandoReglamento(false) }
+  }
+
+  async function descargarCertificado() {
+    setDescargandoCertificado(true)
+    try {
+      const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `Certificado_Antiguedad_${id}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar certificado') }
+    finally { setDescargandoCertificado(false) }
   }
 
   async function descargarEppWord(eppId) {
@@ -708,6 +723,32 @@ export default function ContratoDetalle() {
           </div>
           <button className="btn btn-outline btn-sm" onClick={descargarReglamento} disabled={descargandoReglamento}>
             {descargandoReglamento ? '...' : '📄 Generar Word'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Certificado de Antigüedad</h3>
+        </div>
+        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
+          Genera el certificado de antigüedad laboral con los datos del trabajador y contrato.
+        </p>
+        <div style={{display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap'}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Ciudad</label>
+            <input className="input" type="text" value={ciudadCertificado}
+              onChange={e => setCiudadCertificado(e.target.value)}
+              style={{fontSize:13, width:140}} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha de emisión</label>
+            <input className="input" type="date" value={fechaCertificado}
+              onChange={e => setFechaCertificado(e.target.value)}
+              style={{fontSize:13}} />
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={descargarCertificado} disabled={descargandoCertificado}>
+            {descargandoCertificado ? '...' : '📄 Generar Word'}
           </button>
         </div>
       </div>

@@ -15,6 +15,7 @@ from app.models.rrhh import (
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
 from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx, generar_reglamento_docx
+from app.services.capacitacion_word import generar_certificado_antiguedad_docx
 from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
@@ -447,6 +448,40 @@ async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = Non
     nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
     fname  = f"Reglamento_Interno_{nombre}.docx"
 
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---- Certificado de Antigüedad ----
+@router.get("/{id}/certificado-antiguedad/word")
+async def descargar_certificado_antiguedad_word(
+    id: int,
+    ciudad: str = "Santiago",
+    fecha_emision: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    tipo_c   = await db.get(TipoContrato, contrato.id_tipo_contrato) if contrato.id_tipo_contrato else None
+
+    from datetime import date as date_today
+    docx_bytes = generar_certificado_antiguedad_docx(
+        nombre          = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip(),
+        rut_empleado    = empleado.rut or "",
+        cargo           = (await db.get(Cargo, empleado.id_cargo)).nombre if empleado.id_cargo else "",
+        fecha_ingreso   = str(contrato.fecha_inicio) if contrato.fecha_inicio else "",
+        tipo_contrato   = tipo_c.codigo if tipo_c else "INDEFINIDO",
+        empresa_nombre  = empresa.razon_social or empresa.nombre_fantasia or "",
+        empresa_rut     = empresa.rut or "",
+        ciudad          = ciudad,
+        fecha_emision   = str(fecha_emision or date_today.today()),
+    )
+    nombre = f"{empleado.nombres}_{empleado.apellido_paterno}".replace(" ", "_")
+    fname  = f"Certificado_Antiguedad_{nombre}.docx"
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
