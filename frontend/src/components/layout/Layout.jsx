@@ -13,6 +13,7 @@ const NAV = [
   { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/catalogos',     icon: '⚙️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
+  { to: '/capacitaciones', icon: '🎓', label: 'Capacitaciones' },
   { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
   { section: 'Contabilidad' },
@@ -26,7 +27,7 @@ const NAV = [
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
-const REQUIERE_EMPRESA = ['/empleados', '/departamentos', '/catalogos', '/licencias', '/contratos', '/liquidaciones', '/contabilidad', '/libro-diario', '/balance-8-columnas', '/plantillas-contabilizacion']
+const REQUIERE_EMPRESA = ['/empleados', '/departamentos', '/catalogos', '/licencias', '/capacitaciones', '/contratos', '/liquidaciones', '/contabilidad', '/libro-diario', '/balance-8-columnas', '/plantillas-contabilizacion']
 const STORAGE_KEY = 'sidebarColapsado'
 
 export default function Layout() {

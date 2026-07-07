@@ -156,6 +156,15 @@ export const credencialesApi = {
   eliminar:(idEmpresa, tipo)      => api.delete(`/empresas/${idEmpresa}/credenciales/${tipo}`),
 }
 
+export const capacitacionesApi = {
+  procedimientos: () => api.get('/procedimientos-capacitacion'),
+  list:    (idEmpresa) => api.get(`/empresas/${idEmpresa}/capacitaciones`),
+  create:  (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/capacitaciones`, data),
+  get:     (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}`),
+  delete:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/capacitaciones/${id}`),
+  word:    (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word`, { responseType: 'blob' }),
+}
+
 export const planCuentasApi = {
   list: () => api.get('/plan-cuentas'),
 }

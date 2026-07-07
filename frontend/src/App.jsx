@@ -20,6 +20,7 @@ import PlanCuentas from './pages/PlanCuentas'
 import LibroDiario from './pages/LibroDiario'
 import Balance8Columnas from './pages/Balance8Columnas'
 import PlantillasContabilizacion from './pages/PlantillasContabilizacion'
+import Capacitaciones from './pages/Capacitaciones'
 import Configuracion from './pages/Configuracion'
 import Usuarios from './pages/Usuarios'
 import { useAuth } from './context/AuthContext'
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="departamentos"      element={<RequireEmpresa><Departamentos /></RequireEmpresa>} />
         <Route path="catalogos"          element={<RequireEmpresa><Catalogos /></RequireEmpresa>} />
         <Route path="licencias"          element={<RequireEmpresa><Licencias /></RequireEmpresa>} />
+        <Route path="capacitaciones"     element={<RequireEmpresa><Capacitaciones /></RequireEmpresa>} />
         <Route path="contratos"          element={<RequireEmpresa><Contratos /></RequireEmpresa>} />
         <Route path="contratos/nuevo"    element={<RequireEmpresa><ContratoNuevo /></RequireEmpresa>} />
         <Route path="contratos/:id"      element={<RequireEmpresa><ContratoDetalle /></RequireEmpresa>} />
