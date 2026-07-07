@@ -57,7 +57,7 @@ export default function Layout() {
             alt="Caverco"
             style={{ height: 28, objectFit: 'contain', background: '#fff', borderRadius: 6, padding: '4px 8px', flexShrink: 0 }}
           />
-          <span className="sidebar-logo-label">{empresaActual ? empresaActual.razon_social : 'Recursos Humanos'}</span>
+          <span className="sidebar-logo-label">Caverco Partners SpA</span>
         </div>
         <nav>
           {NAV.filter(n => n.section !== undefined || !n.roles || n.roles.includes(usuario?.rol)).map((item, i) => {
