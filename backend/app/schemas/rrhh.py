@@ -401,6 +401,7 @@ class EntregaEppCreate(BaseModel):
     folio: Optional[str] = None
     fecha_entrega: date
     items: Optional[list] = None
+    entregado_por: Optional[str] = "Salvador Calderón"
     observaciones: Optional[str] = None
 
 class EntregaEppOut(EntregaEppCreate):

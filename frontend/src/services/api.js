@@ -121,8 +121,10 @@ export const contratosApi = {
     update: (id, d)            => api.patch(`/contratos/requisitos-obra/${id}`, d),
   },
   entregasEpp: {
-    list:   (idContrato)       => api.get(`/contratos/${idContrato}/entregas-epp`),
-    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/entregas-epp`, d),
+    list:          (idContrato)          => api.get(`/contratos/${idContrato}/entregas-epp`),
+    siguienteFolio:(idContrato)          => api.get(`/contratos/${idContrato}/entregas-epp/siguiente-folio`),
+    create:        (idContrato, d)       => api.post(`/contratos/${idContrato}/entregas-epp`, d),
+    word:          (idContrato, eppId)   => api.get(`/contratos/${idContrato}/entregas-epp/${eppId}/word`, { responseType: 'blob' }),
   },
   pactosHorasExtra: {
     list:   (idContrato)       => api.get(`/contratos/${idContrato}/pactos-horas-extra`),

@@ -282,6 +282,7 @@ class EntregaEpp(Base):
     folio             = Column(String(30))
     fecha_entrega     = Column(Date, nullable=False)
     items             = Column(JSONB)
+    entregado_por     = Column(String(200), default="Salvador Calderón")
     observaciones     = Column(Text)
     created_at        = Column(TIMESTAMPTZ, server_default=func.now())
 

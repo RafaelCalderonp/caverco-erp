@@ -44,9 +44,27 @@ export default function ContratoDetalle() {
   const [guardandoRequisito, setGuardandoRequisito] = useState(false)
   const [errorRequisito, setErrorRequisito] = useState('')
 
+  const EPP_DEFAULT_ITEMS = [
+    { elemento: 'Casco', cantidad: 1 },
+    { elemento: 'Zapatos de Seguridad', cantidad: 1 },
+    { elemento: 'Guantes', cantidad: 1 },
+    { elemento: 'Antiparras / Lentes de Seguridad', cantidad: 1 },
+    { elemento: 'Tapones Auditivos', cantidad: 1 },
+    { elemento: 'Barbiquejo', cantidad: 1 },
+    { elemento: 'Bloqueador Solar', cantidad: 1 },
+    { elemento: 'Chaleco Reflectante', cantidad: 1 },
+    { elemento: 'Arnés de Seguridad', cantidad: 1 },
+    { elemento: 'Cabo de vida simple', cantidad: 1 },
+  ]
+
   const [mostrarFormEpp, setMostrarFormEpp] = useState(false)
-  const [formEpp, setFormEpp] = useState({ folio: '', fecha_entrega: '', items: '', observaciones: '' })
+  const [formEpp, setFormEpp] = useState({
+    folio: '', fecha_entrega: new Date().toISOString().slice(0, 10),
+    entregado_por: 'Salvador Calderón', observaciones: '',
+    items: EPP_DEFAULT_ITEMS.map(i => ({ ...i })),
+  })
   const [guardandoEpp, setGuardandoEpp] = useState(false)
+  const [descargandoEpp, setDescargandoEpp] = useState(null)
   const [errorEpp, setErrorEpp] = useState('')
 
   const [mostrarFormPacto, setMostrarFormPacto] = useState(false)
@@ -214,6 +232,15 @@ export default function ContratoDetalle() {
     } finally { setGuardandoRequisito(false) }
   }
 
+  async function abrirFormEpp() {
+    try {
+      const res = await contratosApi.entregasEpp.siguienteFolio(id)
+      setFormEpp(f => ({ ...f, folio: res.data.folio }))
+    } catch { /* folio queda vacío, editable */ }
+    setErrorEpp('')
+    setMostrarFormEpp(true)
+  }
+
   async function guardarEpp() {
     if (!formEpp.fecha_entrega) {
       setErrorEpp('Fecha de entrega es obligatoria')
@@ -221,22 +248,34 @@ export default function ContratoDetalle() {
     }
     setGuardandoEpp(true); setErrorEpp('')
     try {
-      const items = formEpp.items
-        ? formEpp.items.split(',').map(s => {
-            const [item, cantidad] = s.split(':').map(p => p.trim())
-            return { item, cantidad: Number(cantidad) || 1 }
-          })
-        : []
       await contratosApi.entregasEpp.create(id, {
-        ...formEpp,
-        items,
+        folio: formEpp.folio,
+        fecha_entrega: formEpp.fecha_entrega,
+        entregado_por: formEpp.entregado_por,
+        observaciones: formEpp.observaciones,
+        items: formEpp.items.filter(i => i.elemento.trim()),
       })
-      setFormEpp({ folio: '', fecha_entrega: '', items: '', observaciones: '' })
+      setFormEpp({
+        folio: '', fecha_entrega: new Date().toISOString().slice(0, 10),
+        entregado_por: 'Salvador Calderón', observaciones: '',
+        items: EPP_DEFAULT_ITEMS.map(i => ({ ...i })),
+      })
       setMostrarFormEpp(false)
       cargar()
     } catch (err) {
       setErrorEpp(err.response?.data?.detail || 'Error al guardar la entrega de EPP')
     } finally { setGuardandoEpp(false) }
+  }
+
+  async function descargarEppWord(eppId) {
+    setDescargandoEpp(eppId)
+    try {
+      const res = await contratosApi.entregasEpp.word(id, eppId)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `EntregaEPP_${eppId}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar Word') }
+    finally { setDescargandoEpp(null) }
   }
 
   async function guardarPacto() {
@@ -642,21 +681,22 @@ export default function ContratoDetalle() {
       <div className="card mt-4">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
           <h3 style={{fontWeight:600}}>Entrega de EPP ({entregas.length})</h3>
-          <button className="btn btn-outline btn-sm" onClick={() => { setMostrarFormEpp(v => !v); setErrorEpp('') }}>
+          <button className="btn btn-outline btn-sm"
+            onClick={() => mostrarFormEpp ? setMostrarFormEpp(false) : abrirFormEpp()}>
             {mostrarFormEpp ? 'Cancelar' : '+ Agregar Entrega'}
           </button>
         </div>
 
         {mostrarFormEpp && (
-          <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, marginBottom:12}}>
+          <div style={{padding:'16px', background:'var(--gray-50)', borderRadius:8, marginBottom:16}}>
             {errorEpp && (
               <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
                 {errorEpp}
               </div>
             )}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
               <div className="form-group">
-                <label className="form-label">Fecha de Entrega<span style={{color:'var(--danger)'}}> *</span></label>
+                <label className="form-label">Fecha de Entrega *</label>
                 <input className="input" type="date" value={formEpp.fecha_entrega}
                   onChange={e => setFormEpp(f => ({ ...f, fecha_entrega: e.target.value }))} />
               </div>
@@ -665,18 +705,66 @@ export default function ContratoDetalle() {
                 <input className="input" type="text" value={formEpp.folio}
                   onChange={e => setFormEpp(f => ({ ...f, folio: e.target.value }))} />
               </div>
+              <div className="form-group">
+                <label className="form-label">Entregado por</label>
+                <input className="input" type="text" value={formEpp.entregado_por}
+                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))} />
+              </div>
             </div>
-            <div className="form-group" style={{marginBottom:10}}>
-              <label className="form-label">Ítems (formato: ítem:cantidad, separados por coma)</label>
-              <input className="input" type="text" placeholder="Ej: Casco:1, Guantes:2"
-                value={formEpp.items}
-                onChange={e => setFormEpp(f => ({ ...f, items: e.target.value }))} />
+
+            {/* Tabla de ítems EPP */}
+            <div style={{marginBottom:12}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                <label className="form-label" style={{margin:0, fontWeight:600}}>Elementos EPP</label>
+                <button type="button" className="btn btn-outline btn-sm"
+                  onClick={() => setFormEpp(f => ({ ...f, items: [...f.items, { elemento: '', cantidad: 1 }] }))}>
+                  + Agregar elemento
+                </button>
+              </div>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+                <thead>
+                  <tr style={{background:'var(--gray-100)'}}>
+                    <th style={{padding:'4px 8px', textAlign:'left'}}>Elemento</th>
+                    <th style={{padding:'4px 8px', textAlign:'center', width:90}}>Cantidad</th>
+                    <th style={{width:36}}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formEpp.items.map((item, idx) => (
+                    <tr key={idx} style={{borderBottom:'1px solid var(--gray-200)'}}>
+                      <td style={{padding:'3px 4px'}}>
+                        <input type="text" value={item.elemento}
+                          onChange={e => setFormEpp(f => {
+                            const arr = [...f.items]; arr[idx] = { ...arr[idx], elemento: e.target.value }; return { ...f, items: arr }
+                          })}
+                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12}} />
+                      </td>
+                      <td style={{padding:'3px 4px'}}>
+                        <input type="number" min="1" value={item.cantidad}
+                          onChange={e => setFormEpp(f => {
+                            const arr = [...f.items]; arr[idx] = { ...arr[idx], cantidad: Number(e.target.value) || 1 }; return { ...f, items: arr }
+                          })}
+                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12, textAlign:'center'}} />
+                      </td>
+                      <td style={{padding:'3px 8px', textAlign:'center'}}>
+                        <button type="button"
+                          onClick={() => setFormEpp(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
+                          style={{background:'none', border:'none', color:'var(--danger)', cursor:'pointer', fontSize:16, lineHeight:1}}>
+                          🗑
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="form-group" style={{marginBottom:10}}>
+
+            <div className="form-group" style={{marginBottom:12}}>
               <label className="form-label">Observaciones</label>
               <textarea className="input" rows={2} value={formEpp.observaciones}
                 onChange={e => setFormEpp(f => ({ ...f, observaciones: e.target.value }))} />
             </div>
+
             <div style={{display:'flex', justifyContent:'flex-end'}}>
               <button className="btn btn-primary btn-sm" onClick={guardarEpp} disabled={guardandoEpp}>
                 {guardandoEpp ? 'Guardando…' : 'Guardar Entrega'}
@@ -688,8 +776,24 @@ export default function ContratoDetalle() {
         {entregas.length === 0
           ? <p className="text-muted">Sin entregas registradas</p>
           : entregas.map(e => (
-            <div key={e.id} style={{padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              {e.fecha_entrega} — folio {e.folio || '—'} — {(e.items || []).map(i => `${i.item} x${i.cantidad}`).join(', ')}
+            <div key={e.id} style={{
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              padding:'10px 0', borderBottom:'1px solid var(--gray-100)',
+            }}>
+              <div style={{fontSize:13}}>
+                <strong>Folio {e.folio || '—'}</strong>
+                <span style={{marginLeft:12, color:'var(--gray-600)'}}>{e.fecha_entrega}</span>
+                <span style={{marginLeft:12, color:'var(--gray-500)'}}>
+                  {(e.items || []).length} elemento{(e.items || []).length !== 1 ? 's' : ''}
+                </span>
+                {e.entregado_por && (
+                  <span style={{marginLeft:12, color:'var(--gray-500)'}}>— {e.entregado_por}</span>
+                )}
+              </div>
+              <button className="btn btn-outline btn-sm" disabled={descargandoEpp === e.id}
+                onClick={() => descargarEppWord(e.id)}>
+                {descargandoEpp === e.id ? '...' : '📄 Word'}
+              </button>
             </div>
           ))
         }

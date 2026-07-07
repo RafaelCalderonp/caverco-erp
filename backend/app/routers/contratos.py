@@ -14,7 +14,8 @@ from app.models.rrhh import (
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx
+from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx
+from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
@@ -380,8 +381,21 @@ async def actualizar_requisito_obra(id: int, data: ContratoRequisitoObraUpdate, 
 @router.get("/{id}/entregas-epp", response_model=List[EntregaEppOut])
 async def listar_entregas_epp(id: int, db: AsyncSession = Depends(get_db)):
     await _get_contrato_or_404(id, db)
-    result = await db.execute(select(EntregaEpp).where(EntregaEpp.id_contrato == id))
+    result = await db.execute(
+        select(EntregaEpp).where(EntregaEpp.id_contrato == id).order_by(EntregaEpp.fecha_entrega.desc())
+    )
     return result.scalars().all()
+
+
+@router.get("/{id}/entregas-epp/siguiente-folio")
+async def siguiente_folio_epp(id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    result = await db.execute(
+        select(func.count()).select_from(EntregaEpp).where(EntregaEpp.id_empresa == empleado.id_empresa)
+    )
+    count = result.scalar() or 0
+    return {"folio": f"{count + 1:03d}"}
 
 
 @router.post("/{id}/entregas-epp", response_model=EntregaEppOut, status_code=201,
@@ -394,6 +408,27 @@ async def crear_entrega_epp(id: int, data: EntregaEppCreate, db: AsyncSession = 
     await db.commit()
     await db.refresh(entrega)
     return entrega
+
+
+@router.get("/{id}/entregas-epp/{epp_id}/word")
+async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    entrega = await db.get(EntregaEpp, epp_id)
+    if not entrega or entrega.id_contrato != id:
+        raise HTTPException(404, "Entrega de EPP no encontrada")
+
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+
+    docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
+    nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
+    fname  = f"EntregaEPP_{nombre}_folio{entrega.folio or epp_id}.docx"
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ---- Pactos de horas extra ----

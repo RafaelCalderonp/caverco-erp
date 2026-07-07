@@ -3,8 +3,11 @@ import io
 from datetime import date
 
 from docx import Document
-from docx.shared import Pt, Cm
+from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 MESES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -286,6 +289,173 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for r in p.runs:
                 r.bold = True
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
+# ─── ENTREGA DE EPP ───────────────────────────────────────────────────────────
+
+def _set_cell_bg_epp(cell, hex_color: str):
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color)
+    tcPr.append(shd)
+
+
+def _cell_text(cell, text="", bold=False, size=9, align=WD_ALIGN_PARAGRAPH.LEFT):
+    cell.text = ""
+    p = cell.paragraphs[0]
+    p.alignment = align
+    p.paragraph_format.space_before = Pt(1)
+    p.paragraph_format.space_after = Pt(1)
+    if text:
+        r = p.add_run(str(text))
+        r.bold = bold
+        r.font.size = Pt(size)
+
+
+def generar_epp_docx(empresa, empleado, entrega) -> bytes:
+    from docx.enum.table import WD_ALIGN_VERTICAL
+    doc = Document()
+    section = doc.sections[0]
+    section.page_width    = Cm(21.59)
+    section.page_height   = Cm(27.94)
+    section.left_margin   = Cm(1.8)
+    section.right_margin  = Cm(1.8)
+    section.top_margin    = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(9)
+
+    nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+    fecha_entrega   = entrega.fecha_entrega
+    entregado_por   = entrega.entregado_por or "Salvador Calderón"
+    items           = entrega.items or []
+
+    # ── Encabezado: logo + título + folio ─────────────────────────────────────
+    hdr = doc.add_table(rows=1, cols=3)
+    hdr.style = "Table Grid"
+
+    logo_cell = hdr.rows[0].cells[0]
+    logo_cell.width = Cm(3.5)
+    logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    logo_cell.text = ""
+    p_logo = logo_cell.paragraphs[0]
+    p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p_logo.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+    else:
+        r = p_logo.add_run(getattr(empresa, "razon_social", "") or "")
+        r.bold = True
+        r.font.size = Pt(10)
+
+    title_cell = hdr.rows[0].cells[1]
+    title_cell.width = Cm(13.0)
+    title_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _cell_text(title_cell, "REGISTRO DE ENTREGA DE ELEMENTOS DE PROTECCIÓN PERSONAL",
+               bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    folio_cell = hdr.rows[0].cells[2]
+    folio_cell.width = Cm(3.0)
+    _cell_text(folio_cell, f"Folio N°\n{entrega.folio or ''}", size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    doc.add_paragraph()
+
+    # ── Texto legal ───────────────────────────────────────────────────────────
+    p_ley = doc.add_paragraph()
+    p_ley.paragraph_format.space_after = Pt(8)
+    r1 = p_ley.add_run('De acuerdo a lo estipulado en la ')
+    r1.font.size = Pt(9)
+    r2 = p_ley.add_run('Ley 16.744 Art. 68 inciso tres')
+    r2.bold = True; r2.font.size = Pt(9)
+    r3 = p_ley.add_run(
+        ' "Las empresas deberán proporcionar a sus trabajadores los equipos e implementos de '
+        'protección necesarios no pudiendo en caso alguno cobrarles su valor".'
+    )
+    r3.font.size = Pt(9); r3.italic = True
+
+    # ── Datos del trabajador ──────────────────────────────────────────────────
+    datos = doc.add_table(rows=4, cols=2)
+    datos.style = "Table Grid"
+    filas_datos = [
+        ("Nombre del trabajador", nombre_empleado),
+        ("Cédula de Identidad",   empleado.rut or ""),
+        ("Cargo",                 getattr(empleado, "cargo_nombre", "") or ""),
+        ("Área / Obra / Faena",   empresa.razon_social or ""),
+    ]
+    for i, (lbl, val) in enumerate(filas_datos):
+        _cell_text(datos.rows[i].cells[0], lbl, bold=True, size=9)
+        _cell_text(datos.rows[i].cells[1], val, size=9)
+        datos.rows[i].cells[0].width = Cm(5.0)
+        datos.rows[i].cells[1].width = Cm(14.5)
+
+    doc.add_paragraph()
+
+    # ── Subtítulo ─────────────────────────────────────────────────────────────
+    p_sub = doc.add_paragraph("REGISTRO PERSONAL DE ENTREGA DE EPP")
+    p_sub.runs[0].bold = True
+    p_sub.runs[0].font.size = Pt(10)
+    p_sub.paragraph_format.space_after = Pt(4)
+
+    # ── Tabla EPP — 6 columnas ────────────────────────────────────────────────
+    n_rows = max(len(items), 8)
+    epp_tbl = doc.add_table(rows=n_rows + 1, cols=6)
+    epp_tbl.style = "Table Grid"
+
+    headers    = ["Elemento entregado", "Cantidad", "Fecha de Entrega", "Entregado por", "Recibí conforme", "Observación"]
+    col_widths = [Cm(5.5), Cm(2.0), Cm(3.0), Cm(3.0), Cm(3.0), Cm(3.0)]
+    for i, h in enumerate(headers):
+        _cell_text(epp_tbl.rows[0].cells[i], h, bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+        _set_cell_bg_epp(epp_tbl.rows[0].cells[i], "D9EAD3")
+
+    fecha_str = f"{fecha_entrega.day:02d}-{fecha_entrega.month:02d}-{fecha_entrega.year}" if fecha_entrega else ""
+    for idx in range(n_rows):
+        row = epp_tbl.rows[idx + 1]
+        row.height = Cm(0.7)
+        if idx < len(items):
+            item = items[idx]
+            _cell_text(row.cells[0], item.get("elemento", item.get("item", "")), size=8)
+            _cell_text(row.cells[1], str(item.get("cantidad", 1)), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+            _cell_text(row.cells[2], fecha_str, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+            _cell_text(row.cells[3], entregado_por, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    for row in epp_tbl.rows:
+        for i, w in enumerate(col_widths):
+            row.cells[i].width = w
+
+    doc.add_paragraph()
+
+    # ── Declaraciones ─────────────────────────────────────────────────────────
+    for txt in [
+        "El trabajador se compromete a mantener los Elementos de Protección Personal en buen estado, "
+        "declara haberlos recibido en forma gratuita y usarlos correctamente cada vez que una actividad lo requiera.",
+        "El trabajador declara que al momento de recibir sus elementos de protección personal ha recibido la "
+        "capacitación necesaria para el correcto uso y cuidado de estos.",
+    ]:
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(6)
+        r = p.add_run(txt)
+        r.font.size = Pt(8); r.italic = True
+
+    # ── Firmas ────────────────────────────────────────────────────────────────
+    firma = doc.add_table(rows=2, cols=2)
+    firma.style = "Table Grid"
+    _cell_text(firma.rows[0].cells[0], "Entregado por", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[0].cells[1], "Firma Trabajador / Recibí conforme", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[0], entregado_por, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma.rows:
+        row.cells[0].width = Cm(9.75)
+        row.cells[1].width = Cm(9.75)
+        row.height = Cm(2.0)
 
     buffer = io.BytesIO()
     doc.save(buffer)
