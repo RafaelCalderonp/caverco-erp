@@ -14,7 +14,7 @@ from app.models.rrhh import (
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx, generar_reglamento_docx
+from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx, generar_reglamento_docx, generar_pacto_horas_extra_docx
 from app.services.capacitacion_word import generar_certificado_antiguedad_docx
 from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
@@ -508,3 +508,29 @@ async def crear_pacto_horas_extra(id: int, data: PactoHorasExtraCreate, db: Asyn
     await db.commit()
     await db.refresh(pacto)
     return pacto
+
+
+@router.get("/{id}/pactos-horas-extra/{pacto_id}/word")
+async def descargar_pacto_word(id: int, pacto_id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    pacto    = await db.get(PactoHorasExtra, pacto_id)
+    if not pacto or pacto.id_contrato != id:
+        raise HTTPException(404, "Pacto no encontrado")
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    docx_bytes = generar_pacto_horas_extra_docx(
+        empresa      = empresa,
+        empleado     = empleado,
+        contrato     = contrato,
+        pacto        = pacto,
+        cargo_nombre = cargo.nombre if cargo else "",
+    )
+    nombre = f"{empleado.nombres}_{empleado.apellido_paterno}".replace(" ", "_")
+    fname  = f"Pacto_Horas_Extra_{nombre}.docx"
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

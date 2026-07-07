@@ -542,3 +542,84 @@ def generar_epp_docx(empresa, empleado, entrega) -> bytes:
     buffer = io.BytesIO()
     doc.save(buffer)
     return buffer.getvalue()
+
+
+def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nombre: str = "") -> bytes:
+    from decimal import Decimal
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    # Logo
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    _parrafo(doc, ["PACTO DE HORAS EXTRAORDINARIAS"], bold_default=True,
+             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
+    _parrafo(doc, ["(Artículo 32 del Código del Trabajo)"], bold_default=False,
+             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=16)
+
+    nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+    recargo_pct = int(Decimal(str(pacto.porcentaje_recargo)) * 100)
+
+    _parrafo(doc, [
+        f"En {empresa.ciudad or 'Santiago'}, a ", (_fecha_larga(pacto.fecha_inicio), True),
+        ", entre ", (empresa.razon_social or "", True),
+        ", RUT N° ", (empresa.rut or "", True),
+        ", representado por ", (empresa.representante_legal or "", True),
+        ', en adelante "EL EMPLEADOR", y don/doña ',
+        (nombre_completo, True), ", RUT ", (empleado.rut or "", True),
+        f', que se desempeña como {cargo_nombre or "trabajador/a"}, en adelante "EL TRABAJADOR", se conviene el siguiente Pacto de Horas Extraordinarias:',
+    ])
+
+    _parrafo(doc, [
+        ("PRIMERO: ", True),
+        "Las partes acuerdan que EL TRABAJADOR podrá laborar horas extraordinarias, con un tope de ",
+        (f"{pacto.tope_horas_diarias}", True), " horas diarias adicionales a la jornada ordinaria pactada.",
+    ])
+
+    _parrafo(doc, [
+        ("SEGUNDO: ", True),
+        "Las horas extraordinarias pactadas se pagarán con un recargo del ",
+        (f"{recargo_pct}%", True), " sobre el valor de la hora ordinaria, conforme a lo establecido en el artículo 32 del Código del Trabajo.",
+    ])
+
+    _parrafo(doc, [
+        ("TERCERO: ", True),
+        "El presente pacto regirá desde el ",
+        (_fecha_larga(pacto.fecha_inicio), True), " hasta el ",
+        (_fecha_larga(pacto.fecha_termino), True),
+        ", pudiendo ser renovado por acuerdo de las partes.",
+    ])
+
+    _parrafo(doc, [
+        ("CUARTO: ", True),
+        "Las horas extraordinarias sólo podrán pactarse para atender necesidades o situaciones temporales de la empresa. "
+        "Transcurrido el período de vigencia, las horas que se laboren en exceso de la jornada pactada no se considerarán extraordinarias, "
+        "salvo que se suscriba un nuevo pacto.",
+    ])
+
+    _parrafo(doc, ["En señal de conformidad, las partes firman el presente pacto en dos ejemplares de igual valor y fecha."],
+             space_after=40)
+
+    # Firmas
+    firma = doc.add_table(rows=2, cols=2)
+    firma.style = "Table Grid"
+    _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[0], empresa.razon_social or "", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[1], nombre_completo, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma.rows:
+        row.cells[0].width = Cm(9.75)
+        row.cells[1].width = Cm(9.75)
+        row.height = Cm(2.0)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

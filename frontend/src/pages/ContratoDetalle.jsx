@@ -79,6 +79,7 @@ export default function ContratoDetalle() {
   const [guardandoPacto, setGuardandoPacto] = useState(false)
   const [errorPacto, setErrorPacto] = useState('')
   const [pactos, setPactos] = useState([])
+  const [descargandoPactoId, setDescargandoPactoId] = useState(null)
 
   const [formFiniquito, setFormFiniquito] = useState({ fecha_ultimo_feriado: '', procede_indemnizacion_anos_servicio: false, procede_aviso_previo: false, dias_feriado_anual: 15 })
   const [resultadoFiniquito, setResultadoFiniquito] = useState(null)
@@ -307,6 +308,27 @@ export default function ContratoDetalle() {
     finally { setDescargandoEpp(null) }
   }
 
+  function abrirFormPacto() {
+    setFormPacto({
+      fecha_inicio: contrato?.fecha_inicio || '',
+      fecha_termino: '',
+      tope_horas_diarias: 2,
+      porcentaje_recargo: 0.5,
+    })
+    setErrorPacto('')
+    setMostrarFormPacto(true)
+  }
+
+  function aplicarDiasPacto(dias) {
+    if (!formPacto.fecha_inicio) return
+    const fecha = new Date(formPacto.fecha_inicio + 'T00:00:00')
+    fecha.setDate(fecha.getDate() + Number(dias))
+    const diaSemana = fecha.getDay()
+    if (diaSemana === 6) fecha.setDate(fecha.getDate() + 2)
+    else if (diaSemana === 0) fecha.setDate(fecha.getDate() + 1)
+    setFormPacto(f => ({ ...f, fecha_termino: fecha.toISOString().slice(0, 10) }))
+  }
+
   async function guardarPacto() {
     if (!formPacto.fecha_inicio || !formPacto.fecha_termino) {
       setErrorPacto('Fecha de inicio y término son obligatorias')
@@ -319,12 +341,22 @@ export default function ContratoDetalle() {
         tope_horas_diarias: Number(formPacto.tope_horas_diarias),
         porcentaje_recargo: Number(formPacto.porcentaje_recargo),
       })
-      setFormPacto({ fecha_inicio: '', fecha_termino: '', tope_horas_diarias: 2, porcentaje_recargo: 0.5 })
       setMostrarFormPacto(false)
       cargar()
     } catch (err) {
       setErrorPacto(err.response?.data?.detail || 'Error al guardar el pacto de horas extra')
     } finally { setGuardandoPacto(false) }
+  }
+
+  async function descargarPactoWord(pactoId) {
+    setDescargandoPactoId(pactoId)
+    try {
+      const res = await contratosApi.pactosHorasExtra.word(id, pactoId)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `Pacto_Horas_Extra_${pactoId}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar Word') }
+    finally { setDescargandoPactoId(null) }
   }
 
   async function calcularFiniquito() {
@@ -877,7 +909,7 @@ export default function ContratoDetalle() {
       <div className="card mt-4">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
           <h3 style={{fontWeight:600}}>Pactos de Horas Extra ({pactos.length})</h3>
-          <button className="btn btn-outline btn-sm" onClick={() => { setMostrarFormPacto(v => !v); setErrorPacto('') }}>
+          <button className="btn btn-outline btn-sm" onClick={() => mostrarFormPacto ? setMostrarFormPacto(false) : abrirFormPacto()}>
             {mostrarFormPacto ? 'Cancelar' : '+ Agregar Pacto'}
           </button>
         </div>
@@ -897,8 +929,18 @@ export default function ContratoDetalle() {
               </div>
               <div className="form-group">
                 <label className="form-label">Fecha Término<span style={{color:'var(--danger)'}}> *</span></label>
-                <input className="input" type="date" value={formPacto.fecha_termino}
-                  onChange={e => setFormPacto(f => ({ ...f, fecha_termino: e.target.value }))} />
+                <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
+                  <input className="input" type="date" value={formPacto.fecha_termino}
+                    onChange={e => setFormPacto(f => ({ ...f, fecha_termino: e.target.value }))}
+                    style={{flex:1, minWidth:130}} />
+                  {[30, 60, 90].map(d => (
+                    <button key={d} type="button" className="btn btn-outline btn-sm"
+                      onClick={() => aplicarDiasPacto(d)}
+                      style={{padding:'4px 8px', fontSize:12}}>
+                      {d}d
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Tope Horas Diarias</label>
@@ -922,8 +964,14 @@ export default function ContratoDetalle() {
         {pactos.length === 0
           ? <p className="text-muted">Sin pactos registrados</p>
           : pactos.map(p => (
-            <div key={p.id} style={{padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              {p.fecha_inicio} a {p.fecha_termino} — tope {p.tope_horas_diarias} hrs/día — recargo {Number(p.porcentaje_recargo) * 100}%
+            <div key={p.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
+              <span style={{fontSize:13}}>
+                {p.fecha_inicio} → {p.fecha_termino} — tope {p.tope_horas_diarias} hrs/día — recargo {Number(p.porcentaje_recargo) * 100}%
+              </span>
+              <button className="btn btn-outline btn-sm" onClick={() => descargarPactoWord(p.id)}
+                disabled={descargandoPactoId === p.id} style={{marginLeft:12}}>
+                {descargandoPactoId === p.id ? '...' : '📄 Word'}
+              </button>
             </div>
           ))
         }

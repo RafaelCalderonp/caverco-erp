@@ -139,8 +139,9 @@ export const contratosApi = {
     ),
   },
   pactosHorasExtra: {
-    list:   (idContrato)       => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
-    create: (idContrato, d)    => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
+    list:   (idContrato)              => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
+    create: (idContrato, d)           => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
+    word:   (idContrato, pactoId)     => api.get(`/contratos/${idContrato}/pactos-horas-extra/${pactoId}/word`, { responseType: 'blob' }),
   },
 }
 
