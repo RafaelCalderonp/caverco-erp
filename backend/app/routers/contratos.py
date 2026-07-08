@@ -86,10 +86,40 @@ async def listar_contratos(
 
 
 async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
-    """Valida que obra/centro de costo/cargo del contrato pertenezcan a la misma empresa del empleado."""
+    """Valida que obra/centro de costo/cargo del contrato pertenezcan a la misma empresa del empleado.
+    Además aplica las reglas de negocio:
+    - La empresa debe tener al menos un cargo creado (requisito para cualquier contrato).
+    - Para contratos POR_OBRA la empresa debe tener al menos una obra creada.
+    """
     empleado = await db.get(Empleado, data["id_empleado"])
     if empleado is None:
         raise HTTPException(404, "Empleado no encontrado")
+    id_empresa = empleado.id_empresa
+
+    # Regla 1: la empresa debe tener al menos un cargo
+    n_cargos = (await db.execute(
+        select(func.count()).select_from(Cargo).where(Cargo.id_empresa == id_empresa)
+    )).scalar_one()
+    if n_cargos == 0:
+        raise HTTPException(
+            400,
+            "La empresa no tiene cargos registrados. Crea al menos un cargo antes de generar contratos."
+        )
+
+    # Regla 2: para contrato POR_OBRA la empresa debe tener obras
+    id_tipo = data.get("id_tipo_contrato")
+    if id_tipo:
+        tipo = await db.get(TipoContrato, id_tipo)
+        if tipo and tipo.codigo == "POR_OBRA":
+            n_obras = (await db.execute(
+                select(func.count()).select_from(Obra).where(Obra.id_empresa == id_empresa)
+            )).scalar_one()
+            if n_obras == 0:
+                raise HTTPException(
+                    400,
+                    "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
+                )
+
     checks = [
         (Obra, data.get("id_obra"), "La obra"),
         (CentroCosto, data.get("id_centro_costo"), "El centro de costo"),
@@ -99,7 +129,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
         if valor is None:
             continue
         entidad = await db.get(modelo, valor)
-        if entidad is None or entidad.id_empresa != empleado.id_empresa:
+        if entidad is None or entidad.id_empresa != id_empresa:
             raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del empleado")
 
 
@@ -144,6 +174,31 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
 async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: AsyncSession = Depends(get_db)):
     """Alta en un solo paso: crea el trabajador y su contrato a partir de un único formulario,
     evitando ingresar los mismos datos dos veces."""
+    id_empresa = data.id_empresa
+
+    # Regla 1: la empresa debe tener al menos un cargo
+    n_cargos = (await db.execute(
+        select(func.count()).select_from(Cargo).where(Cargo.id_empresa == id_empresa)
+    )).scalar_one()
+    if n_cargos == 0:
+        raise HTTPException(
+            400,
+            "La empresa no tiene cargos registrados. Crea al menos un cargo antes de generar contratos."
+        )
+
+    # Regla 2: para contrato POR_OBRA la empresa debe tener obras
+    if data.id_tipo_contrato:
+        tipo = await db.get(TipoContrato, data.id_tipo_contrato)
+        if tipo and tipo.codigo == "POR_OBRA":
+            n_obras = (await db.execute(
+                select(func.count()).select_from(Obra).where(Obra.id_empresa == id_empresa)
+            )).scalar_one()
+            if n_obras == 0:
+                raise HTTPException(
+                    400,
+                    "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
+                )
+
     payload = data.model_dump()
     campos_empleado = {
         "id_empresa", "rut", "nombres", "apellido_paterno", "apellido_materno",
