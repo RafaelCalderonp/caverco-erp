@@ -381,7 +381,7 @@ export default function ContratoDetalle() {
     const causalInfo = CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)
     const tieneIndem = causalInfo?.indem || false
     const indemAnos = tieneIndem ? sueldo * anosCompletos : 0
-    const aviso = Number(formDespido.aviso_previo) || 0
+    const aviso = tieneIndem ? sueldo : 0
 
     setMontosDespido({
       diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem,
@@ -1085,14 +1085,6 @@ export default function ContratoDetalle() {
               onChange={e => { setFormDespido(f => ({ ...f, fecha_termino: e.target.value })); setMontosDespido(null) }}
               style={{fontSize:13}} />
           </div>
-          {CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)?.indem && (
-            <div className="form-group" style={{margin:0}}>
-              <label className="form-label" style={{fontSize:12}}>Monto Aviso Previo ($)</label>
-              <input className="input" type="number" value={formDespido.aviso_previo}
-                onChange={e => { setFormDespido(f => ({ ...f, aviso_previo: e.target.value })); setMontosDespido(null) }}
-                style={{fontSize:13}} placeholder="0 si no aplica" />
-            </div>
-          )}
           <div className="form-group" style={{margin:0, gridColumn:'1 / -1'}}>
             <label className="form-label" style={{fontSize:12}}>Descripción adicional (opcional)</label>
             <textarea className="input" rows={2} value={formDespido.descripcion_adicional}

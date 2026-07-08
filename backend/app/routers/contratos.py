@@ -620,8 +620,9 @@ async def descargar_carta_despido_word(
     vac_prop = int(sueldo_dia * (dias_trabajados_anio / 365) * 15)
 
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
-    _, _, tiene_indem, _ = causal_info
+    _, _, tiene_indem, tiene_aviso = causal_info
     indem_anos = int(sueldo * anos_completos) if tiene_indem else 0
+    aviso_calculado = int(sueldo) if tiene_aviso else 0
 
     docx_bytes = generar_carta_despido_docx(
         empresa                    = empresa,
@@ -634,7 +635,7 @@ async def descargar_carta_despido_word(
         monto_dias_trabajados      = monto_dias,
         vacaciones_proporcionales  = vac_prop,
         indemnizacion_anos         = indem_anos,
-        aviso_previo               = aviso_previo,
+        aviso_previo               = aviso_calculado,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,
     )
