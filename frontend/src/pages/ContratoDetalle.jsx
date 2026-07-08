@@ -29,6 +29,7 @@ export default function ContratoDetalle() {
   const [centrosCosto, setCentrosCosto] = useState([])
   const [tiposContrato, setTiposContrato] = useState([])
   const [motivosTermino, setMotivosTermino] = useState([])
+  const [afps, setAfps] = useState([])
 
   const [editando, setEditando] = useState(false)
   const [formContrato, setFormContrato] = useState(null)
@@ -204,6 +205,7 @@ export default function ContratoDetalle() {
     catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
     catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
+    catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
   }, [id])
 
   const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
@@ -388,15 +390,26 @@ export default function ContratoDetalle() {
     const colacion = Number(formDespido.colacion_mensual) || 0
     const movilizacion = Number(formDespido.movilizacion_mensual) || 0
 
-    // Gratificación mensual
+    // Gratificación mensual proporcional
     const gratifMensual = formDespido.incluye_gratificacion
       ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL))
       : 0
     const gratifDia = Math.round(gratifMensual * diasMes / 30)
 
-    // Remuneración días trabajados (sueldo + colac + movil proporcional)
+    // Remuneración imponible días = sueldo proporcional + gratif proporcional
     const sueldoDia = sueldo / 30
-    const montoDias = Math.round(sueldoDia * diasMes)
+    const montoDias = Math.round(sueldoDia * diasMes) + gratifDia
+
+    // Descuentos legales sobre imponible días (AFP + Salud 7% + AFC 0.6%)
+    const afpObj = afps.find(a => a.id === contrato?.empleado?.id_afp) || null
+    const tasaAfp = afpObj ? afpObj.tasa : 0.1144  // fallback Capital
+    const descAfp = Math.round(montoDias * tasaAfp)
+    const descSalud = Math.round(montoDias * 0.07)
+    const descAfc = Math.round(montoDias * 0.006)
+    const totalDescuentos = descAfp + descSalud + descAfc
+    const montoDiasNeto = montoDias - totalDescuentos
+
+    // Colación + Movilización proporcional (no imponible, sin descuentos)
     const remPendiente = Math.round((colacion + movilizacion) * diasMes / 30)
 
     // Base para indemnizaciones = sueldo + gratif + colación + movilización
@@ -431,9 +444,11 @@ export default function ContratoDetalle() {
     const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? Math.round(baseIndem) : 0
 
     setMontosDespido({
-      diasMes, montoDias, remPendiente, vacProp, diasGanados, diasTomados, diasPendientes,
-      anosCompletos, indemAnos, aviso, tieneIndem, gratifDia, gratifMensual,
-      total: montoDias + remPendiente + vacProp + gratifDia + indemAnos + aviso,
+      diasMes, montoDias, montoDiasNeto, remPendiente, vacProp,
+      diasGanados, diasTomados, diasPendientes,
+      anosCompletos, indemAnos, aviso, tieneIndem, gratifMensual,
+      descAfp, descSalud, descAfc, totalDescuentos, tasaAfp,
+      total: montoDiasNeto + remPendiente + vacProp + indemAnos + aviso,
     })
   }
 
@@ -1198,13 +1213,30 @@ export default function ContratoDetalle() {
         </div>
         {montosDespido && (
           <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, fontSize:13}}>
+            {/* Remuneración días trabajados (imponible = sueldo + gratif proporcional) */}
             <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-              <span className="text-muted">Remuneración días trabajados ({montosDespido.diasMes} días)</span>
+              <span className="text-muted">Remuneración días trabajados — {montosDespido.diasMes} días{formDespido.incluye_gratificacion ? ' (incl. gratif. prop.)' : ''}</span>
               <span>{fmt(montosDespido.montoDias)}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)', color:'#b91c1c'}}>
+              <span style={{paddingLeft:12}}>− AFP ({(montosDespido.tasaAfp * 100).toFixed(2)}%)</span>
+              <span>−{fmt(montosDespido.descAfp)}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)', color:'#b91c1c'}}>
+              <span style={{paddingLeft:12}}>− Salud (7.00%)</span>
+              <span>−{fmt(montosDespido.descSalud)}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)', color:'#b91c1c'}}>
+              <span style={{paddingLeft:12}}>− AFC (0.60%)</span>
+              <span>−{fmt(montosDespido.descAfc)}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-100)', fontWeight:600}}>
+              <span style={{paddingLeft:12}}>Neto días trabajados</span>
+              <span>{fmt(montosDespido.montoDiasNeto)}</span>
             </div>
             {montosDespido.remPendiente > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Colación + movilización proporcional ({montosDespido.diasMes} días)</span>
+                <span className="text-muted">Colación + movilización proporcional ({montosDespido.diasMes} días) — no imponible</span>
                 <span>{fmt(montosDespido.remPendiente)}</span>
               </div>
             )}
@@ -1214,23 +1246,17 @@ export default function ContratoDetalle() {
               </span>
               <span>{fmt(montosDespido.vacProp)}</span>
             </div>
-            {montosDespido.gratifDia > 0 && (
-              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Gratificación proporcional mes (Art. 50 CT)</span>
-                <span>{fmt(montosDespido.gratifDia)}</span>
-              </div>
-            )}
             {montosDespido.tieneIndem && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">
-                  Indemnización por años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''}) — base incluye sueldo + gratif + colac + movil
+                  Indemnización años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''}) — base sueldo + gratif + colac + movil
                 </span>
                 <span>{fmt(montosDespido.indemAnos)}</span>
               </div>
             )}
             {montosDespido.tieneIndem && montosDespido.aviso > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Indemnización sustitutiva de aviso previo — misma base</span>
+                <span className="text-muted">Indemnización sustitutiva aviso previo — misma base</span>
                 <span>{fmt(montosDespido.aviso)}</span>
               </div>
             )}

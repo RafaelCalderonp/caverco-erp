@@ -259,6 +259,7 @@ class EmpleadoMiniOut(BaseModel):
     nombres: str
     apellido_paterno: str
     apellido_materno: Optional[str] = None
+    id_afp: Optional[int] = None
     model_config = {"from_attributes": True}
 
 
