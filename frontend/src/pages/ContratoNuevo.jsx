@@ -96,11 +96,13 @@ export default function ContratoNuevo() {
   }
 
   const esPorObra = tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA'
-  const bloqueadoPorCargos = step === 2 && cargos.length === 0
+  // Bloquea avanzar DE step 1 si no hay cargos, o DE step 2 si POR_OBRA sin obras
+  const bloqueadoPorCargos = cargos.length === 0 && step <= 2
   const bloqueadoPorObras  = step === 2 && esPorObra && obras.length === 0
 
   const next = () => {
-    if (bloqueadoPorCargos || bloqueadoPorObras) return
+    if (step === 1 && cargos.length === 0) return
+    if (step === 2 && esPorObra && obras.length === 0) return
     const e = validate(step)
     if (Object.keys(e).length) { setErrors(e); return }
     setErrors({}); setStep(s => s + 1)
@@ -206,6 +208,11 @@ export default function ContratoNuevo() {
         {step === 1 && (
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h3>
+            {cargos.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fee2e2',color:'#b91c1c',fontWeight:500}}>
+                ⚠️ Esta empresa no tiene cargos registrados. Ve a <strong>Catálogos → Cargos</strong> para crear al menos uno antes de generar contratos.
+              </div>
+            )}
             <div className="form-grid">
               <Campo label="RUT" required>{inp('rut','text','Ej: 12.345.678-9', formatearRut)}</Campo>
               <Campo label="Nombres" required>{inp('nombres','text','Nombres completos')}</Campo>
@@ -248,7 +255,18 @@ export default function ContratoNuevo() {
             )}
             <div className="form-grid">
               <Campo label="Tipo de Contrato" required>
-                {sel('id_tipo_contrato', tiposContrato.map(t => ({ value: t.id, label: t.nombre })))}
+                <select className="select" value={form.id_tipo_contrato}
+                  onChange={e => set('id_tipo_contrato', e.target.value)}
+                  style={errors.id_tipo_contrato ? {borderColor:'var(--danger)'} : {}}>
+                  <option value="">Seleccionar…</option>
+                  {tiposContrato.map(t => (
+                    <option key={t.id} value={t.id}
+                      disabled={t.codigo === 'POR_OBRA' && obras.length === 0}>
+                      {t.nombre}{t.codigo === 'POR_OBRA' && obras.length === 0 ? ' (sin obras registradas)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {err('id_tipo_contrato')}
               </Campo>
               <Campo label="Fecha del Contrato" required>{inp('fecha_contrato', 'date')}</Campo>
               <Campo label="Fecha de Inicio" required>{inp('fecha_inicio', 'date')}</Campo>
