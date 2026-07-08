@@ -584,6 +584,7 @@ async def descargar_carta_despido_word(
     causal_codigo: str,
     fecha_termino: date,
     aviso_previo: int = 0,
+    incluye_gratificacion: bool = False,
     descripcion_adicional: str = "",
     db: AsyncSession = Depends(get_db),
 ):
@@ -624,6 +625,17 @@ async def descargar_carta_despido_word(
     indem_anos = int(sueldo * anos_completos) if tiene_indem else 0
     aviso_calculado = int(sueldo) if tiene_aviso else 0
 
+    # Gratificación proporcional (opcional)
+    gratificacion = 0
+    if incluye_gratificacion:
+        from app.services.indicadores import obtener_valor_periodo
+        periodo_actual = fecha_termino.strftime("%Y-%m")
+        val = await obtener_valor_periodo(db, periodo_actual)
+        tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+        gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
+        # Proporcional al mes (días trabajados)
+        gratificacion = int(gratif_mensual * dias_mes / 30)
+
     docx_bytes = generar_carta_despido_docx(
         empresa                    = empresa,
         empleado                   = empleado,
@@ -636,6 +648,7 @@ async def descargar_carta_despido_word(
         vacaciones_proporcionales  = vac_prop,
         indemnizacion_anos         = indem_anos,
         aviso_previo               = aviso_calculado,
+        gratificacion              = gratificacion,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,
     )

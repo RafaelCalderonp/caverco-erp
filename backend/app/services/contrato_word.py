@@ -739,6 +739,7 @@ def generar_carta_despido_docx(
     indemnizacion_anos: int = 0,
     aviso_previo: int = 0,
     anos_servicio: int = 0,
+    gratificacion: int = 0,
     descripcion_adicional: str = "",
 ) -> bytes:
     from decimal import Decimal
@@ -793,11 +794,13 @@ def generar_carta_despido_docx(
         ], space_after=10)
 
     # Tabla de montos
-    total = monto_dias_trabajados + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+    total = monto_dias_trabajados + vacaciones_proporcionales + indemnizacion_anos + aviso_previo + gratificacion
     items = [
         ("Remuneración días trabajados del mes", monto_dias_trabajados),
         ("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales),
     ]
+    if gratificacion > 0:
+        items.append((f"Gratificación proporcional (Art. 50 CT) — {dias_trabajados_mes} días", gratificacion))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:

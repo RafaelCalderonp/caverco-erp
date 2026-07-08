@@ -113,8 +113,10 @@ export default function ContratoDetalle() {
     ]},
   ]
 
+  const TOPE_GRATIF_MENSUAL = 213354
+
   const [formDespido, setFormDespido] = useState({
-    causal_codigo: '', fecha_termino: '', aviso_previo: 0, descripcion_adicional: '',
+    causal_codigo: '', fecha_termino: '', aviso_previo: 0, incluye_gratificacion: false, descripcion_adicional: '',
   })
   const [montosDespido, setMontosDespido] = useState(null)
   const [descargandoDespido, setDescargandoDespido] = useState(false)
@@ -382,10 +384,13 @@ export default function ContratoDetalle() {
     const tieneIndem = causalInfo?.indem || false
     const indemAnos = tieneIndem ? sueldo * anosCompletos : 0
     const aviso = tieneIndem ? sueldo : 0
+    const gratif = formDespido.incluye_gratificacion
+      ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL) * diasMes / 30)
+      : 0
 
     setMontosDespido({
-      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem,
-      total: montoDias + vacProp + indemAnos + aviso,
+      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem, gratif,
+      total: montoDias + vacProp + indemAnos + aviso + gratif,
     })
   }
 
@@ -397,6 +402,7 @@ export default function ContratoDetalle() {
         causal_codigo: formDespido.causal_codigo,
         fecha_termino: formDespido.fecha_termino,
         aviso_previo: Number(formDespido.aviso_previo) || 0,
+        incluye_gratificacion: formDespido.incluye_gratificacion,
         descripcion_adicional: formDespido.descripcion_adicional,
       })
       const disposition = res.headers['content-disposition'] || ''
@@ -1091,6 +1097,13 @@ export default function ContratoDetalle() {
               onChange={e => setFormDespido(f => ({ ...f, descripcion_adicional: e.target.value }))}
               placeholder="Contexto adicional para la carta…" style={{fontSize:13}} />
           </div>
+          <div style={{gridColumn:'1 / -1'}}>
+            <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer'}}>
+              <input type="checkbox" checked={formDespido.incluye_gratificacion}
+                onChange={e => { setFormDespido(f => ({ ...f, incluye_gratificacion: e.target.checked })); setMontosDespido(null) }} />
+              Incluye gratificación proporcional (25% sueldo, tope RM×4,75/12)
+            </label>
+          </div>
         </div>
         <div style={{display:'flex', gap:8, marginBottom:12}}>
           <button className="btn btn-outline btn-sm" onClick={calcularMontosDespido}
@@ -1111,6 +1124,12 @@ export default function ContratoDetalle() {
               <span className="text-muted">Vacaciones proporcionales</span>
               <span>{fmt(montosDespido.vacProp)}</span>
             </div>
+            {montosDespido.gratif > 0 && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">Gratificación proporcional (Art. 50 CT)</span>
+                <span>{fmt(montosDespido.gratif)}</span>
+              </div>
+            )}
             {montosDespido.tieneIndem && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">Indemnización por años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''})</span>
