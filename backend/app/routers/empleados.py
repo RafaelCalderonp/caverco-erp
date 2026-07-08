@@ -184,8 +184,9 @@ async def exportar_datos_personales(id: int, db: AsyncSession = Depends(get_db))
         "fecha_ingreso": emp.fecha_ingreso, "fecha_egreso": emp.fecha_egreso,
         "sueldo_base": emp.sueldo_base, "activo": emp.activo,
         "contratos": [
-            {"id": c.id, "estado": c.estado, "fecha_inicio": c.fecha_inicio,
-             "fecha_termino_real": c.fecha_termino_real, "sueldo_bruto": c.sueldo_bruto}
+            {"id": c.id, "numero_contrato": c.numero_contrato, "estado": c.estado,
+             "fecha_inicio": c.fecha_inicio, "fecha_termino_real": c.fecha_termino_real,
+             "sueldo_bruto": c.sueldo_bruto, "colacion": c.colacion, "movilizacion": c.movilizacion}
             for c in emp.contratos
         ],
         "licencias": [

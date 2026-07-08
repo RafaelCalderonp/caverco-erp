@@ -135,7 +135,17 @@ export default function EmpleadoDetalle() {
           ? <p className="text-muted">Sin contratos registrados</p>
           : emp.contratos.map(c => (
             <Link key={c.id} to={`/contratos/${c.id}`} style={{display:'block', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              Contrato {c.numero_contrato || `#${c.id}`} — Desde {c.fecha_inicio} — {fmt(c.sueldo_bruto)}
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <span>
+                  Contrato {c.numero_contrato || `#${c.id}`} — Desde {c.fecha_inicio}
+                  {' '}<span className={`badge ${c.estado === 'vigente' ? 'badge-green' : 'badge-gray'}`}>{c.estado}</span>
+                </span>
+                <span style={{fontSize:13, color:'var(--gray-600)'}}>
+                  Sueldo {fmt(c.sueldo_bruto)}
+                  {Number(c.colacion) > 0 && <> · Colación {fmt(c.colacion)}</>}
+                  {Number(c.movilizacion) > 0 && <> · Movilización {fmt(c.movilizacion)}</>}
+                </span>
+              </div>
             </Link>
           ))
         }
