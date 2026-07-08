@@ -624,6 +624,17 @@ async def descargar_carta_despido_word(
 
     gratif_dia = int(gratif_mensual / 30 * dias_mes)
 
+    # Imponible días = sueldo proporcional + gratif proporcional (combinados, igual que frontend)
+    monto_dias_imponible = monto_dias + gratif_dia
+
+    # Descuentos legales sobre imponible días
+    from app.models.rrhh import AFP as AFPModel
+    afp_obj = await db.get(AFPModel, empleado.id_afp) if empleado.id_afp else None
+    tasa_afp = float(afp_obj.tasa) if afp_obj else 0.1144
+    desc_afp  = int(monto_dias_imponible * tasa_afp)
+    desc_salud = int(monto_dias_imponible * 0.07)
+    desc_afc   = int(monto_dias_imponible * 0.006)
+
     # Base para indemnizaciones = sueldo + gratif + colación + movilización
     base_indem = sueldo + gratif_mensual + colacion + movilizacion
 
@@ -662,7 +673,7 @@ async def descargar_carta_despido_word(
         fecha_termino              = fecha_termino,
         cargo_nombre               = cargo.nombre if cargo else "",
         dias_trabajados_mes        = dias_mes,
-        monto_dias_trabajados      = monto_dias,
+        monto_dias_trabajados      = monto_dias_imponible,
         vacaciones_proporcionales  = vac_prop,
         indemnizacion_anos         = indem_anos,
         aviso_previo               = aviso_calculado,
@@ -670,6 +681,10 @@ async def descargar_carta_despido_word(
         rem_pendiente              = rem_pendiente,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,
+        desc_afp                   = desc_afp,
+        desc_salud                 = desc_salud,
+        desc_afc                   = desc_afc,
+        tasa_afp                   = tasa_afp,
     )
     fname = _fname("Carta_Despido", empleado, fecha_termino)
     return StreamingResponse(

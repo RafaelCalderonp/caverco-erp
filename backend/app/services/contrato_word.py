@@ -758,6 +758,10 @@ def generar_carta_despido_docx(
     gratificacion: int = 0,
     rem_pendiente: int = 0,
     descripcion_adicional: str = "",
+    desc_afp: int = 0,
+    desc_salud: int = 0,
+    desc_afc: int = 0,
+    tasa_afp: float = 0.1144,
 ) -> bytes:
     from decimal import Decimal
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
@@ -810,16 +814,25 @@ def generar_carta_despido_docx(
             f", acumulando {anos_servicio} año(s) de servicios.",
         ], space_after=10)
 
-    # Tabla de montos
-    total = monto_dias_trabajados + vacaciones_proporcionales + indemnizacion_anos + aviso_previo + gratificacion + rem_pendiente
+    # monto_dias_trabajados ya incluye gratificación proporcional (combinados en frontend)
+    total_descuentos = desc_afp + desc_salud + desc_afc
+    neto_dias = monto_dias_trabajados - total_descuentos
+    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+
+    label_dias = f"Remuneración días trabajados — {dias_trabajados_mes} días"
+    if gratificacion > 0:
+        label_dias += " (incl. gratif. prop.)"
+
     items = [
-        ("Remuneración días trabajados del mes", monto_dias_trabajados),
+        (label_dias, monto_dias_trabajados),
+        (f"  − AFP ({tasa_afp*100:.2f}%)", -desc_afp),
+        ("  − Salud (7.00%)", -desc_salud),
+        ("  − AFC (0.60%)", -desc_afc),
+        ("  Neto días trabajados", neto_dias),
     ]
     if rem_pendiente > 0:
-        items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días", rem_pendiente))
+        items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (no imponible)", rem_pendiente))
     items.append(("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales))
-    if gratificacion > 0:
-        items.append((f"Gratificación proporcional (Art. 50 CT) — {dias_trabajados_mes} días", gratificacion))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:
