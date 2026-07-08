@@ -573,6 +573,221 @@ export default function ContratoDetalle() {
       </div>
       )}
 
+      {/* ── Pactos de Horas Extra ── */}
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Pactos de Horas Extra ({pactos.length})</h3>
+          <button className="btn btn-outline btn-sm" onClick={() => mostrarFormPacto ? setMostrarFormPacto(false) : abrirFormPacto()}>
+            {mostrarFormPacto ? 'Cancelar' : '+ Agregar Pacto'}
+          </button>
+        </div>
+
+        {mostrarFormPacto && (
+          <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, marginBottom:12}}>
+            {errorPacto && (
+              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
+                {errorPacto}
+              </div>
+            )}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
+              <div className="form-group">
+                <label className="form-label">Fecha Inicio<span style={{color:'var(--danger)'}}> *</span></label>
+                <input className="input" type="date" value={formPacto.fecha_inicio}
+                  onChange={e => setFormPacto(f => ({ ...f, fecha_inicio: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Fecha Término<span style={{color:'var(--danger)'}}> *</span></label>
+                <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
+                  <input className="input" type="date" value={formPacto.fecha_termino}
+                    onChange={e => setFormPacto(f => ({ ...f, fecha_termino: e.target.value }))}
+                    style={{flex:1, minWidth:130}} />
+                  {[30, 60, 90].map(d => (
+                    <button key={d} type="button" className="btn btn-outline btn-sm"
+                      onClick={() => aplicarDiasPacto(d)}
+                      style={{padding:'4px 8px', fontSize:12}}>
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tope Horas Diarias</label>
+                <input className="input" type="number" step="0.5" value={formPacto.tope_horas_diarias}
+                  onChange={e => setFormPacto(f => ({ ...f, tope_horas_diarias: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Porcentaje Recargo</label>
+                <input className="input" type="number" step="0.01" value={formPacto.porcentaje_recargo}
+                  onChange={e => setFormPacto(f => ({ ...f, porcentaje_recargo: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{display:'flex', justifyContent:'flex-end'}}>
+              <button className="btn btn-primary btn-sm" onClick={guardarPacto} disabled={guardandoPacto}>
+                {guardandoPacto ? 'Guardando…' : 'Guardar Pacto'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {pactos.length === 0
+          ? <p className="text-muted">Sin pactos registrados</p>
+          : pactos.map(p => (
+            <div key={p.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
+              <span style={{fontSize:13}}>
+                {p.fecha_inicio} → {p.fecha_termino} — tope {p.tope_horas_diarias} hrs/día — recargo {Number(p.porcentaje_recargo) * 100}%
+              </span>
+              <button className="btn btn-outline btn-sm" onClick={() => descargarPactoWord(p.id)}
+                disabled={descargandoPactoId === p.id} style={{marginLeft:12}}>
+                {descargandoPactoId === p.id ? '...' : '📄 Word'}
+              </button>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* ── Reglamento Interno ── */}
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Reglamento Interno</h3>
+        </div>
+        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
+          Genera el formulario de recepción del Reglamento Interno de Orden, Higiene y Seguridad con los datos del trabajador.
+        </p>
+        <div style={{display:'flex', gap:12, alignItems:'flex-end'}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha de entrega</label>
+            <input className="input" type="date" value={fechaReglamento}
+              onChange={e => setFechaReglamento(e.target.value)}
+              style={{fontSize:13}} />
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={descargarReglamento} disabled={descargandoReglamento}>
+            {descargandoReglamento ? '...' : '📄 Generar Word'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Entrega de EPP ── */}
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Entrega de EPP ({entregas.length})</h3>
+          <button className="btn btn-outline btn-sm"
+            onClick={() => mostrarFormEpp ? setMostrarFormEpp(false) : abrirFormEpp()}>
+            {mostrarFormEpp ? 'Cancelar' : '+ Agregar Entrega'}
+          </button>
+        </div>
+
+        {mostrarFormEpp && (
+          <div style={{padding:'16px', background:'var(--gray-50)', borderRadius:8, marginBottom:16}}>
+            {errorEpp && (
+              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
+                {errorEpp}
+              </div>
+            )}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+              <div className="form-group">
+                <label className="form-label">Fecha de Entrega *</label>
+                <input className="input" type="date" value={formEpp.fecha_entrega}
+                  onChange={e => setFormEpp(f => ({ ...f, fecha_entrega: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Folio</label>
+                <input className="input" type="text" value={formEpp.folio}
+                  onChange={e => setFormEpp(f => ({ ...f, folio: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Entregado por</label>
+                <input className="input" type="text" value={formEpp.entregado_por}
+                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))} />
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                <label className="form-label" style={{margin:0, fontWeight:600}}>Elementos EPP</label>
+                <button type="button" className="btn btn-outline btn-sm"
+                  onClick={() => setFormEpp(f => ({ ...f, items: [...f.items, { elemento: '', cantidad: 1 }] }))}>
+                  + Agregar elemento
+                </button>
+              </div>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+                <thead>
+                  <tr style={{background:'var(--gray-100)'}}>
+                    <th style={{padding:'4px 8px', textAlign:'left'}}>Elemento</th>
+                    <th style={{padding:'4px 8px', textAlign:'center', width:90}}>Cantidad</th>
+                    <th style={{width:36}}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formEpp.items.map((item, idx) => (
+                    <tr key={idx} style={{borderBottom:'1px solid var(--gray-200)'}}>
+                      <td style={{padding:'3px 4px'}}>
+                        <input type="text" value={item.elemento}
+                          onChange={e => setFormEpp(f => {
+                            const arr = [...f.items]; arr[idx] = { ...arr[idx], elemento: e.target.value }; return { ...f, items: arr }
+                          })}
+                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12}} />
+                      </td>
+                      <td style={{padding:'3px 4px'}}>
+                        <input type="number" min="1" value={item.cantidad}
+                          onChange={e => setFormEpp(f => {
+                            const arr = [...f.items]; arr[idx] = { ...arr[idx], cantidad: Number(e.target.value) || 1 }; return { ...f, items: arr }
+                          })}
+                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12, textAlign:'center'}} />
+                      </td>
+                      <td style={{padding:'3px 8px', textAlign:'center'}}>
+                        <button type="button"
+                          onClick={() => setFormEpp(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
+                          style={{background:'none', border:'none', color:'var(--danger)', cursor:'pointer', fontSize:16, lineHeight:1}}>
+                          🗑
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-group" style={{marginBottom:12}}>
+              <label className="form-label">Observaciones</label>
+              <textarea className="input" rows={2} value={formEpp.observaciones}
+                onChange={e => setFormEpp(f => ({ ...f, observaciones: e.target.value }))} />
+            </div>
+
+            <div style={{display:'flex', justifyContent:'flex-end'}}>
+              <button className="btn btn-primary btn-sm" onClick={guardarEpp} disabled={guardandoEpp}>
+                {guardandoEpp ? 'Guardando…' : 'Guardar Entrega'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {entregas.length === 0
+          ? <p className="text-muted">Sin entregas registradas</p>
+          : entregas.map(e => (
+            <div key={e.id} style={{
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              padding:'10px 0', borderBottom:'1px solid var(--gray-100)',
+            }}>
+              <div style={{fontSize:13}}>
+                <strong>Folio {e.folio || '—'}</strong>
+                <span style={{marginLeft:12, color:'var(--gray-600)'}}>{e.fecha_entrega}</span>
+                <span style={{marginLeft:12, color:'var(--gray-500)'}}>
+                  {(e.items || []).length} elemento{(e.items || []).length !== 1 ? 's' : ''}
+                </span>
+                {e.entregado_por && (
+                  <span style={{marginLeft:12, color:'var(--gray-500)'}}>— {e.entregado_por}</span>
+                )}
+              </div>
+              <button className="btn btn-outline btn-sm" disabled={descargandoEpp === e.id}
+                onClick={() => descargarEppWord(e.id)}>
+                {descargandoEpp === e.id ? '...' : '📄 Word'}
+              </button>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* ── Anexos ── */}
       <div className="card mt-4">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
           <h3 style={{fontWeight:600}}>Anexos ({anexos.length})</h3>
@@ -669,96 +884,7 @@ export default function ContratoDetalle() {
         }
       </div>
 
-      <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-          <h3 style={{fontWeight:600}}>Requisitos de Ingreso a Obra ({requisitos.length})</h3>
-          <button className="btn btn-outline btn-sm" onClick={() => { setMostrarFormRequisito(v => !v); setErrorRequisito('') }}>
-            {mostrarFormRequisito ? 'Cancelar' : '+ Agregar Requisito'}
-          </button>
-        </div>
-
-        {mostrarFormRequisito && (
-          <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, marginBottom:12}}>
-            {errorRequisito && (
-              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
-                {errorRequisito}
-              </div>
-            )}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
-              <div className="form-group">
-                <label className="form-label">Obra<span style={{color:'var(--danger)'}}> *</span></label>
-                <select className="select" value={formRequisito.id_obra}
-                  onChange={e => setFormRequisito(f => ({ ...f, id_obra: e.target.value }))}>
-                  <option value="">Seleccionar…</option>
-                  {obras.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Folio IRL/DS44</label>
-                <input className="input" type="text" value={formRequisito.irl_ds44_folio}
-                  onChange={e => setFormRequisito(f => ({ ...f, irl_ds44_folio: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fecha IRL/DS44</label>
-                <input className="input" type="date" value={formRequisito.irl_ds44_fecha}
-                  onChange={e => setFormRequisito(f => ({ ...f, irl_ds44_fecha: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fecha Ingreso a Obra</label>
-                <input className="input" type="date" value={formRequisito.fecha_ingreso_obra}
-                  onChange={e => setFormRequisito(f => ({ ...f, fecha_ingreso_obra: e.target.value }))} />
-              </div>
-            </div>
-            <div className="form-group" style={{marginBottom:10}}>
-              <label className="form-label" style={{display:'flex', alignItems:'center', gap:6}}>
-                <input type="checkbox" checked={formRequisito.irl_ds44_aprobada}
-                  onChange={e => setFormRequisito(f => ({ ...f, irl_ds44_aprobada: e.target.checked }))} />
-                IRL/DS44 Aprobada
-              </label>
-            </div>
-            <div className="form-group" style={{marginBottom:10}}>
-              <label className="form-label">Observaciones</label>
-              <textarea className="input" rows={2} value={formRequisito.observaciones}
-                onChange={e => setFormRequisito(f => ({ ...f, observaciones: e.target.value }))} />
-            </div>
-            <div style={{display:'flex', justifyContent:'flex-end'}}>
-              <button className="btn btn-primary btn-sm" onClick={guardarRequisito} disabled={guardandoRequisito}>
-                {guardandoRequisito ? 'Guardando…' : 'Guardar Requisito'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {requisitos.length === 0
-          ? <p className="text-muted">Sin requisitos registrados</p>
-          : requisitos.map(r => (
-            <div key={r.id} style={{padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              Obra #{r.id_obra} — IRL/DS44 folio {r.irl_ds44_folio || '—'} — {r.irl_ds44_aprobada ? 'Aprobado' : 'Pendiente'}
-            </div>
-          ))
-        }
-      </div>
-
-      <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-          <h3 style={{fontWeight:600}}>Reglamento Interno</h3>
-        </div>
-        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
-          Genera el formulario de recepción del Reglamento Interno de Orden, Higiene y Seguridad con los datos del trabajador.
-        </p>
-        <div style={{display:'flex', gap:12, alignItems:'flex-end'}}>
-          <div className="form-group" style={{margin:0}}>
-            <label className="form-label" style={{fontSize:12}}>Fecha de entrega</label>
-            <input className="input" type="date" value={fechaReglamento}
-              onChange={e => setFechaReglamento(e.target.value)}
-              style={{fontSize:13}} />
-          </div>
-          <button className="btn btn-outline btn-sm" onClick={descargarReglamento} disabled={descargandoReglamento}>
-            {descargandoReglamento ? '...' : '📄 Generar Word'}
-          </button>
-        </div>
-      </div>
-
+      {/* ── Certificado de Antigüedad ── */}
       <div className="card mt-4">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
           <h3 style={{fontWeight:600}}>Certificado de Antigüedad</h3>
@@ -783,198 +909,6 @@ export default function ContratoDetalle() {
             {descargandoCertificado ? '...' : '📄 Generar Word'}
           </button>
         </div>
-      </div>
-
-      <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-          <h3 style={{fontWeight:600}}>Entrega de EPP ({entregas.length})</h3>
-          <button className="btn btn-outline btn-sm"
-            onClick={() => mostrarFormEpp ? setMostrarFormEpp(false) : abrirFormEpp()}>
-            {mostrarFormEpp ? 'Cancelar' : '+ Agregar Entrega'}
-          </button>
-        </div>
-
-        {mostrarFormEpp && (
-          <div style={{padding:'16px', background:'var(--gray-50)', borderRadius:8, marginBottom:16}}>
-            {errorEpp && (
-              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
-                {errorEpp}
-              </div>
-            )}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
-              <div className="form-group">
-                <label className="form-label">Fecha de Entrega *</label>
-                <input className="input" type="date" value={formEpp.fecha_entrega}
-                  onChange={e => setFormEpp(f => ({ ...f, fecha_entrega: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Folio</label>
-                <input className="input" type="text" value={formEpp.folio}
-                  onChange={e => setFormEpp(f => ({ ...f, folio: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Entregado por</label>
-                <input className="input" type="text" value={formEpp.entregado_por}
-                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))} />
-              </div>
-            </div>
-
-            {/* Tabla de ítems EPP */}
-            <div style={{marginBottom:12}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
-                <label className="form-label" style={{margin:0, fontWeight:600}}>Elementos EPP</label>
-                <button type="button" className="btn btn-outline btn-sm"
-                  onClick={() => setFormEpp(f => ({ ...f, items: [...f.items, { elemento: '', cantidad: 1 }] }))}>
-                  + Agregar elemento
-                </button>
-              </div>
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
-                <thead>
-                  <tr style={{background:'var(--gray-100)'}}>
-                    <th style={{padding:'4px 8px', textAlign:'left'}}>Elemento</th>
-                    <th style={{padding:'4px 8px', textAlign:'center', width:90}}>Cantidad</th>
-                    <th style={{width:36}}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formEpp.items.map((item, idx) => (
-                    <tr key={idx} style={{borderBottom:'1px solid var(--gray-200)'}}>
-                      <td style={{padding:'3px 4px'}}>
-                        <input type="text" value={item.elemento}
-                          onChange={e => setFormEpp(f => {
-                            const arr = [...f.items]; arr[idx] = { ...arr[idx], elemento: e.target.value }; return { ...f, items: arr }
-                          })}
-                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12}} />
-                      </td>
-                      <td style={{padding:'3px 4px'}}>
-                        <input type="number" min="1" value={item.cantidad}
-                          onChange={e => setFormEpp(f => {
-                            const arr = [...f.items]; arr[idx] = { ...arr[idx], cantidad: Number(e.target.value) || 1 }; return { ...f, items: arr }
-                          })}
-                          style={{width:'100%', border:'1px solid var(--gray-300)', borderRadius:4, padding:'2px 6px', fontSize:12, textAlign:'center'}} />
-                      </td>
-                      <td style={{padding:'3px 8px', textAlign:'center'}}>
-                        <button type="button"
-                          onClick={() => setFormEpp(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
-                          style={{background:'none', border:'none', color:'var(--danger)', cursor:'pointer', fontSize:16, lineHeight:1}}>
-                          🗑
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="form-group" style={{marginBottom:12}}>
-              <label className="form-label">Observaciones</label>
-              <textarea className="input" rows={2} value={formEpp.observaciones}
-                onChange={e => setFormEpp(f => ({ ...f, observaciones: e.target.value }))} />
-            </div>
-
-            <div style={{display:'flex', justifyContent:'flex-end'}}>
-              <button className="btn btn-primary btn-sm" onClick={guardarEpp} disabled={guardandoEpp}>
-                {guardandoEpp ? 'Guardando…' : 'Guardar Entrega'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {entregas.length === 0
-          ? <p className="text-muted">Sin entregas registradas</p>
-          : entregas.map(e => (
-            <div key={e.id} style={{
-              display:'flex', justifyContent:'space-between', alignItems:'center',
-              padding:'10px 0', borderBottom:'1px solid var(--gray-100)',
-            }}>
-              <div style={{fontSize:13}}>
-                <strong>Folio {e.folio || '—'}</strong>
-                <span style={{marginLeft:12, color:'var(--gray-600)'}}>{e.fecha_entrega}</span>
-                <span style={{marginLeft:12, color:'var(--gray-500)'}}>
-                  {(e.items || []).length} elemento{(e.items || []).length !== 1 ? 's' : ''}
-                </span>
-                {e.entregado_por && (
-                  <span style={{marginLeft:12, color:'var(--gray-500)'}}>— {e.entregado_por}</span>
-                )}
-              </div>
-              <button className="btn btn-outline btn-sm" disabled={descargandoEpp === e.id}
-                onClick={() => descargarEppWord(e.id)}>
-                {descargandoEpp === e.id ? '...' : '📄 Word'}
-              </button>
-            </div>
-          ))
-        }
-      </div>
-
-      <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-          <h3 style={{fontWeight:600}}>Pactos de Horas Extra ({pactos.length})</h3>
-          <button className="btn btn-outline btn-sm" onClick={() => mostrarFormPacto ? setMostrarFormPacto(false) : abrirFormPacto()}>
-            {mostrarFormPacto ? 'Cancelar' : '+ Agregar Pacto'}
-          </button>
-        </div>
-
-        {mostrarFormPacto && (
-          <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, marginBottom:12}}>
-            {errorPacto && (
-              <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
-                {errorPacto}
-              </div>
-            )}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
-              <div className="form-group">
-                <label className="form-label">Fecha Inicio<span style={{color:'var(--danger)'}}> *</span></label>
-                <input className="input" type="date" value={formPacto.fecha_inicio}
-                  onChange={e => setFormPacto(f => ({ ...f, fecha_inicio: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fecha Término<span style={{color:'var(--danger)'}}> *</span></label>
-                <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
-                  <input className="input" type="date" value={formPacto.fecha_termino}
-                    onChange={e => setFormPacto(f => ({ ...f, fecha_termino: e.target.value }))}
-                    style={{flex:1, minWidth:130}} />
-                  {[30, 60, 90].map(d => (
-                    <button key={d} type="button" className="btn btn-outline btn-sm"
-                      onClick={() => aplicarDiasPacto(d)}
-                      style={{padding:'4px 8px', fontSize:12}}>
-                      {d}d
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Tope Horas Diarias</label>
-                <input className="input" type="number" step="0.5" value={formPacto.tope_horas_diarias}
-                  onChange={e => setFormPacto(f => ({ ...f, tope_horas_diarias: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Porcentaje Recargo</label>
-                <input className="input" type="number" step="0.01" value={formPacto.porcentaje_recargo}
-                  onChange={e => setFormPacto(f => ({ ...f, porcentaje_recargo: e.target.value }))} />
-              </div>
-            </div>
-            <div style={{display:'flex', justifyContent:'flex-end'}}>
-              <button className="btn btn-primary btn-sm" onClick={guardarPacto} disabled={guardandoPacto}>
-                {guardandoPacto ? 'Guardando…' : 'Guardar Pacto'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {pactos.length === 0
-          ? <p className="text-muted">Sin pactos registrados</p>
-          : pactos.map(p => (
-            <div key={p.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--gray-100)'}}>
-              <span style={{fontSize:13}}>
-                {p.fecha_inicio} → {p.fecha_termino} — tope {p.tope_horas_diarias} hrs/día — recargo {Number(p.porcentaje_recargo) * 100}%
-              </span>
-              <button className="btn btn-outline btn-sm" onClick={() => descargarPactoWord(p.id)}
-                disabled={descargandoPactoId === p.id} style={{marginLeft:12}}>
-                {descargandoPactoId === p.id ? '...' : '📄 Word'}
-              </button>
-            </div>
-          ))
-        }
       </div>
 
       {contrato.estado === 'finiquitado' && (
