@@ -685,9 +685,9 @@ def generar_amonestacion_docx(empresa, empleado, motivo: str, descripcion: str, 
         f"Cargo: {cargo_nombre or 'Trabajador/a'}\n",
         f"RUT: {empleado.rut or ''}\n",
         "Presente",
-    ], space_after=16)
+    ], space_after=16, align=WD_ALIGN_PARAGRAPH.LEFT)
 
-    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10)
+    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10, align=WD_ALIGN_PARAGRAPH.LEFT)
 
     _parrafo(doc, [
         "Por medio de la presente, ", (empresa.razon_social or "", True),
@@ -768,9 +768,9 @@ def generar_carta_despido_docx(
         f"Cargo: {cargo_nombre or 'Trabajador/a'}\n",
         f"RUT: {empleado.rut or ''}\n",
         "Presente",
-    ], space_after=16)
+    ], space_after=16, align=WD_ALIGN_PARAGRAPH.LEFT)
 
-    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10)
+    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10, align=WD_ALIGN_PARAGRAPH.LEFT)
 
     _parrafo(doc, [
         f"Por medio de la presente, {empresa.razon_social or ''}, RUT {empresa.rut or ''}, ",
