@@ -95,7 +95,12 @@ export default function ContratoNuevo() {
     return e
   }
 
+  const esPorObra = tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA'
+  const bloqueadoPorCargos = step === 2 && cargos.length === 0
+  const bloqueadoPorObras  = step === 2 && esPorObra && obras.length === 0
+
   const next = () => {
+    if (bloqueadoPorCargos || bloqueadoPorObras) return
     const e = validate(step)
     if (Object.keys(e).length) { setErrors(e); return }
     setErrors({}); setStep(s => s + 1)
@@ -231,6 +236,16 @@ export default function ContratoNuevo() {
         {step === 2 && (
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>📄 Datos del Contrato</h3>
+            {cargos.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fee2e2',color:'#b91c1c',fontWeight:500}}>
+                ⚠️ Esta empresa no tiene cargos registrados. Ve a <strong>Catálogos → Cargos</strong> para crear al menos uno antes de generar contratos.
+              </div>
+            )}
+            {cargos.length > 0 && tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA' && obras.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fff7ed',color:'#c2410c',fontWeight:500}}>
+                ⚠️ Para un contrato por Obra o Faena debes crear al menos una obra en <strong>Catálogos → Obras</strong>.
+              </div>
+            )}
             <div className="form-grid">
               <Campo label="Tipo de Contrato" required>
                 {sel('id_tipo_contrato', tiposContrato.map(t => ({ value: t.id, label: t.nombre })))}
@@ -351,7 +366,8 @@ export default function ContratoNuevo() {
           <div style={{fontSize:12,color:'var(--gray-500)'}}>Paso {step} de {STEPS.length}</div>
           <div>
             {step < STEPS.length
-              ? <button className="btn btn-primary" onClick={next}>Siguiente →</button>
+              ? <button className="btn btn-primary" onClick={next}
+                  disabled={bloqueadoPorCargos || bloqueadoPorObras}>Siguiente →</button>
               : <button className="btn btn-primary" onClick={submit} disabled={saving}>
                   {saving ? 'Guardando…' : '✅ Generar Contrato'}
                 </button>
