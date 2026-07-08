@@ -34,7 +34,7 @@ export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { usuario, logout } = useAuth()
-  const { empresaActual } = useEmpresa()
+  const { empresaActual, cargando: cargandoEmpresas, errorConexion, recargarEmpresas } = useEmpresa()
   const [colapsado, setColapsado] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
   const pageTitle = NAV.find(n => n.to && location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
 
@@ -102,6 +102,30 @@ export default function Layout() {
             <button onClick={onLogout} style={{marginLeft: 12}}>Salir</button>
           </div>
         </header>
+        {errorConexion && (
+          <div style={{
+            padding: '14px 20px', background: '#fef3c7', borderBottom: '1px solid #fbbf24',
+            display: 'flex', alignItems: 'center', gap: 12, fontSize: 14,
+          }}>
+            <span style={{fontSize:18}}>⚠️</span>
+            <span style={{flex:1, color:'#92400e', fontWeight:500}}>
+              No se pudo conectar al servidor. Las empresas pueden no estar cargadas.
+              El servidor puede estar iniciando — esto es normal tras un período de inactividad.
+            </span>
+            <button className="btn btn-sm" style={{background:'#f59e0b',color:'#fff',border:'none'}}
+              onClick={recargarEmpresas} disabled={cargandoEmpresas}>
+              {cargandoEmpresas ? 'Conectando…' : '🔄 Reintentar'}
+            </button>
+          </div>
+        )}
+        {cargandoEmpresas && !errorConexion && (
+          <div style={{
+            padding: '8px 20px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe',
+            fontSize: 13, color: '#1d4ed8',
+          }}>
+            ⏳ Conectando con el servidor… (puede tomar hasta 60 segundos si estaba inactivo)
+          </div>
+        )}
         <main className="content">
           <Outlet />
         </main>

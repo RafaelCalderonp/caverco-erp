@@ -5,30 +5,53 @@ import { useAuth } from './AuthContext'
 const EmpresaContext = createContext(null)
 const STORAGE_KEY = 'empresaActualId'
 
+// Número de reintentos automáticos al cargar empresas (útil para cold-start de Render)
+const MAX_REINTENTOS = 4
+const DELAY_MS = [3000, 6000, 12000, 20000]
+
+async function cargarConReintentos() {
+  let ultimoError
+  for (let i = 0; i <= MAX_REINTENTOS; i++) {
+    try {
+      const r = await empresasApi.list()
+      return r.data
+    } catch (err) {
+      ultimoError = err
+      if (i < MAX_REINTENTOS) {
+        await new Promise(res => setTimeout(res, DELAY_MS[i]))
+      }
+    }
+  }
+  throw ultimoError
+}
+
 export function EmpresaProvider({ children }) {
   const { usuario } = useAuth()
   const [empresas, setEmpresas] = useState([])
   const [empresaActual, setEmpresaActual] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const [errorConexion, setErrorConexion] = useState(false)
 
   const cargarEmpresas = useCallback(() => {
     setCargando(true)
-    return empresasApi.list()
-      .then(r => {
-        const lista = r.data
+    setErrorConexion(false)
+    return cargarConReintentos()
+      .then(lista => {
         setEmpresas(lista)
         const guardadaId = Number(localStorage.getItem(STORAGE_KEY))
         const guardada = lista.find(e => e.id === guardadaId)
         if (guardada) setEmpresaActual(guardada)
         return lista
       })
-      .catch(() => {})
+      .catch(() => {
+        setErrorConexion(true)
+      })
       .finally(() => setCargando(false))
   }, [])
 
   useEffect(() => {
     if (usuario) cargarEmpresas()
-    else { setEmpresas([]); setEmpresaActual(null); setCargando(false) }
+    else { setEmpresas([]); setEmpresaActual(null); setCargando(false); setErrorConexion(false) }
   }, [usuario, cargarEmpresas])
 
   function seleccionarEmpresa(empresa) {
@@ -42,7 +65,10 @@ export function EmpresaProvider({ children }) {
   }
 
   return (
-    <EmpresaContext.Provider value={{ empresas, empresaActual, cargando, seleccionarEmpresa, salirDeEmpresa, recargarEmpresas: cargarEmpresas }}>
+    <EmpresaContext.Provider value={{
+      empresas, empresaActual, cargando, errorConexion,
+      seleccionarEmpresa, salirDeEmpresa, recargarEmpresas: cargarEmpresas,
+    }}>
       {children}
     </EmpresaContext.Provider>
   )
