@@ -232,9 +232,6 @@ export default function ContratoNuevo() {
               <Campo label="Dirección" span2>{inp('direccion','text','Calle, número, departamento')}</Campo>
               <Campo label="Región">{sel('region', REGIONES)}</Campo>
               <Campo label="Comuna">{sel('comuna', COMUNAS_POR_REGION[form.region] || [])}</Campo>
-              <Campo label="Departamento">
-                {sel('id_departamento', departamentos.map(d=>({value:d.id,label:`${d.codigo} — ${d.nombre}`})))}
-              </Campo>
             </div>
           </>
         )}

@@ -171,7 +171,6 @@ export default function EmpleadoDetalle() {
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Información Laboral y Previsión</h3>
           {[
-            ['Departamento', emp.departamento?.nombre],
             ['Cargo', emp.cargo?.nombre],
             ['Fecha Ingreso', emp.fecha_ingreso],
             ['Sueldo Base', fmt(emp.sueldo_base)],

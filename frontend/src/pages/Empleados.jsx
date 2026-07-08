@@ -62,7 +62,6 @@ export default function Empleados() {
                 <th>Trabajador</th>
                 <th>RUT</th>
                 <th>Cargo</th>
-                <th>Departamento</th>
                 <th>Sueldo Base</th>
                 <th>Ingreso</th>
                 <th>Estado</th>
@@ -71,10 +70,10 @@ export default function Empleados() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Cargando…</td></tr>
+                <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Cargando…</td></tr>
               )}
               {!loading && empleados.length === 0 && (
-                <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
+                <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
               )}
               {empleados.map(e => (
                 <tr key={e.id}>
@@ -87,7 +86,6 @@ export default function Empleados() {
                   </td>
                   <td className="text-muted">{e.rut}</td>
                   <td>{e.cargo?.nombre || '—'}</td>
-                  <td>{e.departamento?.nombre || '—'}</td>
                   <td>{fmt(e.sueldo_base)}</td>
                   <td className="text-muted">{e.fecha_ingreso}</td>
                   <td>
