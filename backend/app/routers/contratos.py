@@ -610,10 +610,14 @@ async def descargar_carta_despido_word(
 
     # Gratificación mensual
     if incluye_gratificacion:
-        from app.services.indicadores import obtener_valor_periodo
+        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
         periodo_actual = fecha_termino.strftime("%Y-%m")
-        val = await obtener_valor_periodo(db, periodo_actual)
-        tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+        try:
+            await asegurar_indicadores(db, periodo_actual)
+            val = await obtener_valor_periodo(db, periodo_actual)
+            tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+        except Exception:
+            tope_mensual = Decimal("213354")
         gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
     else:
         gratif_mensual = Decimal("0")

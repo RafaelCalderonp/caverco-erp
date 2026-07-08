@@ -116,19 +116,32 @@ export default function ContratoDetalle() {
 
   const TOPE_GRATIF_MENSUAL = 213354
 
-  const [formDespido, setFormDespido] = useState({
-    causal_codigo: '', fecha_termino: '',
-    aviso_con_30_dias: false,
-    incluye_gratificacion: false,
-    colacion_mensual: '',
-    movilizacion_mensual: '',
-    dias_vacaciones_tomados: 0,
-    descripcion_adicional: '',
+  const DESPIDO_KEY = `despido_${id}`
+  const [formDespido, setFormDespido] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`despido_${id}`)
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return {
+      causal_codigo: '', fecha_termino: '',
+      aviso_con_30_dias: false,
+      incluye_gratificacion: false,
+      colacion_mensual: '',
+      movilizacion_mensual: '',
+      dias_vacaciones_tomados: 0,
+      descripcion_adicional: '',
+    }
   })
+  const [despidoGuardado, setDespidoGuardado] = useState(() => !!localStorage.getItem(`despido_${id}`))
 
-  // Auto-cargar colación/movilización del contrato cuando esté disponible
+  function guardarDespido() {
+    localStorage.setItem(DESPIDO_KEY, JSON.stringify(formDespido))
+    setDespidoGuardado(true)
+  }
+
+  // Auto-cargar colación/movilización del contrato solo si no hay datos guardados
   useEffect(() => {
-    if (contrato) {
+    if (contrato && !localStorage.getItem(DESPIDO_KEY)) {
       setFormDespido(f => ({
         ...f,
         colacion_mensual: contrato.colacion || 0,
@@ -1202,14 +1215,21 @@ export default function ContratoDetalle() {
             </label>
           </div>
         </div>
-        <div style={{display:'flex', gap:8, marginBottom:12}}>
+        <div style={{display:'flex', gap:8, marginBottom:12, alignItems:'center'}}>
           <button className="btn btn-outline btn-sm" onClick={calcularMontosDespido}
             disabled={!formDespido.causal_codigo || !formDespido.fecha_termino}>
             Calcular montos
           </button>
+          <button className="btn btn-primary btn-sm" onClick={guardarDespido}
+            disabled={!formDespido.causal_codigo || !formDespido.fecha_termino}>
+            💾 Guardar
+          </button>
           <button className="btn btn-outline btn-sm" onClick={descargarCartaDespido} disabled={descargandoDespido}>
             {descargandoDespido ? '...' : '📄 Generar Word'}
           </button>
+          {despidoGuardado && (
+            <span style={{fontSize:12, color:'var(--gray-500)'}}>✓ Datos guardados</span>
+          )}
         </div>
         {montosDespido && (
           <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, fontSize:13}}>
