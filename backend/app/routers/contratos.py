@@ -583,8 +583,10 @@ async def descargar_carta_despido_word(
     id: int,
     causal_codigo: str,
     fecha_termino: date,
-    aviso_previo: int = 0,
+    aviso_con_30_dias: bool = False,
     incluye_gratificacion: bool = False,
+    colacion_mensual: int = 0,
+    movilizacion_mensual: int = 0,
     descripcion_adicional: str = "",
     db: AsyncSession = Depends(get_db),
 ):
@@ -623,7 +625,10 @@ async def descargar_carta_despido_word(
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     _, _, tiene_indem, tiene_aviso = causal_info
     indem_anos = int(sueldo * anos_completos) if tiene_indem else 0
-    aviso_calculado = int(sueldo) if tiene_aviso else 0
+    aviso_calculado = int(sueldo) if (tiene_aviso and not aviso_con_30_dias) else 0
+
+    # Colación + movilización proporcional
+    rem_pendiente = int((colacion_mensual + movilizacion_mensual) * dias_mes / 30)
 
     # Gratificación proporcional (opcional)
     gratificacion = 0
@@ -649,6 +654,7 @@ async def descargar_carta_despido_word(
         indemnizacion_anos         = indem_anos,
         aviso_previo               = aviso_calculado,
         gratificacion              = gratificacion,
+        rem_pendiente              = rem_pendiente,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,
     )

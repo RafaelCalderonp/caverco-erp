@@ -116,7 +116,12 @@ export default function ContratoDetalle() {
   const TOPE_GRATIF_MENSUAL = 213354
 
   const [formDespido, setFormDespido] = useState({
-    causal_codigo: '', fecha_termino: '', aviso_previo: 0, incluye_gratificacion: false, descripcion_adicional: '',
+    causal_codigo: '', fecha_termino: '',
+    aviso_con_30_dias: false,
+    incluye_gratificacion: false,
+    colacion_mensual: 0,
+    movilizacion_mensual: 0,
+    descripcion_adicional: '',
   })
   const [montosDespido, setMontosDespido] = useState(null)
   const [descargandoDespido, setDescargandoDespido] = useState(false)
@@ -383,14 +388,17 @@ export default function ContratoDetalle() {
     const causalInfo = CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)
     const tieneIndem = causalInfo?.indem || false
     const indemAnos = tieneIndem ? sueldo * anosCompletos : 0
-    const aviso = tieneIndem ? sueldo : 0
+    const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? sueldo : 0
     const gratif = formDespido.incluye_gratificacion
       ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL) * diasMes / 30)
       : 0
+    const colacion = Number(formDespido.colacion_mensual) || 0
+    const movilizacion = Number(formDespido.movilizacion_mensual) || 0
+    const remPendiente = Math.round((colacion + movilizacion) * diasMes / 30)
 
     setMontosDespido({
-      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem, gratif,
-      total: montoDias + vacProp + indemAnos + aviso + gratif,
+      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem, gratif, remPendiente,
+      total: montoDias + vacProp + indemAnos + aviso + gratif + remPendiente,
     })
   }
 
@@ -401,8 +409,10 @@ export default function ContratoDetalle() {
       const res = await contratosApi.cartaDespido.word(id, {
         causal_codigo: formDespido.causal_codigo,
         fecha_termino: formDespido.fecha_termino,
-        aviso_previo: Number(formDespido.aviso_previo) || 0,
+        aviso_con_30_dias: formDespido.aviso_con_30_dias,
         incluye_gratificacion: formDespido.incluye_gratificacion,
+        colacion_mensual: Number(formDespido.colacion_mensual) || 0,
+        movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
         descripcion_adicional: formDespido.descripcion_adicional,
       })
       const disposition = res.headers['content-disposition'] || ''
@@ -1097,11 +1107,28 @@ export default function ContratoDetalle() {
               onChange={e => setFormDespido(f => ({ ...f, descripcion_adicional: e.target.value }))}
               placeholder="Contexto adicional para la carta…" style={{fontSize:13}} />
           </div>
-          <div style={{gridColumn:'1 / -1'}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Colación mensual ($)</label>
+            <input className="input" type="number" value={formDespido.colacion_mensual}
+              onChange={e => { setFormDespido(f => ({ ...f, colacion_mensual: e.target.value })); setMontosDespido(null) }}
+              style={{fontSize:13}} placeholder="0" />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Movilización mensual ($)</label>
+            <input className="input" type="number" value={formDespido.movilizacion_mensual}
+              onChange={e => { setFormDespido(f => ({ ...f, movilizacion_mensual: e.target.value })); setMontosDespido(null) }}
+              style={{fontSize:13}} placeholder="0" />
+          </div>
+          <div style={{gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:8}}>
             <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer'}}>
               <input type="checkbox" checked={formDespido.incluye_gratificacion}
                 onChange={e => { setFormDespido(f => ({ ...f, incluye_gratificacion: e.target.checked })); setMontosDespido(null) }} />
               Incluye gratificación proporcional (25% sueldo, tope RM×4,75/12)
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer'}}>
+              <input type="checkbox" checked={formDespido.aviso_con_30_dias}
+                onChange={e => { setFormDespido(f => ({ ...f, aviso_con_30_dias: e.target.checked })); setMontosDespido(null) }} />
+              Se avisó con 30 días de anticipación (no procede indemnización sustitutiva de aviso previo)
             </label>
           </div>
         </div>
@@ -1117,9 +1144,15 @@ export default function ContratoDetalle() {
         {montosDespido && (
           <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, fontSize:13}}>
             <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-              <span className="text-muted">Días trabajados en el mes ({montosDespido.diasMes} días)</span>
+              <span className="text-muted">Remuneración días trabajados ({montosDespido.diasMes} días)</span>
               <span>{fmt(montosDespido.montoDias)}</span>
             </div>
+            {montosDespido.remPendiente > 0 && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">Colación + movilización proporcional ({montosDespido.diasMes} días)</span>
+                <span>{fmt(montosDespido.remPendiente)}</span>
+              </div>
+            )}
             <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
               <span className="text-muted">Vacaciones proporcionales</span>
               <span>{fmt(montosDespido.vacProp)}</span>
