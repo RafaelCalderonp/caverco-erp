@@ -27,8 +27,13 @@ async def run_pending_migrations(conn) -> None:
 
     aplicadas = {r["nombre"] for r in await conn.fetch("SELECT nombre FROM erp.migrations_log ORDER BY nombre")}
 
+    # Solo ejecutar migraciones desde el 27 en adelante.
+    # Las anteriores (schema, datos semilla, limpieza) ya están en producción
+    # y contienen operaciones destructivas (TRUNCATE) que no deben repetirse.
+    MIN_NUM = 27
     archivos = sorted(
         f for f in MIGRATIONS_DIR.glob("[0-9][0-9]_*.sql")
+        if int(f.name[:2]) >= MIN_NUM
     )
 
     for archivo in archivos:
