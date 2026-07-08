@@ -1000,8 +1000,9 @@ def generar_finiquito_docx(
     _parrafo(doc, [("PRIMERO:", True)], space_after=4)
     fi_str = _fecha_larga(contrato.fecha_inicio) if contrato.fecha_inicio else "la fecha de inicio del contrato"
     _parrafo(doc, [
-        f"El TRABAJADOR declara haber prestado servicios al EMPLEADOR en calidad de ",
-        (cargo_nombre or "Trabajador/a", True),
+        f"don/doña ", (nombre_completo, True),
+        f" declara haber prestado servicios a ", (f'"{razon}"', True),
+        f", en calidad de ", (cargo_nombre or "Trabajador/a", True),
         f", desde el {fi_str} hasta el {_fecha_larga(fecha_termino)}, "
         f"fecha de terminación de sus servicios por la causal establecida en el {art_ref} "
         "del Código del Trabajo, esto es: ",
@@ -1049,11 +1050,12 @@ def generar_finiquito_docx(
 
     _parrafo(doc, [("TERCERO:", True)], space_after=4)
     _parrafo(doc, [
-        f"El TRABAJADOR declara que durante todo el tiempo en que prestó servicios al EMPLEADOR recibió "
-        "correcta y oportunamente el total de las remuneraciones convenidas en su contrato de trabajo, "
-        "reajustes legales, asignaciones familiares autorizadas, cotizaciones previsionales pagadas y "
-        "todas las demás prestaciones que por ley o contrato le correspondían. Por lo anterior, no "
-        "teniendo reclamo ni cargo alguno que formular en contra de ",
+        "don/doña ", (nombre_completo, True),
+        f" declara que durante todo el tiempo en que prestó servicios a ", (f'"{razon}"', True),
+        " recibió correcta y oportunamente el total de las remuneraciones convenidas en su contrato "
+        "de trabajo, reajustes legales, asignaciones familiares autorizadas, cotizaciones previsionales "
+        "pagadas y todas las demás prestaciones que por ley o contrato le correspondían. Por lo anterior, "
+        "no teniendo reclamo ni cargo alguno que formular en contra de ",
         (razon, True),
         ", le otorga el más amplio, total y definitivo finiquito, declaración que formula libre y "
         "espontáneamente, en cabal conocimiento de sus derechos.",
@@ -1061,21 +1063,25 @@ def generar_finiquito_docx(
 
     _parrafo(doc, [("CUARTO — Cotizaciones Previsionales (Art. 162 CT):", True)], space_after=4)
     _parrafo(doc, [
-        "El EMPLEADOR declara que las cotizaciones previsionales y de salud del TRABAJADOR se encuentran "
-        "íntegramente pagadas hasta la fecha de término de la relación laboral, dando cumplimiento a lo "
-        "dispuesto en el artículo 162 inciso 5° del Código del Trabajo.",
+        (razon, True),
+        " declara que las cotizaciones previsionales y de salud de don/doña ",
+        (nombre_completo, True),
+        " se encuentran íntegramente pagadas hasta la fecha de término de la relación laboral, "
+        "dando cumplimiento a lo dispuesto en el artículo 162 inciso 5° del Código del Trabajo.",
     ], space_after=10)
 
     _parrafo(doc, [("QUINTO — Ley N° 21.389 (Registro Deudores de Pensiones de Alimentos):", True)], space_after=4)
     _parrafo(doc, [
-        "El EMPLEADOR declara bajo juramento que no ha sido notificado de retención judicial por "
-        "concepto de pensión de alimentos respecto del TRABAJADOR individualizado en el presente "
-        "instrumento, conforme a la Ley N° 21.389.",
+        (razon, True),
+        " declara bajo juramento que no ha sido notificado de retención judicial por "
+        "concepto de pensión de alimentos respecto de don/doña ", (nombre_completo, True),
+        ", conforme a la Ley N° 21.389.",
     ], space_after=14)
 
     _parrafo(doc, [
-        "NOTA LEGAL: El presente finiquito tendrá poder liberatorio una vez ratificado por el TRABAJADOR "
-        "ante un Ministro de Fe (Inspector del Trabajo, Notario Público, Oficial del Registro Civil o "
+        "NOTA LEGAL: El presente finiquito tendrá poder liberatorio una vez ratificado por don/doña ",
+        (nombre_completo, True),
+        " ante un Ministro de Fe (Inspector del Trabajo, Notario Público, Oficial del Registro Civil o "
         "Secretario Municipal), conforme al artículo 177 del Código del Trabajo. El plazo para reclamar "
         "ante la Inspección del Trabajo o Tribunales de Justicia es de 60 días hábiles desde la "
         "separación (Art. 168 CT).",
