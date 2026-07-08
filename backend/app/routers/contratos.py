@@ -231,7 +231,7 @@ async def finiquitar_contrato(
         raise HTTPException(400, "Solo se puede finiquitar un contrato vigente")
     contrato.estado = "finiquitado"
     contrato.id_motivo_termino = id_motivo_termino
-    contrato.fecha_termino_real = fecha_termino_real
+    contrato.fecha_termino_real = fecha_termino_real if isinstance(fecha_termino_real, date) else date.fromisoformat(str(fecha_termino_real))
     await db.commit()
     await db.refresh(contrato)
     return contrato
