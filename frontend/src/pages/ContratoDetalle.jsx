@@ -119,10 +119,21 @@ export default function ContratoDetalle() {
     causal_codigo: '', fecha_termino: '',
     aviso_con_30_dias: false,
     incluye_gratificacion: false,
-    colacion_mensual: 0,
-    movilizacion_mensual: 0,
+    colacion_mensual: '',
+    movilizacion_mensual: '',
     descripcion_adicional: '',
   })
+
+  // Auto-cargar colación/movilización del contrato cuando esté disponible
+  useEffect(() => {
+    if (contrato) {
+      setFormDespido(f => ({
+        ...f,
+        colacion_mensual: contrato.colacion || 0,
+        movilizacion_mensual: contrato.movilizacion || 0,
+      }))
+    }
+  }, [contrato])
   const [montosDespido, setMontosDespido] = useState(null)
   const [descargandoDespido, setDescargandoDespido] = useState(false)
 
@@ -210,6 +221,8 @@ export default function ContratoDetalle() {
       id_motivo_termino: contrato.id_motivo_termino || '',
       aviso_previo_fecha: contrato.aviso_previo_fecha || '',
       sueldo_bruto: contrato.sueldo_bruto || '',
+      colacion: contrato.colacion || 0,
+      movilizacion: contrato.movilizacion || 0,
       horas_semanales: contrato.horas_semanales || 42,
       jornada: contrato.jornada || 'Completa',
       horario_detalle: contrato.horario_detalle || '',
@@ -235,6 +248,8 @@ export default function ContratoDetalle() {
         id_motivo_termino: formContrato.id_motivo_termino ? Number(formContrato.id_motivo_termino) : null,
         aviso_previo_fecha: formContrato.aviso_previo_fecha || null,
         sueldo_bruto: Number(formContrato.sueldo_bruto),
+        colacion: Number(formContrato.colacion) || 0,
+        movilizacion: Number(formContrato.movilizacion) || 0,
         horas_semanales: Number(formContrato.horas_semanales),
         id_obra: formContrato.id_obra ? Number(formContrato.id_obra) : null,
         id_centro_costo: formContrato.id_centro_costo ? Number(formContrato.id_centro_costo) : null,
@@ -578,6 +593,16 @@ export default function ContratoDetalle() {
                 onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
             </div>
             <div className="form-group">
+              <label className="form-label">Colación ($ mensual)</label>
+              <input className="input" type="number" value={formContrato.colacion}
+                onChange={e => setFormContrato(f => ({ ...f, colacion: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Movilización ($ mensual)</label>
+              <input className="input" type="number" value={formContrato.movilizacion}
+                onChange={e => setFormContrato(f => ({ ...f, movilizacion: e.target.value }))} />
+            </div>
+            <div className="form-group">
               <label className="form-label">Horas Semanales</label>
               <input className="input" type="number" value={formContrato.horas_semanales}
                 onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))} />
@@ -678,6 +703,8 @@ export default function ContratoDetalle() {
             ['Fecha Término Pactada', contrato.fecha_termino_pactada],
             ['Fecha Término Real', contrato.fecha_termino_real],
             ['Sueldo Bruto', fmt(contrato.sueldo_bruto)],
+            ['Colación', fmt(contrato.colacion)],
+            ['Movilización', fmt(contrato.movilizacion)],
             ['Horas Semanales', contrato.horas_semanales],
             ['Jornada', contrato.jornada]].map(([k,v]) => (
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--gray-100)'}}>

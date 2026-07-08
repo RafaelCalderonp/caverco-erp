@@ -172,6 +172,8 @@ class Contrato(Base):
     id_motivo_termino     = Column(Integer, ForeignKey("erp.motivos_termino.id"))
     aviso_previo_fecha    = Column(Date)
     sueldo_bruto          = Column(Numeric(12, 2), nullable=False)
+    colacion              = Column(Numeric(12, 2), nullable=False, default=0)
+    movilizacion          = Column(Numeric(12, 2), nullable=False, default=0)
     horas_semanales       = Column(SmallInteger, default=42)
     jornada               = Column(String(30), default="Completa")
     horario_detalle       = Column(Text)

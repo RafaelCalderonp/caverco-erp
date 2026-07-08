@@ -226,6 +226,8 @@ class ContratoCreate(BaseModel):
     fecha_inicio: date
     fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int = 42
     jornada: str = "Completa"
     horario_detalle: Optional[str] = None
@@ -244,6 +246,8 @@ class ContratoUpdate(BaseModel):
     id_motivo_termino: Optional[int] = None
     aviso_previo_fecha: Optional[date] = None
     sueldo_bruto: Optional[Decimal] = None
+    colacion: Optional[Decimal] = None
+    movilizacion: Optional[Decimal] = None
     horas_semanales: Optional[int] = None
     jornada: Optional[str] = None
     horario_detalle: Optional[str] = None
@@ -274,6 +278,8 @@ class ContratoOut(BaseModel):
     id_motivo_termino: Optional[int] = None
     aviso_previo_fecha: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int
     jornada: str
     horario_detalle: Optional[str] = None
@@ -327,6 +333,8 @@ class ContratoConTrabajadorCreate(BaseModel):
     fecha_inicio: date
     fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int = 42
     jornada: str = "Completa"
     horario_detalle: Optional[str] = None

@@ -139,6 +139,22 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         "trabajado, debido a inasistencias, permisos y atrasos.",
     ])
 
+    colacion = int(contrato.colacion or 0)
+    movilizacion = int(contrato.movilizacion or 0)
+    if colacion > 0 or movilizacion > 0:
+        beneficios = []
+        if colacion > 0:
+            beneficios.append(f"a) Asignación de colación: {_clp(colacion)} mensuales")
+        if movilizacion > 0:
+            beneficios.append(f"{'b' if colacion > 0 else 'a'}) Asignación de movilización: {_clp(movilizacion)} mensuales")
+        _parrafo(doc, [
+            ("CUARTO BIS: ", True),
+            "Adicionalmente a la remuneración pactada, el EMPLEADOR otorgará al TRABAJADOR los siguientes "
+            "beneficios de carácter NO REMUNERACIONAL conforme al artículo 41 inciso 2° del Código del Trabajo: ",
+            "; ".join(beneficios) + ". ",
+            "Dichos montos no constituyen remuneración para efectos de cotizaciones previsionales ni de salud.",
+        ])
+
     if tipo_contrato_codigo == "PLAZO_FIJO":
         _parrafo(doc, [
             ("QUINTO: ", True),
