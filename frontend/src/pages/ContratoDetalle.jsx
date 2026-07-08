@@ -30,6 +30,7 @@ export default function ContratoDetalle() {
   const [tiposContrato, setTiposContrato] = useState([])
   const [motivosTermino, setMotivosTermino] = useState([])
   const [afps, setAfps] = useState([])
+  const [topeGratifMensual, setTopeGratifMensual] = useState(213354)
 
   const [editando, setEditando] = useState(false)
   const [formContrato, setFormContrato] = useState(null)
@@ -114,7 +115,9 @@ export default function ContratoDetalle() {
     ]},
   ]
 
-  const TOPE_GRATIF_MENSUAL = 213354
+  // Tasas legales fijas (Art. 85 Ley 18.469 / Ley 19.728 Art. 5)
+  const TASA_SALUD = 0.07
+  const TASA_AFC   = 0.006
 
   const DESPIDO_KEY = `despido_${id}`
   const [formDespido, setFormDespido] = useState(() => {
@@ -219,6 +222,11 @@ export default function ContratoDetalle() {
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
     catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
+    // Tope gratificación mensual del período actual (Art. 50 CT)
+    const periodo = new Date().toISOString().slice(0, 7)
+    liquidacionesApi.indicadores(periodo)
+      .then(r => { if (r.data?.tope_gratif) setTopeGratifMensual(Number(r.data.tope_gratif)) })
+      .catch(() => {})
   }, [id])
 
   const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
@@ -405,7 +413,7 @@ export default function ContratoDetalle() {
 
     // Gratificación mensual proporcional
     const gratifMensual = formDespido.incluye_gratificacion
-      ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL))
+      ? Math.round(Math.min(sueldo * 0.25, topeGratifMensual))
       : 0
     const gratifDia = Math.round(gratifMensual * diasMes / 30)
 
@@ -417,8 +425,8 @@ export default function ContratoDetalle() {
     const afpObj = afps.find(a => a.id === contrato?.empleado?.id_afp) || null
     const tasaAfp = afpObj ? afpObj.tasa : 0.1144  // fallback Capital
     const descAfp = Math.round(montoDias * tasaAfp)
-    const descSalud = Math.round(montoDias * 0.07)
-    const descAfc = Math.round(montoDias * 0.006)
+    const descSalud = Math.round(montoDias * TASA_SALUD)
+    const descAfc = Math.round(montoDias * TASA_AFC)
     const totalDescuentos = descAfp + descSalud + descAfc
     const montoDiasNeto = montoDias - totalDescuentos
 

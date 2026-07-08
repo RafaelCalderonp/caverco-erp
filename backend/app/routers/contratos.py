@@ -628,12 +628,14 @@ async def descargar_carta_despido_word(
     monto_dias_imponible = monto_dias + gratif_dia
 
     # Descuentos legales sobre imponible días
+    TASA_SALUD = 0.07   # Art. 85 Ley 18.469 — tasa legal fija
+    TASA_AFC   = 0.006  # Ley 19.728 Art. 5 — contrato indefinido trabajador
     from app.models.rrhh import AFP as AFPModel
     afp_obj = await db.get(AFPModel, empleado.id_afp) if empleado.id_afp else None
     tasa_afp = float(afp_obj.tasa) if afp_obj else 0.1144
-    desc_afp  = int(monto_dias_imponible * tasa_afp)
-    desc_salud = int(monto_dias_imponible * 0.07)
-    desc_afc   = int(monto_dias_imponible * 0.006)
+    desc_afp   = int(monto_dias_imponible * tasa_afp)
+    desc_salud = int(monto_dias_imponible * TASA_SALUD)
+    desc_afc   = int(monto_dias_imponible * TASA_AFC)
 
     # Base para indemnizaciones = sueldo + gratif + colación + movilización
     base_indem = sueldo + gratif_mensual + colacion + movilizacion
@@ -651,14 +653,22 @@ async def descargar_carta_despido_word(
         dias_totales = 0
         anos_completos = 0
 
-    # Vacaciones proporcionales
-    # 15 días hábiles por año = 1,25 por mes
-    # Conversión a calendario: hábiles × 7/5 (cada 5 hábiles = 7 días calendario)
-    dias_ganados = round(dias_totales / 365 * 15, 2) if fi else 0
-    dias_pendientes = max(0, dias_ganados - dias_vacaciones_tomados)
-    dias_calendario_vac = dias_pendientes * 7 / 5
-    valor_dia_vac = (sueldo + gratif_mensual) / 30
-    vac_prop = int(valor_dia_vac * Decimal(str(dias_calendario_vac)))
+    # Vacaciones proporcionales — usa la misma lógica que liquidaciones
+    from app.services.liquidaciones import calcular_vacaciones_proporcionales
+    fecha_ultimo_feriado = fi  # sin tomar feriados previos: desde inicio del contrato
+    vac_prop = int(calcular_vacaciones_proporcionales(
+        sueldo_base=sueldo + gratif_mensual,
+        fecha_inicio=fi,
+        fecha_ultimo_feriado=fecha_ultimo_feriado,
+        fecha_termino=fecha_termino,
+        dias_feriado_anual=15,
+    )) if fi else 0
+    # Descontar días ya tomados (pagados por empresa)
+    if dias_vacaciones_tomados > 0 and fi:
+        valor_dia_vac = (sueldo + gratif_mensual) / 30
+        dias_hab_tomados = dias_vacaciones_tomados
+        dias_cal_tomados = dias_hab_tomados * 7 / 5
+        vac_prop = max(0, vac_prop - int(valor_dia_vac * Decimal(str(dias_cal_tomados))))
 
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     _, _, tiene_indem, tiene_aviso = causal_info
