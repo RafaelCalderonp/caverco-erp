@@ -587,6 +587,7 @@ async def descargar_carta_despido_word(
     incluye_gratificacion: bool = False,
     colacion_mensual: int = 0,
     movilizacion_mensual: int = 0,
+    dias_vacaciones_tomados: float = 0,
     descripcion_adicional: str = "",
     db: AsyncSession = Depends(get_db),
 ):
@@ -599,47 +600,55 @@ async def descargar_carta_despido_word(
     from decimal import Decimal
 
     sueldo = Decimal(str(contrato.sueldo_bruto or 0))
-    sueldo_dia = sueldo / 30
+    colacion = Decimal(str(colacion_mensual))
+    movilizacion = Decimal(str(movilizacion_mensual))
 
     # Días trabajados del mes en que se terminó
     dias_mes = fecha_termino.day
-    monto_dias = int(sueldo_dia * dias_mes)
+    monto_dias = int(sueldo / 30 * dias_mes)
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes)
 
-    # Años de servicio
-    fi = contrato.fecha_inicio
-    if fi:
-        anos = (fecha_termino - fi).days / 365.25
-        anos_completos = floor(anos)
-        # fracción > 6 meses = año completo
-        if (anos - anos_completos) >= 0.5:
-            anos_completos += 1
-        anos_completos = min(anos_completos, 11)
-    else:
-        anos_completos = 0
-
-    # Vacaciones proporcionales
-    fi_ref = contrato.fecha_inicio or fecha_termino.replace(month=1, day=1)
-    dias_trabajados_anio = (fecha_termino - fi_ref).days % 365
-    vac_prop = int(sueldo_dia * (dias_trabajados_anio / 365) * 15)
-
-    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
-    _, _, tiene_indem, tiene_aviso = causal_info
-    indem_anos = int(sueldo * anos_completos) if tiene_indem else 0
-    aviso_calculado = int(sueldo) if (tiene_aviso and not aviso_con_30_dias) else 0
-
-    # Colación + movilización proporcional
-    rem_pendiente = int((colacion_mensual + movilizacion_mensual) * dias_mes / 30)
-
-    # Gratificación proporcional (opcional)
-    gratificacion = 0
+    # Gratificación mensual
     if incluye_gratificacion:
         from app.services.indicadores import obtener_valor_periodo
         periodo_actual = fecha_termino.strftime("%Y-%m")
         val = await obtener_valor_periodo(db, periodo_actual)
         tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
         gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
-        # Proporcional al mes (días trabajados)
-        gratificacion = int(gratif_mensual * dias_mes / 30)
+    else:
+        gratif_mensual = Decimal("0")
+
+    gratif_dia = int(gratif_mensual / 30 * dias_mes)
+
+    # Base para indemnizaciones = sueldo + gratif + colación + movilización
+    base_indem = sueldo + gratif_mensual + colacion + movilizacion
+
+    # Años de servicio
+    fi = contrato.fecha_inicio
+    if fi:
+        dias_totales = (fecha_termino - fi).days
+        anos = dias_totales / 365.25
+        anos_completos = floor(anos)
+        if (anos - anos_completos) >= 0.5:
+            anos_completos += 1
+        anos_completos = min(anos_completos, 11)
+    else:
+        dias_totales = 0
+        anos_completos = 0
+
+    # Vacaciones proporcionales
+    # 15 días hábiles por año = 1,25 por mes
+    # Conversión a calendario: hábiles × 7/5 (cada 5 hábiles = 7 días calendario)
+    dias_ganados = round(dias_totales / 365 * 15, 2) if fi else 0
+    dias_pendientes = max(0, dias_ganados - dias_vacaciones_tomados)
+    dias_calendario_vac = dias_pendientes * 7 / 5
+    valor_dia_vac = (sueldo + gratif_mensual) / 30
+    vac_prop = int(valor_dia_vac * Decimal(str(dias_calendario_vac)))
+
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    _, _, tiene_indem, tiene_aviso = causal_info
+    indem_anos = int(base_indem * anos_completos) if tiene_indem else 0
+    aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
 
     docx_bytes = generar_carta_despido_docx(
         empresa                    = empresa,
@@ -653,7 +662,7 @@ async def descargar_carta_despido_word(
         vacaciones_proporcionales  = vac_prop,
         indemnizacion_anos         = indem_anos,
         aviso_previo               = aviso_calculado,
-        gratificacion              = gratificacion,
+        gratificacion              = gratif_dia,
         rem_pendiente              = rem_pendiente,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,

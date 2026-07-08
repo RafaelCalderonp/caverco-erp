@@ -121,6 +121,7 @@ export default function ContratoDetalle() {
     incluye_gratificacion: false,
     colacion_mensual: '',
     movilizacion_mensual: '',
+    dias_vacaciones_tomados: 0,
     descripcion_adicional: '',
   })
 
@@ -382,38 +383,57 @@ export default function ContratoDetalle() {
   function calcularMontosDespido() {
     if (!formDespido.causal_codigo || !formDespido.fecha_termino || !contrato?.sueldo_bruto) return
     const sueldo = Number(contrato.sueldo_bruto)
-    const sueldoDia = sueldo / 30
     const fTermino = new Date(formDespido.fecha_termino + 'T00:00:00')
     const diasMes = fTermino.getDate()
-    const montoDias = Math.round(sueldoDia * diasMes)
+    const colacion = Number(formDespido.colacion_mensual) || 0
+    const movilizacion = Number(formDespido.movilizacion_mensual) || 0
 
+    // Gratificación mensual
+    const gratifMensual = formDespido.incluye_gratificacion
+      ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL))
+      : 0
+    const gratifDia = Math.round(gratifMensual * diasMes / 30)
+
+    // Remuneración días trabajados (sueldo + colac + movil proporcional)
+    const sueldoDia = sueldo / 30
+    const montoDias = Math.round(sueldoDia * diasMes)
+    const remPendiente = Math.round((colacion + movilizacion) * diasMes / 30)
+
+    // Base para indemnizaciones = sueldo + gratif + colación + movilización
+    const baseIndem = sueldo + gratifMensual + colacion + movilizacion
+
+    // Años de servicio
     const fInicio = contrato.fecha_inicio ? new Date(contrato.fecha_inicio + 'T00:00:00') : null
     let anosCompletos = 0
-    let vacProp = 0
+    let diasTrabajados = 0
     if (fInicio) {
-      const diffDias = (fTermino - fInicio) / (1000 * 60 * 60 * 24)
-      const anos = diffDias / 365.25
+      diasTrabajados = (fTermino - fInicio) / (1000 * 60 * 60 * 24)
+      const anos = diasTrabajados / 365.25
       anosCompletos = Math.floor(anos)
       if (anos - anosCompletos >= 0.5) anosCompletos++
       anosCompletos = Math.min(anosCompletos, 11)
-      const diasAnio = Math.round(diffDias % 365)
-      vacProp = Math.round(sueldoDia * (diasAnio / 365) * 15)
     }
+
+    // Vacaciones proporcionales
+    // Días ganados = días trabajados / 365 * 15 (1.25 por mes)
+    // Valor día = (sueldo + gratif) / 30
+    const diasGanados = fInicio ? Math.round((diasTrabajados / 365) * 15 * 100) / 100 : 0
+    const diasTomados = Number(formDespido.dias_vacaciones_tomados) || 0
+    const diasPendientes = Math.max(0, Math.round((diasGanados - diasTomados) * 100) / 100)
+    // Conversión a días calendario: por cada 5 hábiles hay 2 inhábiles (fines de semana)
+    const diasCalendario = diasPendientes * 7 / 5
+    const valorDiaVac = (sueldo + gratifMensual) / 30
+    const vacProp = Math.round(valorDiaVac * diasCalendario)
 
     const causalInfo = CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)
     const tieneIndem = causalInfo?.indem || false
-    const indemAnos = tieneIndem ? sueldo * anosCompletos : 0
-    const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? sueldo : 0
-    const gratif = formDespido.incluye_gratificacion
-      ? Math.round(Math.min(sueldo * 0.25, TOPE_GRATIF_MENSUAL) * diasMes / 30)
-      : 0
-    const colacion = Number(formDespido.colacion_mensual) || 0
-    const movilizacion = Number(formDespido.movilizacion_mensual) || 0
-    const remPendiente = Math.round((colacion + movilizacion) * diasMes / 30)
+    const indemAnos = tieneIndem ? Math.round(baseIndem * anosCompletos) : 0
+    const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? Math.round(baseIndem) : 0
 
     setMontosDespido({
-      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem, gratif, remPendiente,
-      total: montoDias + vacProp + indemAnos + aviso + gratif + remPendiente,
+      diasMes, montoDias, remPendiente, vacProp, diasGanados, diasTomados, diasPendientes,
+      anosCompletos, indemAnos, aviso, tieneIndem, gratifDia, gratifMensual,
+      total: montoDias + remPendiente + vacProp + gratifDia + indemAnos + aviso,
     })
   }
 
@@ -428,6 +448,7 @@ export default function ContratoDetalle() {
         incluye_gratificacion: formDespido.incluye_gratificacion,
         colacion_mensual: Number(formDespido.colacion_mensual) || 0,
         movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
+        dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
         descripcion_adicional: formDespido.descripcion_adicional,
       })
       const disposition = res.headers['content-disposition'] || ''
@@ -1135,6 +1156,13 @@ export default function ContratoDetalle() {
               placeholder="Contexto adicional para la carta…" style={{fontSize:13}} />
           </div>
           <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Días de vacaciones tomados</label>
+            <input className="input" type="number" step="0.01" value={formDespido.dias_vacaciones_tomados}
+              onChange={e => { setFormDespido(f => ({ ...f, dias_vacaciones_tomados: e.target.value })); setMontosDespido(null) }}
+              style={{fontSize:13}} placeholder="0" />
+          </div>
+          <div style={{margin:0}} />
+          <div className="form-group" style={{margin:0}}>
             <label className="form-label" style={{fontSize:12}}>Colación mensual ($)</label>
             <input className="input" type="number" value={formDespido.colacion_mensual}
               onChange={e => { setFormDespido(f => ({ ...f, colacion_mensual: e.target.value })); setMontosDespido(null) }}
@@ -1181,24 +1209,28 @@ export default function ContratoDetalle() {
               </div>
             )}
             <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-              <span className="text-muted">Vacaciones proporcionales</span>
+              <span className="text-muted">
+                Vacaciones proporcionales — {montosDespido.diasGanados} días ganados − {montosDespido.diasTomados} tomados = {montosDespido.diasPendientes} hábiles pendientes
+              </span>
               <span>{fmt(montosDespido.vacProp)}</span>
             </div>
-            {montosDespido.gratif > 0 && (
+            {montosDespido.gratifDia > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Gratificación proporcional (Art. 50 CT)</span>
-                <span>{fmt(montosDespido.gratif)}</span>
+                <span className="text-muted">Gratificación proporcional mes (Art. 50 CT)</span>
+                <span>{fmt(montosDespido.gratifDia)}</span>
               </div>
             )}
             {montosDespido.tieneIndem && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Indemnización por años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''})</span>
+                <span className="text-muted">
+                  Indemnización por años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''}) — base incluye sueldo + gratif + colac + movil
+                </span>
                 <span>{fmt(montosDespido.indemAnos)}</span>
               </div>
             )}
             {montosDespido.tieneIndem && montosDespido.aviso > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-                <span className="text-muted">Indemnización sustitutiva de aviso previo</span>
+                <span className="text-muted">Indemnización sustitutiva de aviso previo — misma base</span>
                 <span>{fmt(montosDespido.aviso)}</span>
               </div>
             )}
