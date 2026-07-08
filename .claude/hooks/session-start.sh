@@ -11,10 +11,14 @@ echo "=== Caverco ERP: iniciando entorno ==="
 pg_ctlcluster 16 main status > /dev/null 2>&1 || pg_ctlcluster 16 main start
 sleep 2
 
-# 2. Ejecutar migraciones pendientes (idempotente con IF NOT EXISTS)
-PGPASSWORD=postgres psql -h localhost -U postgres -d caverco_erp \
-  -f "$CLAUDE_PROJECT_DIR/database/27_contrato_colacion_movilizacion.sql" \
-  > /dev/null 2>&1 || true
+# 2. Ejecutar migraciones pendientes (idempotente con IF NOT EXISTS / RENAME seguro)
+for sql in \
+  "$CLAUDE_PROJECT_DIR/database/27_contrato_colacion_movilizacion.sql" \
+  "$CLAUDE_PROJECT_DIR/database/28_contratos_columnas_faltantes.sql" \
+  "$CLAUDE_PROJECT_DIR/database/29_empleados_columnas_faltantes.sql"
+do
+  PGPASSWORD=postgres psql -h localhost -U postgres -d caverco_erp -f "$sql" > /dev/null 2>&1 || true
+done
 
 # 3. Instalar dependencias Python si faltan
 cd "$CLAUDE_PROJECT_DIR/backend"
