@@ -727,9 +727,9 @@ async def descargar_finiquito_word(
     import io as _io
 
     contrato = await _get_contrato_or_404(id, db)
-    empleado = contrato.empleado
-    empresa  = contrato.empresa
-    cargo    = await db.get(__import__('app.models.rrhh', fromlist=['Cargo']).Cargo, contrato.id_cargo) if contrato.id_cargo else None
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa) if empleado else None
+    cargo    = await db.get(Cargo, empleado.id_cargo) if (empleado and empleado.id_cargo) else None
 
     if not empresa or not empleado:
         raise HTTPException(status_code=400, detail="Contrato sin empresa o empleado")
