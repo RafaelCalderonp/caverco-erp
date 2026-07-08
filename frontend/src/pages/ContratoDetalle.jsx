@@ -347,8 +347,11 @@ export default function ContratoDetalle() {
     setDescargandoAmon(true)
     try {
       const res = await contratosApi.amonestacion.word(id, formAmon.motivo, formAmon.descripcion, formAmon.fecha)
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `Amonestacion_${id}.docx`
       const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `Amonestacion_${id}.docx`; a.click()
+      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
       URL.revokeObjectURL(url)
     } catch { alert('Error al generar amonestación') }
     finally { setDescargandoAmon(false) }
@@ -396,8 +399,11 @@ export default function ContratoDetalle() {
         aviso_previo: Number(formDespido.aviso_previo) || 0,
         descripcion_adicional: formDespido.descripcion_adicional,
       })
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `Carta_Despido_${id}.docx`
       const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `Carta_Despido_${id}.docx`; a.click()
+      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
       URL.revokeObjectURL(url)
     } catch { alert('Error al generar carta de despido') }
     finally { setDescargandoDespido(false) }
