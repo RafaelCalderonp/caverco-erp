@@ -654,22 +654,16 @@ async def descargar_carta_despido_word(
         dias_totales = 0
         anos_completos = 0
 
-    # Vacaciones proporcionales — usa la misma lógica que liquidaciones
-    from app.services.liquidaciones import calcular_vacaciones_proporcionales
-    fecha_ultimo_feriado = fi  # sin tomar feriados previos: desde inicio del contrato
-    vac_prop = int(calcular_vacaciones_proporcionales(
-        sueldo_base=sueldo + gratif_mensual,
-        fecha_inicio=fi,
-        fecha_ultimo_feriado=fecha_ultimo_feriado,
-        fecha_termino=fecha_termino,
-        dias_feriado_anual=15,
-    )) if fi else 0
-    # Descontar días ya tomados (pagados por empresa)
-    if dias_vacaciones_tomados > 0 and fi:
-        valor_dia_vac = (sueldo + gratif_mensual) / 30
-        dias_hab_tomados = dias_vacaciones_tomados
-        dias_cal_tomados = dias_hab_tomados * 7 / 5
-        vac_prop = max(0, vac_prop - int(valor_dia_vac * Decimal(str(dias_cal_tomados))))
+    # Vacaciones proporcionales — fórmula idéntica al frontend
+    if fi:
+        dias_trabajados_total = (fecha_termino - fi).days
+        dias_ganados_hab  = round(dias_trabajados_total / 365 * 15, 2)
+        dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
+        dias_calendario_vac = Decimal(str(dias_pendientes_hab)) * Decimal("7") / Decimal("5")
+        valor_dia_vac = (sueldo + gratif_mensual) / Decimal("30")
+        vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
+    else:
+        vac_prop = 0
 
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     _, _, tiene_indem, tiene_aviso = causal_info
@@ -781,17 +775,16 @@ async def descargar_finiquito_word(
         dias_totales   = 0
         anos_completos = 0
 
-    from app.services.liquidaciones import calcular_vacaciones_proporcionales
-    vac_prop = int(calcular_vacaciones_proporcionales(
-        sueldo_base=sueldo + gratif_mensual,
-        fecha_inicio=fi,
-        fecha_ultimo_feriado=fi,
-        fecha_termino=fecha_termino,
-        dias_feriado_anual=15,
-    )) if fi else 0
-    if dias_vacaciones_tomados > 0 and fi:
-        valor_dia_vac = (sueldo + gratif_mensual) / 30
-        vac_prop = max(0, vac_prop - int(valor_dia_vac * Decimal(str(dias_vacaciones_tomados * 7 / 5))))
+    # Vacaciones proporcionales — fórmula idéntica al frontend y a carta-despido
+    if fi:
+        dias_trabajados_total = (fecha_termino - fi).days
+        dias_ganados_hab  = round(dias_trabajados_total / 365 * 15, 2)
+        dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
+        dias_calendario_vac = Decimal(str(dias_pendientes_hab)) * Decimal("7") / Decimal("5")
+        valor_dia_vac = (sueldo + gratif_mensual) / Decimal("30")
+        vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
+    else:
+        vac_prop = 0
 
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     _, _, tiene_indem, tiene_aviso = causal_info

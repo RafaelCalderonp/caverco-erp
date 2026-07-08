@@ -980,7 +980,13 @@ def generar_finiquito_docx(
     razon = empresa.razon_social or ""
     rep_legal = getattr(empresa, "representante_legal", "") or ""
     rut_rep   = getattr(empresa, "rut_representante_legal", "") or ""
-    domicilio = getattr(empresa, "domicilio", "") or ""
+    # Construir domicilio completo desde los campos reales de la empresa
+    partes_dom = [p for p in [
+        getattr(empresa, "direccion", "") or "",
+        ("comuna de " + empresa.comuna) if getattr(empresa, "comuna", None) else "",
+        ("ciudad de " + empresa.ciudad) if getattr(empresa, "ciudad", None) else "",
+    ] if p]
+    domicilio = ", ".join(partes_dom) or "domicilio registrado"
 
     rep_texto = (f", representada por {rep_legal}" + (f", RUT {rut_rep}" if rut_rep else "")) if rep_legal else ""
     _parrafo(doc, [
