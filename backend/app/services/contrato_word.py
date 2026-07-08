@@ -27,6 +27,51 @@ def _clp(valor) -> str:
     return f"${int(valor):,}".replace(",", ".") + ".-"
 
 
+def _numero_letras(n: int) -> str:
+    """Convierte un entero a palabras en español (hasta 999.999.999)."""
+    if n == 0:
+        return "Cero"
+    unidades = ["", "Un", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve",
+                "Diez", "Once", "Doce", "Trece", "Catorce", "Quince", "Dieciséis", "Diecisiete",
+                "Dieciocho", "Diecinueve"]
+    decenas  = ["", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta", "Sesenta", "Setenta", "Ochenta", "Noventa"]
+    centenas = ["", "Cien", "Doscientos", "Trescientos", "Cuatrocientos", "Quinientos",
+                "Seiscientos", "Setecientos", "Ochocientos", "Novecientos"]
+
+    def _grupo(x: int) -> str:
+        if x == 0:
+            return ""
+        if x == 100:
+            return "Cien"
+        partes = []
+        c, resto = divmod(x, 100)
+        if c:
+            p = centenas[c]
+            if c == 1 and resto:
+                p = "Ciento"
+            partes.append(p)
+        if resto < 20:
+            if resto:
+                partes.append(unidades[resto])
+        else:
+            d, u = divmod(resto, 10)
+            partes.append(decenas[d] + (f" y {unidades[u]}" if u else ""))
+        return " ".join(partes)
+
+    partes = []
+    millones, resto = divmod(n, 1_000_000)
+    if millones:
+        palabra = "Un Millón" if millones == 1 else f"{_grupo(millones)} Millones"
+        partes.append(palabra)
+    miles, resto = divmod(resto, 1_000)
+    if miles:
+        palabra = "Mil" if miles == 1 else f"{_grupo(miles)} Mil"
+        partes.append(palabra)
+    if resto:
+        partes.append(_grupo(resto))
+    return " ".join(partes)
+
+
 def _parrafo(doc, partes, bold_default=False, align=None, space_after=10):
     """partes: lista de (texto, bold) o strings sueltos (heredan bold_default)."""
     p = doc.add_paragraph()
@@ -876,6 +921,194 @@ def generar_carta_despido_docx(
         row.cells[0].width = Cm(9.75)
         row.cells[1].width = Cm(9.75)
         row.height = Cm(2.0)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def generar_finiquito_docx(
+    empresa, empleado, contrato,
+    causal_codigo: str,
+    fecha_termino: date,
+    cargo_nombre: str = "",
+    ciudad: str = "Santiago",
+    monto_dias_trabajados: int = 0,
+    neto_dias: int = 0,
+    rem_pendiente: int = 0,
+    vacaciones_proporcionales: int = 0,
+    indemnizacion_anos: int = 0,
+    aviso_previo: int = 0,
+    anos_servicio: int = 0,
+    gratificacion: int = 0,
+    dias_trabajados_mes: int = 0,
+    desc_afp: int = 0,
+    desc_salud: int = 0,
+    desc_afc: int = 0,
+    tasa_afp: float = 0.1144,
+) -> bytes:
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
+
+    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    for section in doc.sections:
+        section.top_margin    = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin   = Cm(2.5)
+        section.right_margin  = Cm(2.5)
+
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    _parrafo(doc, ["FINIQUITO DE CONTRATO DE TRABAJO"], bold_default=True,
+             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
+
+    ciudad_doc = getattr(empresa, "ciudad", None) or ciudad
+    _parrafo(doc, [f"En {ciudad_doc}, a {_fecha_larga(fecha_termino)},"],
+             align=WD_ALIGN_PARAGRAPH.LEFT, space_after=6)
+
+    nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {(empleado.apellido_materno or '')}".strip()
+    razon = empresa.razon_social or ""
+    rep_legal = getattr(empresa, "representante_legal", "") or ""
+    rut_rep   = getattr(empresa, "rut_representante_legal", "") or ""
+    domicilio = getattr(empresa, "domicilio", "") or ""
+
+    rep_texto = (f", representada por {rep_legal}" + (f", RUT {rut_rep}" if rut_rep else "")) if rep_legal else ""
+    _parrafo(doc, [
+        f"entre ", (razon, True), f", RUT {empresa.rut or ''}{rep_texto}, "
+        f"con domicilio en {domicilio}, en adelante el EMPLEADOR; y don/doña ",
+        (nombre_completo, True),
+        f", cédula de identidad N° {empleado.rut or ''}, en adelante el TRABAJADOR, "
+        "se celebra el siguiente finiquito de contrato de trabajo:",
+    ], space_after=10)
+
+    _parrafo(doc, [("PRIMERO:", True)], space_after=4)
+    fi_str = _fecha_larga(contrato.fecha_inicio) if contrato.fecha_inicio else "la fecha de inicio del contrato"
+    _parrafo(doc, [
+        f"El TRABAJADOR declara haber prestado servicios al EMPLEADOR en calidad de ",
+        (cargo_nombre or "Trabajador/a", True),
+        f", desde el {fi_str} hasta el {_fecha_larga(fecha_termino)}, "
+        f"fecha de terminación de sus servicios por la causal establecida en el {art_ref} "
+        "del Código del Trabajo, esto es: ",
+        (f'"{causal_texto}".', True),
+    ], space_after=10)
+
+    _parrafo(doc, [("SEGUNDO:", True)], space_after=4)
+    _parrafo(doc, [
+        "El TRABAJADOR declara recibir en este acto la suma de ",
+        (_clp(total), True),
+        f" ({_numero_letras(total)} pesos), según el siguiente detalle:",
+    ], space_after=6)
+
+    items = []
+    label_dias = f"Remuneración imponible días trabajados ({dias_trabajados_mes} días)"
+    if gratificacion > 0:
+        label_dias += " incl. gratif. prop."
+    items.append((label_dias, monto_dias_trabajados))
+    items.append((f"  Menos AFP ({tasa_afp*100:.2f}%)", -desc_afp))
+    items.append(("  Menos Salud (7,00%)", -desc_salud))
+    items.append(("  Menos AFC (0,60%)", -desc_afc))
+    items.append(("  Neto días trabajados", neto_dias))
+    if rem_pendiente > 0:
+        items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (Art. 41 CT, no imponible)", rem_pendiente))
+    items.append(("Vacaciones proporcionales (Art. 67 y 73 CT)", vacaciones_proporcionales))
+    if tiene_indem and indemnizacion_anos > 0:
+        items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
+    if tiene_aviso and aviso_previo > 0:
+        items.append(("Indemnización sustitutiva de aviso previo (Art. 161 CT)", aviso_previo))
+
+    tbl = doc.add_table(rows=len(items) + 2, cols=2)
+    tbl.style = "Table Grid"
+    _cell_text(tbl.rows[0].cells[0], "CONCEPTO", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(tbl.rows[0].cells[1], "MONTO ($)", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for i, (concepto, monto) in enumerate(items, 1):
+        _cell_text(tbl.rows[i].cells[0], concepto, size=10)
+        texto_monto = _clp(abs(monto)) if monto >= 0 else f"({_clp(abs(monto))})"
+        _cell_text(tbl.rows[i].cells[1], texto_monto, size=10, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    total_row = tbl.rows[len(items) + 1]
+    _cell_text(total_row.cells[0], "TOTAL", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    _cell_text(total_row.cells[1], _clp(total), bold=True, size=11, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    tbl.columns[0].width = Cm(12.5)
+    tbl.columns[1].width = Cm(4.5)
+    doc.add_paragraph()
+
+    _parrafo(doc, [("TERCERO:", True)], space_after=4)
+    _parrafo(doc, [
+        f"El TRABAJADOR declara que durante todo el tiempo en que prestó servicios al EMPLEADOR recibió "
+        "correcta y oportunamente el total de las remuneraciones convenidas en su contrato de trabajo, "
+        "reajustes legales, asignaciones familiares autorizadas, cotizaciones previsionales pagadas y "
+        "todas las demás prestaciones que por ley o contrato le correspondían. Por lo anterior, no "
+        "teniendo reclamo ni cargo alguno que formular en contra de ",
+        (razon, True),
+        ", le otorga el más amplio, total y definitivo finiquito, declaración que formula libre y "
+        "espontáneamente, en cabal conocimiento de sus derechos.",
+    ], space_after=10)
+
+    _parrafo(doc, [("CUARTO — Cotizaciones Previsionales (Art. 162 CT):", True)], space_after=4)
+    _parrafo(doc, [
+        "El EMPLEADOR declara que las cotizaciones previsionales y de salud del TRABAJADOR se encuentran "
+        "íntegramente pagadas hasta la fecha de término de la relación laboral, dando cumplimiento a lo "
+        "dispuesto en el artículo 162 inciso 5° del Código del Trabajo.",
+    ], space_after=10)
+
+    _parrafo(doc, [("QUINTO — Ley N° 21.389 (Registro Deudores de Pensiones de Alimentos):", True)], space_after=4)
+    _parrafo(doc, [
+        "El EMPLEADOR declara bajo juramento que no ha sido notificado de retención judicial por "
+        "concepto de pensión de alimentos respecto del TRABAJADOR individualizado en el presente "
+        "instrumento, conforme a la Ley N° 21.389.",
+    ], space_after=14)
+
+    _parrafo(doc, [
+        "NOTA LEGAL: El presente finiquito tendrá poder liberatorio una vez ratificado por el TRABAJADOR "
+        "ante un Ministro de Fe (Inspector del Trabajo, Notario Público, Oficial del Registro Civil o "
+        "Secretario Municipal), conforme al artículo 177 del Código del Trabajo. El plazo para reclamar "
+        "ante la Inspección del Trabajo o Tribunales de Justicia es de 60 días hábiles desde la "
+        "separación (Art. 168 CT).",
+    ], space_after=12)
+
+    _parrafo(doc, [("RATIFICACIÓN ANTE MINISTRO DE FE", True)], align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
+    rat = doc.add_table(rows=1, cols=2)
+    rat.style = "Table Grid"
+    _cell_text(rat.rows[0].cells[0],
+               "Ministro de fe: ___________________________\n"
+               "Cargo / Institución: _______________________\n"
+               "Fecha: ____________   Firma: _______________",
+               size=10)
+    _cell_text(rat.rows[0].cells[1],
+               "N° folio / Timbre: _________________________\n"
+               "Lugar: ____________________________________\n\n",
+               size=10)
+    rat.columns[0].width = Cm(8.75)
+    rat.columns[1].width = Cm(8.75)
+    doc.add_paragraph()
+
+    _parrafo(doc, [
+        "Para constancia firman las partes en dos ejemplares del mismo tenor y fecha, "
+        "quedando un ejemplar en poder de cada parte.",
+    ], space_after=20)
+
+    firma = doc.add_table(rows=3, cols=2)
+    firma.style = "Table Grid"
+    _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[0], razon, bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[1], nombre_completo, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[2].cells[0], f"RUT: {empresa.rut or ''}", size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[2].cells[1], f"RUT: {empleado.rut or ''}", size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma.rows:
+        row.cells[0].width = Cm(8.75)
+        row.cells[1].width = Cm(8.75)
 
     buf = io.BytesIO()
     doc.save(buf)

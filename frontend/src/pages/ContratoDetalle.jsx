@@ -136,10 +136,12 @@ export default function ContratoDetalle() {
     }
   })
   const [despidoGuardado, setDespidoGuardado] = useState(() => !!localStorage.getItem(`despido_${id}`))
+  const [despidoExpandido, setDespidoExpandido] = useState(() => !localStorage.getItem(`despido_${id}`))
 
   function guardarDespido() {
     localStorage.setItem(DESPIDO_KEY, JSON.stringify(formDespido))
     setDespidoGuardado(true)
+    setDespidoExpandido(false)
   }
 
   // Auto-cargar colación/movilización del contrato solo si no hay datos guardados
@@ -495,6 +497,30 @@ export default function ContratoDetalle() {
       URL.revokeObjectURL(url)
     } catch { alert('Error al generar carta de despido') }
     finally { setDescargandoDespido(false) }
+  }
+
+  const [descargandoFiniquito, setDescargandoFiniquito] = useState(false)
+  async function descargarFiniquito() {
+    if (!formDespido.causal_codigo || !formDespido.fecha_termino) { alert('Guarda primero los datos de la carta de despido'); return }
+    setDescargandoFiniquito(true)
+    try {
+      const res = await contratosApi.finiquito.word(id, {
+        causal_codigo: formDespido.causal_codigo,
+        fecha_termino: formDespido.fecha_termino,
+        aviso_con_30_dias: formDespido.aviso_con_30_dias,
+        incluye_gratificacion: formDespido.incluye_gratificacion,
+        colacion_mensual: Number(formDespido.colacion_mensual) || 0,
+        movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
+        dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
+      })
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `Finiquito_${id}.docx`
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar finiquito') }
+    finally { setDescargandoFiniquito(false) }
   }
 
   async function descargarEppWord(eppId) {
@@ -1159,9 +1185,23 @@ export default function ContratoDetalle() {
 
       {/* ── Carta de Despido ── */}
       <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-          <h3 style={{fontWeight:600}}>Carta de Despido</h3>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: despidoExpandido ? 12 : 0}}>
+          <div>
+            <h3 style={{fontWeight:600}}>Carta de Despido</h3>
+            {!despidoExpandido && despidoGuardado && (
+              <p style={{fontSize:12, color:'var(--gray-500)', margin:'2px 0 0'}}>
+                {formDespido.causal_codigo} · {formDespido.fecha_termino}
+                {montosDespido ? ` · Total: ${fmt(montosDespido.total)}` : ''}
+              </p>
+            )}
+          </div>
+          <button className="btn btn-outline btn-sm"
+            onClick={() => setDespidoExpandido(v => !v)}
+            style={{fontSize:12}}>
+            {despidoExpandido ? '▲ Contraer' : '▼ Expandir'}
+          </button>
         </div>
+        {despidoExpandido && <>
         <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
           Genera la carta de aviso de término de contrato con la causal legal correspondiente y los montos a pagar.
         </p>
@@ -1294,11 +1334,45 @@ export default function ContratoDetalle() {
             </div>
           </div>
         )}
+        </>}
       </div>
+
+      {/* ── Finiquito ── */}
+      {despidoGuardado && (
+        <div className="card mt-4">
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+            <div>
+              <h3 style={{fontWeight:600}}>Finiquito de Contrato de Trabajo</h3>
+              <p style={{fontSize:12, color:'var(--gray-500)', margin:'2px 0 0'}}>
+                Documento legal con cláusulas — requiere ratificación ante Ministro de Fe (Art. 177 CT)
+              </p>
+            </div>
+          </div>
+          <div style={{background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'10px 14px', fontSize:12, marginBottom:14, color:'#92400e'}}>
+            <strong>Cobertura legal del finiquito generado:</strong>
+            <ul style={{margin:'6px 0 0 16px', padding:0, lineHeight:1.7}}>
+              <li>✅ Identificación de partes con RUT (Art. 177 CT)</li>
+              <li>✅ Causal de término con artículo del CT</li>
+              <li>✅ Período trabajado (fecha inicio y término)</li>
+              <li>✅ Desglose detallado de cada concepto pagado en números y letras</li>
+              <li>✅ Declaración amplia de pago íntegro al trabajador (TERCERO)</li>
+              <li>✅ Cotizaciones previsionales al día — Art. 162 CT (CUARTO)</li>
+              <li>✅ Ley N° 21.389 — Registro Nacional Deudores Alimentos (QUINTO)</li>
+              <li>✅ Bloque de ratificación ante Ministro de Fe</li>
+              <li>✅ Dos ejemplares, firmas con RUT de ambas partes</li>
+              <li>⚠️ <strong>Verificar cotizaciones al día antes de firmar</strong> (Art. 162 CT obliga al empleador a certificarlo)</li>
+              <li>⚠️ <strong>El trabajador puede firmar con "Reserva de Acciones"</strong> — en ese caso el finiquito no extingue el derecho a demandar</li>
+            </ul>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={descargarFiniquito} disabled={descargandoFiniquito}>
+            {descargandoFiniquito ? '...' : '📄 Generar Finiquito Word'}
+          </button>
+        </div>
+      )}
 
       {contrato.estado === 'finiquitado' && (
         <div className="card mt-4">
-          <h3 style={{marginBottom:12, fontWeight:600}}>Cálculo de Finiquito</h3>
+          <h3 style={{marginBottom:12, fontWeight:600}}>Cálculo de Finiquito (vía API)</h3>
           {errorFiniquito && (
             <div style={{padding:'8px 12px', borderRadius:6, marginBottom:10, background:'#fee2e2', color:'#b91c1c', fontSize:13}}>
               {errorFiniquito}

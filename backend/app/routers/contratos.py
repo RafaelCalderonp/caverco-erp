@@ -27,7 +27,8 @@ from app.models.rrhh import (
 from app.services.contrato_word import (
     generar_contrato_docx, generar_anexo_docx, generar_epp_docx,
     generar_reglamento_docx, generar_pacto_horas_extra_docx,
-    generar_amonestacion_docx, generar_carta_despido_docx, CAUSALES_DESPIDO,
+    generar_amonestacion_docx, generar_carta_despido_docx, generar_finiquito_docx,
+    CAUSALES_DESPIDO,
 )
 from app.services.capacitacion_word import generar_certificado_antiguedad_docx
 from sqlalchemy import func
@@ -699,6 +700,129 @@ async def descargar_carta_despido_word(
     fname = _fname("Carta_Despido", empleado, fecha_termino)
     return StreamingResponse(
         io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+# ---- Finiquito ----
+@router.get("/{id}/finiquito/word")
+async def descargar_finiquito_word(
+    id: int,
+    causal_codigo: str,
+    fecha_termino: date,
+    aviso_con_30_dias: bool = False,
+    incluye_gratificacion: bool = False,
+    colacion_mensual: int = 0,
+    movilizacion_mensual: int = 0,
+    dias_vacaciones_tomados: float = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Genera el Finiquito de Contrato de Trabajo (documento legal con cláusulas,
+    ministro de fe y firmas). Reutiliza la misma lógica de cálculo que la
+    Carta de Despido para garantizar montos idénticos.
+    """
+    from math import floor
+    from decimal import Decimal
+    import io as _io
+
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = contrato.empleado
+    empresa  = contrato.empresa
+    cargo    = await db.get(__import__('app.models.rrhh', fromlist=['Cargo']).Cargo, contrato.id_cargo) if contrato.id_cargo else None
+
+    if not empresa or not empleado:
+        raise HTTPException(status_code=400, detail="Contrato sin empresa o empleado")
+
+    sueldo       = Decimal(str(contrato.sueldo_bruto or 0))
+    colacion     = Decimal(str(colacion_mensual))
+    movilizacion = Decimal(str(movilizacion_mensual))
+
+    dias_mes = fecha_termino.day
+    monto_dias  = int(sueldo / 30 * dias_mes)
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes)
+
+    if incluye_gratificacion:
+        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+        periodo_actual = fecha_termino.strftime("%Y-%m")
+        try:
+            await asegurar_indicadores(db, periodo_actual)
+            val = await obtener_valor_periodo(db, periodo_actual)
+            tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+        except Exception:
+            tope_mensual = Decimal("213354")
+        gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
+    else:
+        gratif_mensual = Decimal("0")
+
+    gratif_dia          = int(gratif_mensual / 30 * dias_mes)
+    monto_dias_imponible = monto_dias + gratif_dia
+
+    TASA_SALUD = 0.07
+    TASA_AFC   = 0.006
+    from app.models.rrhh import AFP as AFPModel
+    afp_obj  = await db.get(AFPModel, empleado.id_afp) if empleado.id_afp else None
+    tasa_afp = float(afp_obj.tasa) if afp_obj else 0.1144
+    desc_afp   = int(monto_dias_imponible * tasa_afp)
+    desc_salud = int(monto_dias_imponible * TASA_SALUD)
+    desc_afc   = int(monto_dias_imponible * TASA_AFC)
+    neto_dias  = monto_dias_imponible - desc_afp - desc_salud - desc_afc
+
+    base_indem = sueldo + gratif_mensual + colacion + movilizacion
+    fi = contrato.fecha_inicio
+    if fi:
+        dias_totales  = (fecha_termino - fi).days
+        anos          = dias_totales / 365.25
+        anos_completos = floor(anos)
+        if (anos - anos_completos) >= 0.5:
+            anos_completos += 1
+        anos_completos = min(anos_completos, 11)
+    else:
+        dias_totales   = 0
+        anos_completos = 0
+
+    from app.services.liquidaciones import calcular_vacaciones_proporcionales
+    vac_prop = int(calcular_vacaciones_proporcionales(
+        sueldo_base=sueldo + gratif_mensual,
+        fecha_inicio=fi,
+        fecha_ultimo_feriado=fi,
+        fecha_termino=fecha_termino,
+        dias_feriado_anual=15,
+    )) if fi else 0
+    if dias_vacaciones_tomados > 0 and fi:
+        valor_dia_vac = (sueldo + gratif_mensual) / 30
+        vac_prop = max(0, vac_prop - int(valor_dia_vac * Decimal(str(dias_vacaciones_tomados * 7 / 5))))
+
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    _, _, tiene_indem, tiene_aviso = causal_info
+    indem_anos     = int(base_indem * anos_completos) if tiene_indem else 0
+    aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
+
+    docx_bytes = generar_finiquito_docx(
+        empresa              = empresa,
+        empleado             = empleado,
+        contrato             = contrato,
+        causal_codigo        = causal_codigo,
+        fecha_termino        = fecha_termino,
+        cargo_nombre         = cargo.nombre if cargo else "",
+        ciudad               = empresa.ciudad or "Santiago",
+        monto_dias_trabajados = monto_dias_imponible,
+        neto_dias            = neto_dias,
+        rem_pendiente        = rem_pendiente,
+        vacaciones_proporcionales = vac_prop,
+        indemnizacion_anos   = indem_anos,
+        aviso_previo         = aviso_calculado,
+        anos_servicio        = anos_completos,
+        gratificacion        = gratif_dia,
+        dias_trabajados_mes  = dias_mes,
+        desc_afp             = desc_afp,
+        desc_salud           = desc_salud,
+        desc_afc             = desc_afc,
+        tasa_afp             = tasa_afp,
+    )
+    fname = _fname("Finiquito", empleado, fecha_termino)
+    return StreamingResponse(
+        _io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )

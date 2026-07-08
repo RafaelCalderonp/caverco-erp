@@ -150,6 +150,12 @@ export const contratosApi = {
       { params, responseType: 'blob' }
     ),
   },
+  finiquito: {
+    word: (idContrato, params) => api.get(
+      `/contratos/${idContrato}/finiquito/word`,
+      { params, responseType: 'blob' }
+    ),
+  },
   pactosHorasExtra: {
     list:   (idContrato)              => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
     create: (idContrato, d)           => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
