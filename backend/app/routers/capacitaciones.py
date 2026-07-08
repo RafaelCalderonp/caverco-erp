@@ -213,7 +213,9 @@ async def descargar_word_capacitacion(id_empresa: int, id: int, db: AsyncSession
         empresa        = empresa,
     )
     cod = cap.procedimiento.codigo if cap.procedimiento else str(id)
-    fname = f"Capacitacion_{cod}_{cap.fecha}.docx".replace(" ", "_")
+    d = cap.fecha
+    yymmdd = d.strftime("%y%m%d") if hasattr(d, "strftime") else str(d).replace("-", "")[2:]
+    fname = f"{yymmdd}_Capacitacion_{cod}.docx"
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),

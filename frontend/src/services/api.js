@@ -138,6 +138,18 @@ export const contratosApi = {
       { params: { ciudad, fecha_emision: fechaEmision }, responseType: 'blob' }
     ),
   },
+  amonestacion: {
+    word: (idContrato, motivo, descripcion, fecha) => api.get(
+      `/contratos/${idContrato}/amonestacion/word`,
+      { params: { motivo, descripcion, fecha }, responseType: 'blob' }
+    ),
+  },
+  cartaDespido: {
+    word: (idContrato, params) => api.get(
+      `/contratos/${idContrato}/carta-despido/word`,
+      { params, responseType: 'blob' }
+    ),
+  },
   pactosHorasExtra: {
     list:   (idContrato)              => api.get(`/contratos/${idContrato}/pactos-horas-extra`),
     create: (idContrato, d)           => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),

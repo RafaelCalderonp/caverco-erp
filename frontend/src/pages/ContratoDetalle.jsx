@@ -74,6 +74,51 @@ export default function ContratoDetalle() {
   const [fechaCertificado, setFechaCertificado] = useState(new Date().toISOString().slice(0, 10))
   const [descargandoCertificado, setDescargandoCertificado] = useState(false)
 
+  const MOTIVOS_AMONESTACION = [
+    'Atrasos reiterados e injustificados al lugar de trabajo',
+    'Ausencia injustificada al trabajo',
+    'Incumplimiento del Reglamento Interno de Orden, Higiene y Seguridad',
+    'Trato irrespetuoso hacia compañeros de trabajo o jefaturas',
+    'Negligencia o descuido en el desempeño de sus funciones',
+    'No uso de Elementos de Protección Personal (EPP) obligatorios',
+    'Uso indebido de herramientas, equipos o bienes de la empresa',
+    'Incumplimiento de instrucciones impartidas por el empleador',
+    'Conducta inapropiada en el lugar de trabajo',
+    'Daño a bienes de la empresa por dolo o negligencia',
+    'Otro motivo',
+  ]
+  const [formAmon, setFormAmon] = useState({ motivo: '', descripcion: '', fecha: new Date().toISOString().slice(0, 10) })
+  const [descargandoAmon, setDescargandoAmon] = useState(false)
+
+  const CAUSALES_DESPIDO = [
+    { grupo: 'Art. 159 – Sin responsabilidad del empleador', items: [
+      { codigo: '159_1', label: 'N°1 – Mutuo acuerdo de las partes', indem: false },
+      { codigo: '159_2', label: 'N°2 – Renuncia del trabajador', indem: false },
+      { codigo: '159_4', label: 'N°4 – Vencimiento del plazo convenido', indem: false },
+      { codigo: '159_5', label: 'N°5 – Conclusión del trabajo o servicio', indem: false },
+      { codigo: '159_6', label: 'N°6 – Caso fortuito o fuerza mayor', indem: false },
+    ]},
+    { grupo: 'Art. 160 – Despido disciplinario (sin indemnización)', items: [
+      { codigo: '160_1',  label: 'N°1 – Falta de probidad', indem: false },
+      { codigo: '160_1b', label: 'N°1 letra b) – Acoso sexual', indem: false },
+      { codigo: '160_1f', label: 'N°1 letra f) – Acoso laboral', indem: false },
+      { codigo: '160_3',  label: 'N°3 – Ausencias injustificadas reiteradas', indem: false },
+      { codigo: '160_4',  label: 'N°4 – Abandono del trabajo', indem: false },
+      { codigo: '160_5',  label: 'N°5 – Actos temerarios que afecten la seguridad', indem: false },
+      { codigo: '160_7',  label: 'N°7 – Incumplimiento grave de obligaciones del contrato', indem: false },
+    ]},
+    { grupo: 'Art. 161 – Necesidades de la empresa (con indemnización)', items: [
+      { codigo: '161_1', label: 'Inciso 1° – Necesidades de la empresa', indem: true },
+      { codigo: '161_2', label: 'Inciso 2° – Desahucio del empleador', indem: true },
+    ]},
+  ]
+
+  const [formDespido, setFormDespido] = useState({
+    causal_codigo: '', fecha_termino: '', aviso_previo: 0, descripcion_adicional: '',
+  })
+  const [montosDespido, setMontosDespido] = useState(null)
+  const [descargandoDespido, setDescargandoDespido] = useState(false)
+
   const [mostrarFormPacto, setMostrarFormPacto] = useState(false)
   const [formPacto, setFormPacto] = useState({ fecha_inicio: '', fecha_termino: '', tope_horas_diarias: 2, porcentaje_recargo: 0.5 })
   const [guardandoPacto, setGuardandoPacto] = useState(false)
@@ -295,6 +340,67 @@ export default function ContratoDetalle() {
       URL.revokeObjectURL(url)
     } catch { alert('Error al generar certificado') }
     finally { setDescargandoCertificado(false) }
+  }
+
+  async function descargarAmonestacion() {
+    if (!formAmon.motivo) { alert('Selecciona un motivo'); return }
+    setDescargandoAmon(true)
+    try {
+      const res = await contratosApi.amonestacion.word(id, formAmon.motivo, formAmon.descripcion, formAmon.fecha)
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `Amonestacion_${id}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar amonestación') }
+    finally { setDescargandoAmon(false) }
+  }
+
+  function calcularMontosDespido() {
+    if (!formDespido.causal_codigo || !formDespido.fecha_termino || !contrato?.sueldo_bruto) return
+    const sueldo = Number(contrato.sueldo_bruto)
+    const sueldoDia = sueldo / 30
+    const fTermino = new Date(formDespido.fecha_termino + 'T00:00:00')
+    const diasMes = fTermino.getDate()
+    const montoDias = Math.round(sueldoDia * diasMes)
+
+    const fInicio = contrato.fecha_inicio ? new Date(contrato.fecha_inicio + 'T00:00:00') : null
+    let anosCompletos = 0
+    let vacProp = 0
+    if (fInicio) {
+      const diffDias = (fTermino - fInicio) / (1000 * 60 * 60 * 24)
+      const anos = diffDias / 365.25
+      anosCompletos = Math.floor(anos)
+      if (anos - anosCompletos >= 0.5) anosCompletos++
+      anosCompletos = Math.min(anosCompletos, 11)
+      const diasAnio = Math.round(diffDias % 365)
+      vacProp = Math.round(sueldoDia * (diasAnio / 365) * 15)
+    }
+
+    const causalInfo = CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)
+    const tieneIndem = causalInfo?.indem || false
+    const indemAnos = tieneIndem ? sueldo * anosCompletos : 0
+    const aviso = Number(formDespido.aviso_previo) || 0
+
+    setMontosDespido({
+      diasMes, montoDias, vacProp, anosCompletos, indemAnos, aviso, tieneIndem,
+      total: montoDias + vacProp + indemAnos + aviso,
+    })
+  }
+
+  async function descargarCartaDespido() {
+    if (!formDespido.causal_codigo || !formDespido.fecha_termino) { alert('Completa causal y fecha de término'); return }
+    setDescargandoDespido(true)
+    try {
+      const res = await contratosApi.cartaDespido.word(id, {
+        causal_codigo: formDespido.causal_codigo,
+        fecha_termino: formDespido.fecha_termino,
+        aviso_previo: Number(formDespido.aviso_previo) || 0,
+        descripcion_adicional: formDespido.descripcion_adicional,
+      })
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = `Carta_Despido_${id}.docx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { alert('Error al generar carta de despido') }
+    finally { setDescargandoDespido(false) }
   }
 
   async function descargarEppWord(eppId) {
@@ -909,6 +1015,122 @@ export default function ContratoDetalle() {
             {descargandoCertificado ? '...' : '📄 Generar Word'}
           </button>
         </div>
+      </div>
+
+      {/* ── Carta de Amonestación ── */}
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Carta de Amonestación</h3>
+        </div>
+        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
+          Genera una carta de amonestación escrita con los datos del trabajador. Motivos aceptados por la Dirección del Trabajo.
+        </p>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Motivo<span style={{color:'var(--danger)'}}> *</span></label>
+            <select className="select" value={formAmon.motivo}
+              onChange={e => setFormAmon(f => ({ ...f, motivo: e.target.value }))} style={{fontSize:13}}>
+              <option value="">Seleccionar motivo…</option>
+              {MOTIVOS_AMONESTACION.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha</label>
+            <input className="input" type="date" value={formAmon.fecha}
+              onChange={e => setFormAmon(f => ({ ...f, fecha: e.target.value }))} style={{fontSize:13}} />
+          </div>
+          <div className="form-group" style={{margin:0, gridColumn:'1 / -1'}}>
+            <label className="form-label" style={{fontSize:12}}>Descripción adicional (opcional)</label>
+            <textarea className="input" rows={2} value={formAmon.descripcion}
+              onChange={e => setFormAmon(f => ({ ...f, descripcion: e.target.value }))}
+              placeholder="Detalles específicos del incidente…" style={{fontSize:13}} />
+          </div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={descargarAmonestacion} disabled={descargandoAmon}>
+          {descargandoAmon ? '...' : '📄 Generar Word'}
+        </button>
+      </div>
+
+      {/* ── Carta de Despido ── */}
+      <div className="card mt-4">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>Carta de Despido</h3>
+        </div>
+        <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
+          Genera la carta de aviso de término de contrato con la causal legal correspondiente y los montos a pagar.
+        </p>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="form-group" style={{margin:0, gridColumn:'1 / -1'}}>
+            <label className="form-label" style={{fontSize:12}}>Causal<span style={{color:'var(--danger)'}}> *</span></label>
+            <select className="select" value={formDespido.causal_codigo}
+              onChange={e => { setFormDespido(f => ({ ...f, causal_codigo: e.target.value })); setMontosDespido(null) }}
+              style={{fontSize:13}}>
+              <option value="">Seleccionar causal…</option>
+              {CAUSALES_DESPIDO.map(g => (
+                <optgroup key={g.grupo} label={g.grupo}>
+                  {g.items.map(c => <option key={c.codigo} value={c.codigo}>{c.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha de Término<span style={{color:'var(--danger)'}}> *</span></label>
+            <input className="input" type="date" value={formDespido.fecha_termino}
+              onChange={e => { setFormDespido(f => ({ ...f, fecha_termino: e.target.value })); setMontosDespido(null) }}
+              style={{fontSize:13}} />
+          </div>
+          {CAUSALES_DESPIDO.flatMap(g => g.items).find(c => c.codigo === formDespido.causal_codigo)?.indem && (
+            <div className="form-group" style={{margin:0}}>
+              <label className="form-label" style={{fontSize:12}}>Monto Aviso Previo ($)</label>
+              <input className="input" type="number" value={formDespido.aviso_previo}
+                onChange={e => { setFormDespido(f => ({ ...f, aviso_previo: e.target.value })); setMontosDespido(null) }}
+                style={{fontSize:13}} placeholder="0 si no aplica" />
+            </div>
+          )}
+          <div className="form-group" style={{margin:0, gridColumn:'1 / -1'}}>
+            <label className="form-label" style={{fontSize:12}}>Descripción adicional (opcional)</label>
+            <textarea className="input" rows={2} value={formDespido.descripcion_adicional}
+              onChange={e => setFormDespido(f => ({ ...f, descripcion_adicional: e.target.value }))}
+              placeholder="Contexto adicional para la carta…" style={{fontSize:13}} />
+          </div>
+        </div>
+        <div style={{display:'flex', gap:8, marginBottom:12}}>
+          <button className="btn btn-outline btn-sm" onClick={calcularMontosDespido}
+            disabled={!formDespido.causal_codigo || !formDespido.fecha_termino}>
+            Calcular montos
+          </button>
+          <button className="btn btn-outline btn-sm" onClick={descargarCartaDespido} disabled={descargandoDespido}>
+            {descargandoDespido ? '...' : '📄 Generar Word'}
+          </button>
+        </div>
+        {montosDespido && (
+          <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, fontSize:13}}>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+              <span className="text-muted">Días trabajados en el mes ({montosDespido.diasMes} días)</span>
+              <span>{fmt(montosDespido.montoDias)}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+              <span className="text-muted">Vacaciones proporcionales</span>
+              <span>{fmt(montosDespido.vacProp)}</span>
+            </div>
+            {montosDespido.tieneIndem && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">Indemnización por años de servicio ({montosDespido.anosCompletos} año{montosDespido.anosCompletos !== 1 ? 's' : ''})</span>
+                <span>{fmt(montosDespido.indemAnos)}</span>
+              </div>
+            )}
+            {montosDespido.tieneIndem && montosDespido.aviso > 0 && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">Indemnización sustitutiva de aviso previo</span>
+                <span>{fmt(montosDespido.aviso)}</span>
+              </div>
+            )}
+            <div style={{display:'flex', justifyContent:'space-between', padding:'8px 0', marginTop:4, fontWeight:700}}>
+              <span>Total</span>
+              <span>{fmt(montosDespido.total)}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {contrato.estado === 'finiquitado' && (

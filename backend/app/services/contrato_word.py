@@ -623,3 +623,225 @@ def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nom
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+# ── Causales legales de despido ──────────────────────────────────────────────
+CAUSALES_DESPIDO = {
+    # Art. 159 – Término sin responsabilidad del empleador
+    "159_1": ("Art. 159 N°1", "Mutuo acuerdo de las partes", False, False),
+    "159_2": ("Art. 159 N°2", "Renuncia del trabajador", False, False),
+    "159_4": ("Art. 159 N°4", "Vencimiento del plazo convenido en el contrato", False, False),
+    "159_5": ("Art. 159 N°5", "Conclusión del trabajo o servicio que dio origen al contrato", False, False),
+    "159_6": ("Art. 159 N°6", "Caso fortuito o fuerza mayor", False, False),
+    # Art. 160 – Despido disciplinario (sin indemnización)
+    "160_1": ("Art. 160 N°1", "Falta de probidad del trabajador en el desempeño de sus funciones", False, False),
+    "160_1b": ("Art. 160 N°1 letra b)", "Conductas de acoso sexual", False, False),
+    "160_1f": ("Art. 160 N°1 letra f)", "Conductas de acoso laboral", False, False),
+    "160_3": ("Art. 160 N°3", "No concurrencia del trabajador a sus labores sin causa justificada durante dos días seguidos, dos lunes en el mes o un total de tres días en el mes", False, False),
+    "160_4": ("Art. 160 N°4", "Abandono del trabajo por parte del trabajador", False, False),
+    "160_5": ("Art. 160 N°5", "Actos, omisiones o imprudencias temerarias que afecten a la seguridad o al funcionamiento del establecimiento, a la seguridad o a la actividad de los trabajadores, o a la salud de éstos", False, False),
+    "160_7": ("Art. 160 N°7", "Incumplimiento grave de las obligaciones que impone el contrato de trabajo", False, False),
+    # Art. 161 – Necesidades de la empresa (con indemnización)
+    "161_1": ("Art. 161 inciso 1°", "Necesidades de la empresa, establecimiento o servicio, tales como las derivadas de la racionalización o modernización de los mismos, bajas en la productividad, cambios en las condiciones del mercado o de la economía, que hagan necesaria la separación de uno o más trabajadores", True, True),
+    "161_2": ("Art. 161 inciso 2°", "Desahucio del empleador (trabajadores con poder de representación o de dirección, o trabajadores de casa particular)", True, True),
+}
+
+MOTIVOS_AMONESTACION = [
+    "Atrasos reiterados e injustificados al lugar de trabajo",
+    "Ausencia injustificada al trabajo",
+    "Incumplimiento del Reglamento Interno de Orden, Higiene y Seguridad",
+    "Trato irrespetuoso hacia compañeros de trabajo o jefaturas",
+    "Negligencia o descuido en el desempeño de sus funciones",
+    "No uso de Elementos de Protección Personal (EPP) obligatorios",
+    "Uso indebido de herramientas, equipos o bienes de la empresa",
+    "Incumplimiento de instrucciones impartidas por el empleador",
+    "Conducta inapropiada en el lugar de trabajo",
+    "Daño a bienes de la empresa por dolo o negligencia",
+    "Otro motivo",
+]
+
+
+def generar_amonestacion_docx(empresa, empleado, motivo: str, descripcion: str, fecha: date, cargo_nombre: str = "") -> bytes:
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    _parrafo(doc, ["CARTA DE AMONESTACIÓN"], bold_default=True,
+             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
+    _parrafo(doc, [f"{empresa.ciudad or 'Santiago'}, {_fecha_larga(fecha)}"],
+             align=WD_ALIGN_PARAGRAPH.RIGHT, space_after=16)
+
+    nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+
+    _parrafo(doc, [
+        "Señor(a)\n", (nombre_completo, True), "\n",
+        f"Cargo: {cargo_nombre or 'Trabajador/a'}\n",
+        f"RUT: {empleado.rut or ''}\n",
+        "Presente",
+    ], space_after=16)
+
+    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10)
+
+    _parrafo(doc, [
+        "Por medio de la presente, ", (empresa.razon_social or "", True),
+        f", RUT {empresa.rut or ''}, se dirige a usted con el objeto de comunicarle formalmente ",
+        ("una amonestación escrita", True),
+        f", en razón de los siguientes hechos:",
+    ])
+
+    _parrafo(doc, [motivo.upper()], bold_default=True, space_after=6)
+    if descripcion:
+        _parrafo(doc, [descripcion], space_after=14)
+
+    _parrafo(doc, [
+        "Lo anterior constituye un incumplimiento a las obligaciones que le impone el contrato de trabajo y el Reglamento Interno de Orden, Higiene y Seguridad, "
+        "y podría ser constitutivo de causal de término de contrato conforme al artículo 160 N°7 del Código del Trabajo en caso de reincidencia."
+    ])
+
+    _parrafo(doc, [
+        "Le solicitamos enmiende su conducta para evitar medidas más graves. La presente carta será archivada en su carpeta de personal.",
+    ], space_after=40)
+
+    # Firmas
+    firma = doc.add_table(rows=2, cols=2)
+    firma.style = "Table Grid"
+    _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador / Notificado",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[0], empresa.razon_social or "", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[1], nombre_completo, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma.rows:
+        row.cells[0].width = Cm(9.75)
+        row.cells[1].width = Cm(9.75)
+        row.height = Cm(2.0)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def generar_carta_despido_docx(
+    empresa, empleado, contrato,
+    causal_codigo: str,
+    fecha_termino: date,
+    cargo_nombre: str = "",
+    dias_trabajados_mes: int = 0,
+    monto_dias_trabajados: int = 0,
+    vacaciones_proporcionales: int = 0,
+    indemnizacion_anos: int = 0,
+    aviso_previo: int = 0,
+    anos_servicio: int = 0,
+    descripcion_adicional: str = "",
+) -> bytes:
+    from decimal import Decimal
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    logo = _logo_bytes(getattr(empresa, "logo_url", None))
+    if logo:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(io.BytesIO(logo), height=Cm(1.6))
+
+    _parrafo(doc, ["CARTA DE AVISO DE TÉRMINO DE CONTRATO DE TRABAJO"], bold_default=True,
+             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
+    _parrafo(doc, [f"{empresa.ciudad or 'Santiago'}, {_fecha_larga(fecha_termino)}"],
+             align=WD_ALIGN_PARAGRAPH.RIGHT, space_after=16)
+
+    nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+
+    _parrafo(doc, [
+        "Señor(a)\n", (nombre_completo, True), "\n",
+        f"Cargo: {cargo_nombre or 'Trabajador/a'}\n",
+        f"RUT: {empleado.rut or ''}\n",
+        "Presente",
+    ], space_after=16)
+
+    _parrafo(doc, ["Estimado/a señor(a) ", (nombre_completo, True), ":"], space_after=10)
+
+    _parrafo(doc, [
+        f"Por medio de la presente, {empresa.razon_social or ''}, RUT {empresa.rut or ''}, ",
+        "comunica a usted el término de su contrato de trabajo a contar del día ",
+        (_fecha_larga(fecha_termino), True),
+        f", invocando la causal contemplada en el ", (art_ref, True),
+        " del Código del Trabajo, esto es: ",
+    ])
+
+    _parrafo(doc, [f'"{causal_texto}."'], bold_default=True, space_after=10)
+
+    if descripcion_adicional:
+        _parrafo(doc, [descripcion_adicional], space_after=10)
+
+    if contrato.fecha_inicio:
+        _parrafo(doc, [
+            f"El trabajador ingresó a prestar servicios el día ",
+            (_fecha_larga(contrato.fecha_inicio), True),
+            f", acumulando {anos_servicio} año(s) de servicios.",
+        ], space_after=10)
+
+    # Tabla de montos
+    total = monto_dias_trabajados + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+    items = [
+        ("Remuneración días trabajados del mes", monto_dias_trabajados),
+        ("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales),
+    ]
+    if tiene_indem and indemnizacion_anos > 0:
+        items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
+    if tiene_aviso and aviso_previo > 0:
+        items.append(("Indemnización sustitutiva de aviso previo (Art. 161 CT)", aviso_previo))
+
+    _parrafo(doc, ["En virtud de lo anterior, se pone a su disposición el siguiente finiquito:"], space_after=8)
+
+    tbl = doc.add_table(rows=len(items) + 2, cols=2)
+    tbl.style = "Table Grid"
+    # Header
+    _cell_text(tbl.rows[0].cells[0], "CONCEPTO", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(tbl.rows[0].cells[1], "MONTO ($)", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for i, (concepto, monto) in enumerate(items, 1):
+        _cell_text(tbl.rows[i].cells[0], concepto, size=10)
+        _cell_text(tbl.rows[i].cells[1], f"${monto:,}".replace(",", "."), size=10, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    # Total
+    total_row = tbl.rows[len(items) + 1]
+    _cell_text(total_row.cells[0], "TOTAL FINIQUITO", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    _cell_text(total_row.cells[1], f"${total:,}".replace(",", "."), bold=True, size=11, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    tbl.columns[0].width = Cm(12.5)
+    tbl.columns[1].width = Cm(5.0)
+
+    doc.add_paragraph()
+    _parrafo(doc, [
+        "El trabajador tiene derecho a reclamar ante la Inspección del Trabajo o los Tribunales de Justicia "
+        "dentro del plazo de 60 días hábiles desde la separación (Art. 168 CT). El finiquito tendrá poder "
+        "liberatorio cuando sea ratificado ante ministro de fe (Notario, Inspector del Trabajo o presidente "
+        "de la organización sindical, Art. 177 CT).",
+    ], space_after=40)
+
+    # Firmas
+    firma = doc.add_table(rows=2, cols=2)
+    firma.style = "Table Grid"
+    _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador / Recibí conforme",
+               size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[0], empresa.razon_social or "", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_text(firma.rows[1].cells[1], nombre_completo, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma.rows:
+        row.cells[0].width = Cm(9.75)
+        row.cells[1].width = Cm(9.75)
+        row.height = Cm(2.0)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

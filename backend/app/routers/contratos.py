@@ -6,6 +6,16 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
 import io
+import re
+
+
+def _fname(tipo: str, empleado, fecha: date | None = None) -> str:
+    """Genera nombre de archivo: YYMMDD_Tipo_Nombre_Apellido.docx"""
+    d = fecha or date.today()
+    yymmdd = d.strftime("%y%m%d")
+    nombre = f"{empleado.nombres} {empleado.apellido_paterno}"
+    nombre_safe = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", nombre).strip().replace(" ", "_")
+    return f"{yymmdd}_{tipo}_{nombre_safe}.docx"
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
@@ -14,7 +24,11 @@ from app.models.rrhh import (
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
     Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx, generar_anexo_docx, generar_epp_docx, generar_reglamento_docx, generar_pacto_horas_extra_docx
+from app.services.contrato_word import (
+    generar_contrato_docx, generar_anexo_docx, generar_epp_docx,
+    generar_reglamento_docx, generar_pacto_horas_extra_docx,
+    generar_amonestacion_docx, generar_carta_despido_docx, CAUSALES_DESPIDO,
+)
 from app.services.capacitacion_word import generar_certificado_antiguedad_docx
 from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
@@ -116,7 +130,7 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
         isapre_nombre=isapre.nombre if isapre else None,
         tipo_contrato_codigo=tipo_contrato.codigo if tipo_contrato else None,
     )
-    nombre_archivo = f"Contrato_{empleado.apellido_paterno}_{empleado.nombres}.docx".replace(" ", "_")
+    nombre_archivo = _fname("Contrato", empleado, contrato.fecha_contrato)
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -274,7 +288,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
         tipo_anexo_codigo=tipo_anexo.codigo,
         cargo_nombre=cargo.nombre if cargo else None,
     )
-    nombre_archivo = f"Anexo_{tipo_anexo.codigo}_{empleado.apellido_paterno}_{empleado.nombres}.docx".replace(" ", "_")
+    nombre_archivo = _fname(f"Anexo_{tipo_anexo.codigo}", empleado, anexo.fecha_anexo)
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -422,8 +436,7 @@ async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(ge
     empresa  = await db.get(Empresa, empleado.id_empresa)
 
     docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
-    nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
-    fname  = f"EntregaEPP_{nombre}_folio{entrega.folio or epp_id}.docx"
+    fname  = _fname(f"EntregaEPP_Folio{entrega.folio or epp_id}", empleado, entrega.fecha_entrega)
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
@@ -445,8 +458,7 @@ async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = Non
         empleado      = empleado,
         fecha_entrega = fecha_entrega or date_today.today(),
     )
-    nombre = f"{empleado.nombres} {empleado.apellido_paterno}".replace(" ", "_")
-    fname  = f"Reglamento_Interno_{nombre}.docx"
+    fname  = _fname("Reglamento_Interno", empleado, fecha_entrega or date.today())
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
@@ -481,8 +493,7 @@ async def descargar_certificado_antiguedad_word(
         fecha_emision   = fecha_emision or date_today.today(),
         empresa         = empresa,
     )
-    nombre = f"{empleado.nombres}_{empleado.apellido_paterno}".replace(" ", "_")
-    fname  = f"Certificado_Antiguedad_{nombre}.docx"
+    fname  = _fname("Certificado_Antiguedad", empleado, fecha_emision or date.today())
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -527,8 +538,107 @@ async def descargar_pacto_word(id: int, pacto_id: int, db: AsyncSession = Depend
         pacto        = pacto,
         cargo_nombre = cargo.nombre if cargo else "",
     )
-    nombre = f"{empleado.nombres}_{empleado.apellido_paterno}".replace(" ", "_")
-    fname  = f"Pacto_Horas_Extra_{nombre}.docx"
+    fname  = _fname("Pacto_Horas_Extra", empleado, pacto.fecha_inicio)
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---- Carta de Amonestación ----
+@router.get("/{id}/amonestacion/word")
+async def descargar_amonestacion_word(
+    id: int,
+    motivo: str = "",
+    descripcion: str = "",
+    fecha: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    from datetime import date as date_today
+    docx_bytes = generar_amonestacion_docx(
+        empresa      = empresa,
+        empleado     = empleado,
+        motivo       = motivo,
+        descripcion  = descripcion,
+        fecha        = fecha or date_today.today(),
+        cargo_nombre = cargo.nombre if cargo else "",
+    )
+    fname = _fname("Amonestacion", empleado, fecha or date.today())
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---- Carta de Despido ----
+@router.get("/{id}/carta-despido/word")
+async def descargar_carta_despido_word(
+    id: int,
+    causal_codigo: str,
+    fecha_termino: date,
+    aviso_previo: int = 0,
+    descripcion_adicional: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    from math import floor
+    from decimal import Decimal
+
+    sueldo = Decimal(str(contrato.sueldo_bruto or 0))
+    sueldo_dia = sueldo / 30
+
+    # Días trabajados del mes en que se terminó
+    dias_mes = fecha_termino.day
+    monto_dias = int(sueldo_dia * dias_mes)
+
+    # Años de servicio
+    fi = contrato.fecha_inicio
+    if fi:
+        anos = (fecha_termino - fi).days / 365.25
+        anos_completos = floor(anos)
+        # fracción > 6 meses = año completo
+        if (anos - anos_completos) >= 0.5:
+            anos_completos += 1
+        anos_completos = min(anos_completos, 11)
+    else:
+        anos_completos = 0
+
+    # Vacaciones proporcionales
+    fi_ref = contrato.fecha_inicio or fecha_termino.replace(month=1, day=1)
+    dias_trabajados_anio = (fecha_termino - fi_ref).days % 365
+    vac_prop = int(sueldo_dia * (dias_trabajados_anio / 365) * 15)
+
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    _, _, tiene_indem, _ = causal_info
+    indem_anos = int(sueldo * anos_completos) if tiene_indem else 0
+
+    docx_bytes = generar_carta_despido_docx(
+        empresa                    = empresa,
+        empleado                   = empleado,
+        contrato                   = contrato,
+        causal_codigo              = causal_codigo,
+        fecha_termino              = fecha_termino,
+        cargo_nombre               = cargo.nombre if cargo else "",
+        dias_trabajados_mes        = dias_mes,
+        monto_dias_trabajados      = monto_dias,
+        vacaciones_proporcionales  = vac_prop,
+        indemnizacion_anos         = indem_anos,
+        aviso_previo               = aviso_previo,
+        anos_servicio              = anos_completos,
+        descripcion_adicional      = descripcion_adicional,
+    )
+    fname = _fname("Carta_Despido", empleado, fecha_termino)
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
