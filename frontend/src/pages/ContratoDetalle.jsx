@@ -1067,12 +1067,18 @@ export default function ContratoDetalle() {
             <input className="form-control" type="text" value={formIrl.relator_cargo}
               onChange={e => setFormIrl(f => ({...f, relator_cargo: e.target.value}))} />
           </div>
-          <div>
-            <label className="form-label">Nombre Obra / Proyecto</label>
-            <input className="form-control" type="text" value={formIrl.obra_nombre}
-              onChange={e => setFormIrl(f => ({...f, obra_nombre: e.target.value}))} />
+          <div style={{gridColumn:'1 / -1'}}>
+            <label className="form-label">Obra / Proyecto</label>
+            <select className="form-control" value={formIrl.obra_nombre}
+              onChange={e => {
+                const obra = obras.find(o => o.nombre === e.target.value)
+                setFormIrl(f => ({...f, obra_nombre: e.target.value, obra_direccion: obra?.direccion || ''}))
+              }}>
+              <option value="">— Seleccionar obra —</option>
+              {obras.map(o => <option key={o.id} value={o.nombre}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>)}
+            </select>
           </div>
-          <div>
+          <div style={{gridColumn:'1 / -1'}}>
             <label className="form-label">Dirección Obra</label>
             <input className="form-control" type="text" value={formIrl.obra_direccion}
               onChange={e => setFormIrl(f => ({...f, obra_direccion: e.target.value}))} />
