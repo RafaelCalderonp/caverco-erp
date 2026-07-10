@@ -20,7 +20,7 @@ const EMPTY = {
   // Paso 2: contrato
   id_tipo_contrato: '', id_obra: '', id_centro_costo: '', id_cargo: '',
   numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '', plazo_dias: '30',
-  sueldo_bruto: '553553', horas_semanales: 42, jornada: 'Completa', horario_detalle: '',
+  sueldo_bruto: '553553', colacion: '100000', movilizacion: '100000', horas_semanales: 42, jornada: 'Completa', horario_detalle: '',
   // Paso 3: previsión
   id_afp: '', id_isapre: '', valor_isapre_uf: '', n_cargas: 0,
   banco: '', tipo_cuenta: '', numero_cuenta: '',
@@ -130,6 +130,8 @@ export default function ContratoNuevo() {
         numero_contrato: form.numero_contrato || null,
         fecha_termino_pactada: form.fecha_termino_pactada || null,
         sueldo_bruto: Number(form.sueldo_bruto),
+        colacion: Number(form.colacion) || 0,
+        movilizacion: Number(form.movilizacion) || 0,
         horas_semanales: Number(form.horas_semanales),
         horario_detalle: form.horario_detalle || null,
         id_afp: form.id_afp ? Number(form.id_afp) : null,
@@ -288,6 +290,8 @@ export default function ContratoNuevo() {
               )}
               <Campo label="Fecha Término Pactada">{inp('fecha_termino_pactada', 'date')}</Campo>
               <Campo label="Sueldo Bruto (CLP)" required>{inp('sueldo_bruto', 'number', 'Ej: 900000')}</Campo>
+              <Campo label="Colación (CLP)">{inp('colacion', 'number', 'Ej: 100000')}</Campo>
+              <Campo label="Movilización (CLP)">{inp('movilizacion', 'number', 'Ej: 100000')}</Campo>
               <Campo label="Horas Semanales">
                 {sel('horas_semanales', [
                   { value: 42, label: '42 horas (jornada completa)' },
