@@ -10,12 +10,12 @@ import re
 
 
 def _fname(tipo: str, empleado, fecha: date | None = None) -> str:
-    """Genera nombre de archivo: YYMMDD_Tipo_Nombre_Apellido.docx"""
+    """Genera nombre de archivo: YYMMDD Tipo Nombre Apellido.docx"""
     d = fecha or date.today()
     yymmdd = d.strftime("%y%m%d")
-    nombre = f"{empleado.nombres} {empleado.apellido_paterno}"
-    nombre_safe = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", nombre).strip().replace(" ", "_")
-    return f"{yymmdd}_{tipo}_{nombre_safe}.docx"
+    nombres = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", empleado.nombres or "").strip()
+    apellido = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", empleado.apellido_paterno or "").strip()
+    return f"{yymmdd} {tipo} {nombres} {apellido}.docx"
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
@@ -161,7 +161,14 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
         isapre_nombre=isapre.nombre if isapre else None,
         tipo_contrato_codigo=tipo_contrato.codigo if tipo_contrato else None,
     )
-    nombre_archivo = _fname("Contrato", empleado, contrato.fecha_contrato)
+    TIPO_LABEL = {
+        "INDEFINIDO": "Contrato Indefinido",
+        "PLAZO_FIJO": "Contrato Plazo Fijo",
+        "POR_OBRA":   "Contrato por Obra",
+        "HONORARIOS": "Contrato Honorarios",
+    }
+    tipo_label = TIPO_LABEL.get(tipo_contrato.codigo if tipo_contrato else "", "Contrato")
+    nombre_archivo = _fname(tipo_label, empleado, contrato.fecha_contrato)
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -344,7 +351,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
         tipo_anexo_codigo=tipo_anexo.codigo,
         cargo_nombre=cargo.nombre if cargo else None,
     )
-    nombre_archivo = _fname(f"Anexo_{tipo_anexo.codigo}", empleado, anexo.fecha_anexo)
+    nombre_archivo = _fname(f"Anexo {tipo_anexo.codigo}", empleado, anexo.fecha_anexo)
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -492,7 +499,7 @@ async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(ge
     empresa  = await db.get(Empresa, empleado.id_empresa)
 
     docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
-    fname  = _fname(f"EntregaEPP_Folio{entrega.folio or epp_id}", empleado, entrega.fecha_entrega)
+    fname  = _fname(f"Entrega EPP Folio {entrega.folio or epp_id}", empleado, entrega.fecha_entrega)
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
@@ -514,7 +521,7 @@ async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = Non
         empleado      = empleado,
         fecha_entrega = fecha_entrega or date_today.today(),
     )
-    fname  = _fname("Reglamento_Interno", empleado, fecha_entrega or date.today())
+    fname  = _fname("Reglamento Interno", empleado, fecha_entrega or date.today())
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
@@ -549,7 +556,7 @@ async def descargar_certificado_antiguedad_word(
         fecha_emision   = fecha_emision or date_today.today(),
         empresa         = empresa,
     )
-    fname  = _fname("Certificado_Antiguedad", empleado, fecha_emision or date.today())
+    fname  = _fname("Certificado Antiguedad", empleado, fecha_emision or date.today())
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -594,7 +601,7 @@ async def descargar_pacto_word(id: int, pacto_id: int, db: AsyncSession = Depend
         pacto        = pacto,
         cargo_nombre = cargo.nombre if cargo else "",
     )
-    fname  = _fname("Pacto_Horas_Extra", empleado, pacto.fecha_inicio)
+    fname  = _fname("Pacto Horas Extra", empleado, pacto.fecha_inicio)
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -625,7 +632,7 @@ async def descargar_amonestacion_word(
         fecha        = fecha or date_today.today(),
         cargo_nombre = cargo.nombre if cargo else "",
     )
-    fname = _fname("Amonestacion", empleado, fecha or date.today())
+    fname = _fname("Carta Amonestacion", empleado, fecha or date.today())
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -746,7 +753,7 @@ async def descargar_carta_despido_word(
         desc_afc                   = desc_afc,
         tasa_afp                   = tasa_afp,
     )
-    fname = _fname("Carta_Despido", empleado, fecha_termino)
+    fname = _fname("Carta Despido", empleado, fecha_termino)
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

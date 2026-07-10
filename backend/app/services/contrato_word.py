@@ -141,26 +141,50 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
     ])
 
     if obra:
-        lugar = f"{obra.direccion or obra.nombre}, comuna de {obra.comuna or ''}, región {obra.region or ''}"
+        _parrafo(doc, [
+            ("SEGUNDO: ", True),
+            "Los servicios serán prestado en la Obra ", (obra.nombre or "", True),
+            ", Ubicado en ", (obra.direccion or "", True),
+            ", Comuna de ", (obra.comuna or "", True),
+            ", Región ", (obra.region or "", True),
+            " sin perjuicio de la facultad del empleador de alterar, por causa justificada, la naturaleza "
+            "de los servicios, o el sitio o recinto en que ellos han de prestarse, con la sola limitación "
+            "de que se trate de labores similares y que el nuevo sitio o recinto quede dentro de la misma "
+            "localidad o ciudad, conforme a lo señalado en el artículo 12º del Código del Trabajo.",
+        ])
     else:
-        lugar = f"{empresa.direccion or ''}, comuna de {empresa.comuna or ''}"
-    _parrafo(doc, [
-        ("SEGUNDO: ", True),
-        "Los servicios serán prestados en el establecimiento ubicado en ", (lugar, True), ".",
-    ])
+        lugar = ", ".join(filter(None, [
+            empresa.direccion or "",
+            f"comuna de {empresa.comuna}" if empresa.comuna else "",
+            f"región {empresa.region}" if getattr(empresa, "region", None) else "",
+        ]))
+        _parrafo(doc, [
+            ("SEGUNDO: ", True),
+            "Los servicios serán prestados en el establecimiento ubicado en ", (lugar, True), ".",
+        ])
 
     if contrato.horario_detalle:
         _parrafo(doc, [
             ("TERCERO: ", True),
-            f"La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
-            f" horas semanales, bajo jornada ", (contrato.jornada or "Completa", True),
-            ", distribuidas de la siguiente manera: ", (contrato.horario_detalle, True), ".",
+            "La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
+            " horas semanales, bajo jornada ", (contrato.jornada or "Completa", True),
+            ", distribuidas de la siguiente manera:",
         ])
+        # Cada línea del horario en su propio párrafo con sangría
+        for linea in contrato.horario_detalle.splitlines():
+            linea = linea.strip()
+            if linea:
+                p = doc.add_paragraph()
+                p.paragraph_format.space_after = Pt(4)
+                p.paragraph_format.left_indent = Cm(1.0)
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                r = p.add_run(linea)
+                r.font.size = Pt(11)
     else:
         _parrafo(doc, [
             ("TERCERO: ", True),
-            f"La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
-            f" horas semanales, distribuidas conforme a las necesidades de la empresa, bajo jornada ",
+            "La jornada de trabajo será de ", (str(contrato.horas_semanales or 42), True),
+            " horas semanales, distribuidas conforme a las necesidades de la empresa, bajo jornada ",
             (contrato.jornada or "Completa", True), ".",
         ])
 
