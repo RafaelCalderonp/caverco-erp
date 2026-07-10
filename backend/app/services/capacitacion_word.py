@@ -1115,30 +1115,29 @@ def generar_irl_docx(
     # Logo
     logo_cell = hdr_tbl.rows[0].cells[0]
     logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    lp = logo_cell.paragraphs[0]
-    lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    if os.path.exists(LOGO_PATH):
-        run = lp.add_run()
-        run.add_picture(LOGO_PATH, width=Cm(3.0))
+    logo_url = getattr(empresa, "logo_url", None) if empresa else None
+    _add_logo(logo_cell, logo_url)
 
     # Título centro
     title_cell = hdr_tbl.rows[0].cells[1]
     title_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    _set_cell_bg(title_cell, "FFFFFF")
-    for line in ["INFORMACIÓN DE RIESGOS LABORALES", "INDUCCION TRABAJADOR NUEVO", "Artículo N°15 - Decreto Supremo N°44"]:
-        p = title_cell.add_paragraph(line)
+    title_lines = ["INFORMACIÓN DE RIESGOS LABORALES", "INDUCCION TRABAJADOR NUEVO", "Artículo N°15 - Decreto Supremo N°44"]
+    # reusar el párrafo vacío inicial, luego agregar el resto
+    for idx, line in enumerate(title_lines):
+        p = title_cell.paragraphs[0] if idx == 0 else title_cell.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.runs[0]
+        run = p.add_run(line)
         run.bold = True
         run.font.size = Pt(10)
 
     # Versión
     ver_cell = hdr_tbl.rows[0].cells[2]
     ver_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    for line in ["Versión 0", "Agosto 2025"]:
-        p = ver_cell.add_paragraph(line)
+    for idx, line in enumerate(["Versión 0", "Agosto 2025"]):
+        p = ver_cell.paragraphs[0] if idx == 0 else ver_cell.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.runs[0].font.size = Pt(8)
+        run = p.add_run(line)
+        run.font.size = Pt(8)
 
     doc.add_paragraph()
 
