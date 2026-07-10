@@ -13,6 +13,7 @@ class ProcedimientoCapacitacion(Base):
     objetivo_general      = Column(Text)
     objetivos_especificos = Column(Text)
     activo                = Column(Boolean, nullable=False, default=True)
+    empresa_rut_filtro    = Column(String(20), nullable=True, default=None)
     created_at            = Column(DateTime, default=func.now())
 
     capacitaciones = relationship("Capacitacion", back_populates="procedimiento")
@@ -37,6 +38,8 @@ class Capacitacion(Base):
     relator_rut           = Column(String(20))
     objetivo_general      = Column(Text)
     objetivos_especificos = Column(Text)
+    lugar_establecimiento = Column(Text)
+    material_apoyo        = Column(Text)
     created_at            = Column(DateTime, default=func.now())
 
     procedimiento = relationship("ProcedimientoCapacitacion", back_populates="capacitaciones")

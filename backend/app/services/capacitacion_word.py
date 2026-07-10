@@ -337,6 +337,211 @@ def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_n
     return buf.read()
 
 
+# ─── 2. REGISTRO CAPACITACIÓN ARCHIMET (formato Instalaciones Arquitectónicas) ──
+
+ARCHIMET_CATEGORIAS = [
+    "CHARLA ESPECIFICA",
+    "CHARLA OPERACIONAL",
+    "CHARLA INTEGRAGRAL SEMANAL",
+    "REINDUCCION",
+    "CURSO DE CAPACITACION/ TALLER",
+    "CONTACTO PERSONAL",
+]
+
+
+def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, empresa=None) -> bytes:
+    doc = _new_doc()
+
+    n_asistentes = len(asistentes)
+    duracion     = float(capacitacion.duracion_horas or 1)
+    total_hh     = round(n_asistentes * duracion, 1)
+
+    tema_titulo = (procedimiento.objetivo_general or "") if procedimiento else (capacitacion.objetivo_general or "")
+    tema_cuerpo = (procedimiento.objetivos_especificos or "") if procedimiento else (capacitacion.objetivos_especificos or "")
+
+    # ── Encabezado ──────────────────────────────────────────────────────────
+    hdr = doc.add_table(rows=2, cols=3)
+    hdr.style = "Table Grid"
+    hdr.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    logo_cell = hdr.cell(0, 0)
+    logo_cell.merge(hdr.cell(1, 0))
+    logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _add_logo(logo_cell, getattr(empresa, "logo_url", None))
+
+    _cell_para(hdr.cell(0, 1), "SISTEMA DE GESTION INTEGRADOS", bold=False, size=8,
+               align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(hdr.cell(1, 1), "REGISTRO DE CAPACITACION Y ENTRENAMIENTO", bold=True, size=10,
+               align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    _cell_para(hdr.cell(0, 2), "REV: 02", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(hdr.cell(1, 2), f"FECHA: {capacitacion.fecha.year if hasattr(capacitacion.fecha, 'year') else '2026'}",
+               bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    col_widths_hdr = [3.0, 11.0, 3.0]
+    for row in hdr.rows:
+        for i, w in enumerate(col_widths_hdr):
+            row.cells[i].width = Cm(w)
+
+    p_sel = doc.add_paragraph()
+    p_sel.paragraph_format.space_before = Pt(4)
+    p_sel.paragraph_format.space_after  = Pt(4)
+    r_sel = p_sel.add_run('SELECCIONE CON UNA "X" EL ALCANCE DEL ENTRENAMIENTO O CAPACITACION')
+    r_sel.bold = True
+    r_sel.font.size = Pt(8)
+
+    # ── Tabla categorías + resumen ──────────────────────────────────────────
+    # 7 cols: [CATEGORIA] [SSO] [MA] [CAL.] [sep] [RIGHT_LABEL] [RIGHT_VALUE]
+    # 7 rows: header + 6 categorías
+    cat_tbl = doc.add_table(rows=7, cols=7)
+    cat_tbl.style = "Table Grid"
+
+    col_w = [5.2, 1.1, 1.1, 1.1, 0.1, 4.5, 3.9]
+
+    # Headers row 0
+    _cell_para(cat_tbl.rows[0].cells[0], "CATEGORIA", bold=True, size=8)
+    _cell_para(cat_tbl.rows[0].cells[1], "SSO", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(cat_tbl.rows[0].cells[2], "MA",  bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(cat_tbl.rows[0].cells[3], "CAL.", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(cat_tbl.rows[0].cells[4], "", size=8)
+    _cell_para(cat_tbl.rows[0].cells[5], "TOTAL PERSONAL ENTRENADO", bold=True, size=8)
+    _cell_para(cat_tbl.rows[0].cells[6], str(n_asistentes), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    right_labels = [
+        ("DURACION (horas)", str(duracion)),
+        ("", ""),
+        ("TOTAL HH", str(total_hh)),
+        (f"FECHA:", _fmt_date(capacitacion.fecha)),
+        (f"HORA:",  capacitacion.hora_inicio or ""),
+        ("", ""),
+    ]
+
+    for i, cat in enumerate(ARCHIMET_CATEGORIAS):
+        row = cat_tbl.rows[i + 1]
+        _cell_para(row.cells[0], cat, size=8)
+        # SSO column: X only for CHARLA ESPECIFICA
+        sso_val = "X" if i == 0 else ""
+        _cell_para(row.cells[1], sso_val, bold=(i == 0), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+        _cell_para(row.cells[2], "", size=8)
+        _cell_para(row.cells[3], "", size=8)
+        _cell_para(row.cells[4], "", size=8)
+        lbl, val = right_labels[i]
+        _cell_para(row.cells[5], lbl, bold=bool(lbl), size=8)
+        _cell_para(row.cells[6], val, size=8)
+
+    for row in cat_tbl.rows:
+        for i, w in enumerate(col_w):
+            row.cells[i].width = Cm(w)
+        row.height = Cm(0.55)
+
+    # ── Tema Tratado ────────────────────────────────────────────────────────
+    tema_tbl = doc.add_table(rows=1, cols=2)
+    tema_tbl.style = "Table Grid"
+
+    _cell_para(tema_tbl.rows[0].cells[0], "TEMA TRATADO\n:", bold=True, size=8)
+    tema_tbl.rows[0].cells[0].width = Cm(3.0)
+
+    tema_cell = tema_tbl.rows[0].cells[1]
+    tema_cell.text = ""
+
+    # Primera línea (título del tema) en negrita
+    p0 = tema_cell.paragraphs[0]
+    p0.paragraph_format.space_before = Pt(2)
+    p0.paragraph_format.space_after  = Pt(2)
+    r0 = p0.add_run(tema_titulo)
+    r0.bold = True
+    r0.font.size = Pt(8)
+
+    # Líneas del cuerpo (puntos o texto)
+    for line in tema_cuerpo.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        pb = tema_cell.add_paragraph()
+        pb.paragraph_format.space_before = Pt(1)
+        pb.paragraph_format.space_after  = Pt(1)
+        rb = pb.add_run(line)
+        rb.font.size = Pt(8)
+
+    tema_cell.width = Cm(14.0)
+    tema_tbl.rows[0].height = Cm(3.5)
+
+    # ── Datos de la capacitación ────────────────────────────────────────────
+    datos_tbl = doc.add_table(rows=5, cols=4)
+    datos_tbl.style = "Table Grid"
+
+    # Row 0: OBRA
+    obra_cell = datos_tbl.rows[0].cells[0]
+    obra_cell.merge(datos_tbl.rows[0].cells[3])
+    _cell_para(obra_cell, f"OBRA:  {capacitacion.obra or ''}", bold=False, size=8)
+
+    # Row 1: NOMBRE DEL RELATOR
+    rel_cell = datos_tbl.rows[1].cells[0]
+    rel_cell.merge(datos_tbl.rows[1].cells[3])
+    _cell_para(rel_cell, f"NOMBRE DEL RELATOR :  {capacitacion.relator_nombre or ''}", size=8)
+
+    # Row 2: CARGO + FIRMA (split)
+    datos_tbl.rows[2].cells[0].merge(datos_tbl.rows[2].cells[1])
+    _cell_para(datos_tbl.rows[2].cells[0],
+               f"CARGO:  {capacitacion.relator_area or ''}", size=8)
+    datos_tbl.rows[2].cells[2].merge(datos_tbl.rows[2].cells[3])
+    _cell_para(datos_tbl.rows[2].cells[2], "FIRMA :", bold=True, size=8)
+
+    # Row 3: LUGAR
+    lug_cell = datos_tbl.rows[3].cells[0]
+    lug_cell.merge(datos_tbl.rows[3].cells[3])
+    _cell_para(lug_cell,
+               f"LUGAR / ESTABLECIMIENTO :  {capacitacion.lugar_establecimiento or ''}", size=8)
+
+    # Row 4: MATERIAL DE APOYO
+    mat_cell = datos_tbl.rows[4].cells[0]
+    mat_cell.merge(datos_tbl.rows[4].cells[3])
+    _cell_para(mat_cell,
+               f"MATERIAL DE APOYO :  {capacitacion.material_apoyo or ''}", size=8)
+
+    col_w_datos = [4.0, 4.0, 4.0, 5.0]
+    for row in datos_tbl.rows:
+        for i, w in enumerate(col_w_datos):
+            row.cells[i].width = Cm(w)
+        row.height = Cm(0.7)
+    datos_tbl.rows[2].height = Cm(1.2)
+
+    # ── Tabla de participantes ───────────────────────────────────────────────
+    n_rows = max(len(asistentes), 7)
+    part_tbl = doc.add_table(rows=n_rows + 1, cols=5)
+    part_tbl.style = "Table Grid"
+
+    headers = ["Nº", "NOMBRE", "CARGO", "RUT", "FIRMA"]
+    col_w_part = [1.0, 5.0, 3.5, 3.0, 4.5]
+
+    for i, h in enumerate(headers):
+        _cell_para(part_tbl.rows[0].cells[i], h, bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+        _set_cell_bg(part_tbl.rows[0].cells[i], "D9D9D9")
+
+    for idx in range(n_rows):
+        row = part_tbl.rows[idx + 1]
+        _cell_para(row.cells[0], f"{idx + 1} -", size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+        if idx < len(asistentes):
+            a = asistentes[idx]
+            _cell_para(row.cells[1], a.nombre or "", size=8)
+            _cell_para(row.cells[2], a.area   or "", size=8)
+            _cell_para(row.cells[3], a.rut    or "", size=8)
+        else:
+            for c in [1, 2, 3]:
+                _cell_para(row.cells[c], "", size=8)
+        _cell_para(row.cells[4], "", size=8)
+        row.height = Cm(0.8)
+
+    for row in part_tbl.rows:
+        for i, w in enumerate(col_w_part):
+            row.cells[i].width = Cm(w)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 # ─── 2. ENTREGA DE REGLAMENTO INTERNO ────────────────────────────────────────
 
 def generar_reglamento_docx(nombre: str, rut: str, seccion: str,

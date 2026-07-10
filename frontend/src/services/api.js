@@ -190,12 +190,13 @@ export const credencialesApi = {
 }
 
 export const capacitacionesApi = {
-  procedimientos: () => api.get('/procedimientos-capacitacion'),
+  procedimientos:  (empresaRut) => api.get('/procedimientos-capacitacion', { params: empresaRut ? { empresa_rut: empresaRut } : {} }),
   list:    (idEmpresa) => api.get(`/empresas/${idEmpresa}/capacitaciones`),
   create:  (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/capacitaciones`, data),
   get:     (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}`),
   delete:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/capacitaciones/${id}`),
-  word:    (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word`, { responseType: 'blob' }),
+  word:         (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word`,          { responseType: 'blob' }),
+  wordArchimet: (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word-archimet`, { responseType: 'blob' }),
 }
 
 export const planCuentasApi = {

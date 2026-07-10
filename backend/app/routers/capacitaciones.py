@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
@@ -15,6 +15,7 @@ from app.models.capacitaciones import ProcedimientoCapacitacion, Capacitacion, A
 from app.models.rrhh import Empresa, Empleado
 from app.services.capacitacion_word import (
     generar_capacitacion_docx,
+    generar_capacitacion_archimet_docx,
     generar_reglamento_docx,
     generar_epp_docx,
     generar_certificado_antiguedad_docx,
@@ -32,6 +33,7 @@ class ProcedimientoOut(BaseModel):
     objetivo_general: Optional[str] = None
     objetivos_especificos: Optional[str] = None
     activo: bool
+    empresa_rut_filtro: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -61,6 +63,8 @@ class CapacitacionCreate(BaseModel):
     relator_rut: Optional[str] = None
     objetivo_general: Optional[str] = None
     objetivos_especificos: Optional[str] = None
+    lugar_establecimiento: Optional[str] = None
+    material_apoyo: Optional[str] = None
     asistentes: List[AsistenteIn] = []
 
 
@@ -80,6 +84,8 @@ class CapacitacionOut(BaseModel):
     relator_rut: Optional[str] = None
     objetivo_general: Optional[str] = None
     objetivos_especificos: Optional[str] = None
+    lugar_establecimiento: Optional[str] = None
+    material_apoyo: Optional[str] = None
     asistentes: List[AsistenteOut] = []
     procedimiento: Optional[ProcedimientoOut] = None
     model_config = {"from_attributes": True}
@@ -118,12 +124,21 @@ class EntregaEppCreate(BaseModel):
 # ─── Procedimientos ────────────────────────────────────────────────────────────
 
 @router.get("/procedimientos-capacitacion", response_model=List[ProcedimientoOut])
-async def listar_procedimientos(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(ProcedimientoCapacitacion)
-        .where(ProcedimientoCapacitacion.activo == True)
-        .order_by(ProcedimientoCapacitacion.id)
-    )
+async def listar_procedimientos(
+    empresa_rut: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(ProcedimientoCapacitacion).where(ProcedimientoCapacitacion.activo == True)
+    if empresa_rut:
+        q = q.where(
+            or_(
+                ProcedimientoCapacitacion.empresa_rut_filtro == None,
+                ProcedimientoCapacitacion.empresa_rut_filtro == empresa_rut,
+            )
+        )
+    else:
+        q = q.where(ProcedimientoCapacitacion.empresa_rut_filtro == None)
+    result = await db.execute(q.order_by(ProcedimientoCapacitacion.id))
     return result.scalars().all()
 
 
@@ -157,6 +172,8 @@ async def crear_capacitacion(id_empresa: int, data: CapacitacionCreate, db: Asyn
         relator_rut         = data.relator_rut,
         objetivo_general    = data.objetivo_general,
         objetivos_especificos = data.objetivos_especificos,
+        lugar_establecimiento = data.lugar_establecimiento,
+        material_apoyo      = data.material_apoyo,
     )
     db.add(cap)
     await db.flush()
@@ -217,6 +234,38 @@ async def descargar_word_capacitacion(id_empresa: int, id: int, db: AsyncSession
     d = cap.fecha
     yymmdd = d.strftime("%y%m%d") if hasattr(d, "strftime") else str(d).replace("-", "")[2:]
     fname = f"{yymmdd}_Capacitacion_{cod}.docx"
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+@router.get("/empresas/{id_empresa}/capacitaciones/{id}/word-archimet")
+async def descargar_word_archimet(id_empresa: int, id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Capacitacion)
+        .options(selectinload(Capacitacion.asistentes), selectinload(Capacitacion.procedimiento))
+        .where(Capacitacion.id == id, Capacitacion.id_empresa == id_empresa)
+    )
+    cap = result.scalar_one_or_none()
+    if not cap:
+        raise HTTPException(404, "Capacitación no encontrada")
+
+    empresa_res = await db.execute(select(Empresa).where(Empresa.id == id_empresa))
+    empresa = empresa_res.scalar_one_or_none()
+
+    docx_bytes = generar_capacitacion_archimet_docx(
+        capacitacion  = cap,
+        procedimiento = cap.procedimiento,
+        asistentes    = cap.asistentes,
+        empresa       = empresa,
+    )
+    proc_nombre = cap.procedimiento.nombre if cap.procedimiento else f"Capacitacion_{id}"
+    d = cap.fecha
+    yymmdd = d.strftime("%y%m%d") if hasattr(d, "strftime") else str(d).replace("-", "")[2:]
+    fname = f"{yymmdd} {proc_nombre}.docx"
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),
