@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi } from '../services/api'
 
+function nombreDesdeHeader(disposition, fallback) {
+  // RFC 5987: filename*=UTF-8''nombre%20codificado.docx
+  const rfc5987 = disposition.match(/filename\*=UTF-8''([^\s;]+)/i)
+  if (rfc5987) return decodeURIComponent(rfc5987[1])
+  // Formato clásico: filename="nombre.docx"
+  const classic = disposition.match(/filename="?([^";\s]+)"?/i)
+  if (classic) return classic[1]
+  return fallback
+}
+
+function descargarBlob(blob, nombre) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = nombre
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function sumarUnDia(fechaStr) {
   const fecha = new Date(fechaStr + 'T00:00:00')
   fecha.setDate(fecha.getDate() + 1)
@@ -177,14 +195,8 @@ export default function ContratoDetalle() {
     setDescargandoAnexoId(idAnexo)
     try {
       const r = await contratosApi.anexos.descargarWord(id, idAnexo)
-      const disposition = r.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const nombre = match ? match[1] : `Anexo_${idAnexo}.docx`
-      const url = URL.createObjectURL(new Blob([r.data]))
-      const a = document.createElement('a')
-      a.href = url; a.download = nombre
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(url)
+      const nombre = nombreDesdeHeader(r.headers['content-disposition'] || '', `Anexo_${idAnexo}.docx`)
+      descargarBlob(new Blob([r.data]), nombre)
     } catch (err) {
       alert('No se pudo generar el documento Word de este anexo')
     } finally { setDescargandoAnexoId(null) }
@@ -194,14 +206,8 @@ export default function ContratoDetalle() {
     setDescargando(true); setErrorDescarga('')
     try {
       const r = await contratosApi.descargarWord(id)
-      const disposition = r.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const nombre = match ? match[1] : `Contrato_${id}.docx`
-      const url = URL.createObjectURL(new Blob([r.data]))
-      const a = document.createElement('a')
-      a.href = url; a.download = nombre
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(url)
+      const nombre = nombreDesdeHeader(r.headers['content-disposition'] || '', `Contrato_${id}.docx`)
+      descargarBlob(new Blob([r.data]), nombre)
     } catch (err) {
       setErrorDescarga('No se pudo generar el documento Word')
     } finally { setDescargando(false) }
@@ -372,9 +378,7 @@ export default function ContratoDetalle() {
     setDescargandoReglamento(true)
     try {
       const res = await contratosApi.reglamento.word(id, fechaReglamento)
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `Reglamento_Interno_${id}.docx`; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Reglamento_Interno_${id}.docx`))
     } catch { alert('Error al generar Word') }
     finally { setDescargandoReglamento(false) }
   }
@@ -383,9 +387,7 @@ export default function ContratoDetalle() {
     setDescargandoCertificado(true)
     try {
       const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado)
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `Certificado_Antiguedad_${id}.docx`; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Certificado_Antiguedad_${id}.docx`))
     } catch { alert('Error al generar certificado') }
     finally { setDescargandoCertificado(false) }
   }
@@ -395,12 +397,7 @@ export default function ContratoDetalle() {
     setDescargandoAmon(true)
     try {
       const res = await contratosApi.amonestacion.word(id, formAmon.motivo, formAmon.descripcion, formAmon.fecha)
-      const disposition = res.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const nombre = match ? match[1] : `Amonestacion_${id}.docx`
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Amonestacion_${id}.docx`))
     } catch { alert('Error al generar amonestación') }
     finally { setDescargandoAmon(false) }
   }
@@ -489,12 +486,7 @@ export default function ContratoDetalle() {
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
         descripcion_adicional: formDespido.descripcion_adicional,
       })
-      const disposition = res.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const nombre = match ? match[1] : `Carta_Despido_${id}.docx`
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Carta_Despido_${id}.docx`))
     } catch { alert('Error al generar carta de despido') }
     finally { setDescargandoDespido(false) }
   }
@@ -513,12 +505,7 @@ export default function ContratoDetalle() {
         movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
       })
-      const disposition = res.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const nombre = match ? match[1] : `Finiquito_${id}.docx`
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = nombre; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
     } catch { alert('Error al generar finiquito') }
     finally { setDescargandoFiniquito(false) }
   }
@@ -527,9 +514,7 @@ export default function ContratoDetalle() {
     setDescargandoEpp(eppId)
     try {
       const res = await contratosApi.entregasEpp.word(id, eppId)
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `EntregaEPP_${eppId}.docx`; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `EntregaEPP_${eppId}.docx`))
     } catch { alert('Error al generar Word') }
     finally { setDescargandoEpp(null) }
   }
@@ -578,9 +563,7 @@ export default function ContratoDetalle() {
     setDescargandoPactoId(pactoId)
     try {
       const res = await contratosApi.pactosHorasExtra.word(id, pactoId)
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `Pacto_Horas_Extra_${pactoId}.docx`; a.click()
-      URL.revokeObjectURL(url)
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Pacto_Horas_Extra_${pactoId}.docx`))
     } catch { alert('Error al generar Word') }
     finally { setDescargandoPactoId(null) }
   }
