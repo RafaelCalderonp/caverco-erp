@@ -1,6 +1,22 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', timeout: 60000 })
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+const api = axios.create({ baseURL: BASE_URL, timeout: 60000 })
+
+// ── Keep-alive: evita cold start en Render free tier ─────────────────────────
+;(function keepAlive() {
+  const ping = () => axios.get(`${BASE_URL}/health`).catch(() => {})
+  ping()
+  setInterval(ping, 8 * 60 * 1000) // cada 8 min
+})()
+
+// ── Cache en memoria para catálogos estáticos (dura la sesión) ───────────────
+const _cache = new Map()
+function cached(key, fn) {
+  if (_cache.has(key)) return Promise.resolve({ data: _cache.get(key) })
+  return fn().then(res => { _cache.set(key, res.data); return res })
+}
+export function invalidarCatalogos() { _cache.clear() }
 
 const SIN_SCOPE_EMPRESA = [
   '/empresas', '/auth',
@@ -101,6 +117,7 @@ export const liquidacionesApi = {
 export const contratosApi = {
   list:        (params)        => api.get('/contratos', { params }),
   get:         (id)            => api.get(`/contratos/${id}`),
+  getFull:     (id)            => api.get(`/contratos/${id}/full`),
   create:      (data)          => api.post('/contratos', data),
   crearConTrabajador: (data)   => api.post('/contratos/con-trabajador', data),
   update:      (id, d)         => api.patch(`/contratos/${id}`, d),
@@ -164,23 +181,23 @@ export const contratosApi = {
 }
 
 export const catalogosApi = {
-  tiposContrato:  () => api.get('/catalogos/tipos-contrato'),
-  motivosTermino: () => api.get('/catalogos/motivos-termino'),
-  tiposAnexo:     () => api.get('/catalogos/tipos-anexo'),
-  obras:          () => api.get('/catalogos/obras'),
-  crearObra:      (d) => api.post('/catalogos/obras', d),
-  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d),
-  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`),
-  cargos:         () => api.get('/catalogos/cargos'),
-  crearCargo:      (d) => api.post('/catalogos/cargos', d),
-  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d),
-  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`),
-  centrosCosto:   () => api.get('/catalogos/centros-costo'),
-  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d),
-  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d),
-  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`),
-  afp:            () => api.get('/catalogos/afp'),
-  isapre:         () => api.get('/catalogos/isapre'),
+  tiposContrato:  () => cached('tipos-contrato',  () => api.get('/catalogos/tipos-contrato')),
+  motivosTermino: () => cached('motivos-termino', () => api.get('/catalogos/motivos-termino')),
+  tiposAnexo:     () => cached('tipos-anexo',     () => api.get('/catalogos/tipos-anexo')),
+  obras:          () => cached('obras',            () => api.get('/catalogos/obras')),
+  crearObra:      (d) => api.post('/catalogos/obras', d).then(r => { _cache.delete('obras'); return r }),
+  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d).then(r => { _cache.delete('obras'); return r }),
+  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`).then(r => { _cache.delete('obras'); return r }),
+  cargos:         () => cached('cargos',           () => api.get('/catalogos/cargos')),
+  crearCargo:      (d) => api.post('/catalogos/cargos', d).then(r => { _cache.delete('cargos'); return r }),
+  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d).then(r => { _cache.delete('cargos'); return r }),
+  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`).then(r => { _cache.delete('cargos'); return r }),
+  centrosCosto:   () => cached('centros-costo',    () => api.get('/catalogos/centros-costo')),
+  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d).then(r => { _cache.delete('centros-costo'); return r }),
+  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d).then(r => { _cache.delete('centros-costo'); return r }),
+  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { _cache.delete('centros-costo'); return r }),
+  afp:            () => cached('afp',              () => api.get('/catalogos/afp')),
+  isapre:         () => cached('isapre',           () => api.get('/catalogos/isapre')),
 }
 
 export const credencialesApi = {

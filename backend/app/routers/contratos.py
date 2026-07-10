@@ -139,6 +139,38 @@ async def obtener_contrato(id: int, db: AsyncSession = Depends(get_db)):
     return await _get_contrato_or_404(id, db)
 
 
+@router.get("/{id}/full")
+async def obtener_contrato_full(id: int, db: AsyncSession = Depends(get_db)):
+    """Devuelve contrato + todos sus sub-recursos en paralelo (reduce round-trips del frontend)."""
+    import asyncio
+    from app.models.rrhh import EntregaEpp, PactoHorasExtra
+    from app.schemas.rrhh import AnexoContratoOut, ContratoRequisitoObraOut, EntregaEppOut, PactoHorasExtraOut
+
+    contrato_q, anexos_q, requisitos_q, epps_q, pactos_q = await asyncio.gather(
+        db.execute(
+            select(Contrato)
+            .options(selectinload(Contrato.empleado), selectinload(Contrato.anexos), selectinload(Contrato.requisitos_obra))
+            .where(Contrato.id == id)
+        ),
+        db.execute(select(AnexoContrato).where(AnexoContrato.id_contrato == id)),
+        db.execute(select(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato == id)),
+        db.execute(select(EntregaEpp).where(EntregaEpp.id_contrato == id)),
+        db.execute(select(PactoHorasExtra).where(PactoHorasExtra.id_contrato == id)),
+    )
+
+    contrato = contrato_q.scalar_one_or_none()
+    if contrato is None:
+        raise HTTPException(404, "Contrato no encontrado")
+
+    return {
+        **ContratoOut.model_validate(contrato).model_dump(),
+        "anexos":             [AnexoContratoOut.model_validate(a).model_dump() for a in anexos_q.scalars().all()],
+        "requisitos_obra":    [ContratoRequisitoObraOut.model_validate(r).model_dump() for r in requisitos_q.scalars().all()],
+        "entregas_epp":       [EntregaEppOut.model_validate(e).model_dump() for e in epps_q.scalars().all()],
+        "pactos_horas_extra": [PactoHorasExtraOut.model_validate(p).model_dump() for p in pactos_q.scalars().all()],
+    }
+
+
 @router.get("/{id}/word")
 async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)

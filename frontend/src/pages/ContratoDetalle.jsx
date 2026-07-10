@@ -225,11 +225,21 @@ export default function ContratoDetalle() {
   }
 
   function cargar() {
-    contratosApi.get(id).then(r => setContrato(r.data)).catch(() => {})
-    contratosApi.anexos.list(id).then(r => setAnexos(r.data)).catch(() => {})
-    contratosApi.requisitosObra.list(id).then(r => setRequisitos(r.data)).catch(() => {})
-    contratosApi.entregasEpp.list(id).then(r => setEntregas(r.data)).catch(() => {})
-    contratosApi.pactosHorasExtra.list(id).then(r => setPactos(r.data)).catch(() => {})
+    contratosApi.getFull(id).then(r => {
+      const d = r.data
+      setContrato(d)
+      setAnexos(d.anexos || [])
+      setRequisitos(d.requisitos_obra || [])
+      setEntregas(d.entregas_epp || [])
+      setPactos(d.pactos_horas_extra || [])
+    }).catch(() => {
+      // fallback: cargar individualmente si el endpoint no responde
+      contratosApi.get(id).then(r => setContrato(r.data)).catch(() => {})
+      contratosApi.anexos.list(id).then(r => setAnexos(r.data)).catch(() => {})
+      contratosApi.requisitosObra.list(id).then(r => setRequisitos(r.data)).catch(() => {})
+      contratosApi.entregasEpp.list(id).then(r => setEntregas(r.data)).catch(() => {})
+      contratosApi.pactosHorasExtra.list(id).then(r => setPactos(r.data)).catch(() => {})
+    })
   }
 
   useEffect(() => {
