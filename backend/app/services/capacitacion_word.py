@@ -438,8 +438,10 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
     tema_tbl = doc.add_table(rows=1, cols=2)
     tema_tbl.style = "Table Grid"
 
-    _cell_para(tema_tbl.rows[0].cells[0], "TEMA TRATADO\n:", bold=True, size=8)
-    tema_tbl.rows[0].cells[0].width = Cm(3.0)
+    tema_label_cell = tema_tbl.rows[0].cells[0]
+    tema_label_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _cell_para(tema_label_cell, "TEMA TRATADO :", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    tema_label_cell.width = Cm(3.0)
 
     tema_cell = tema_tbl.rows[0].cells[1]
     tema_cell.text = ""

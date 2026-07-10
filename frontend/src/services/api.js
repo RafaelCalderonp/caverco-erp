@@ -194,6 +194,7 @@ export const capacitacionesApi = {
   list:    (idEmpresa) => api.get(`/empresas/${idEmpresa}/capacitaciones`),
   create:  (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/capacitaciones`, data),
   get:     (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}`),
+  update:  (idEmpresa, id, data) => api.put(`/empresas/${idEmpresa}/capacitaciones/${id}`, data),
   delete:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/capacitaciones/${id}`),
   word:         (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word`,          { responseType: 'blob' }),
   wordArchimet: (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word-archimet`, { responseType: 'blob' }),

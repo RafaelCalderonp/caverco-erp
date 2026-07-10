@@ -197,6 +197,70 @@ async def crear_capacitacion(id_empresa: int, data: CapacitacionCreate, db: Asyn
     return result.scalar_one()
 
 
+@router.get("/empresas/{id_empresa}/capacitaciones/{id}", response_model=CapacitacionOut)
+async def obtener_capacitacion(id_empresa: int, id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Capacitacion)
+        .options(selectinload(Capacitacion.asistentes), selectinload(Capacitacion.procedimiento))
+        .where(Capacitacion.id == id, Capacitacion.id_empresa == id_empresa)
+    )
+    cap = result.scalar_one_or_none()
+    if not cap:
+        raise HTTPException(404, "Capacitación no encontrada")
+    return cap
+
+
+@router.put("/empresas/{id_empresa}/capacitaciones/{id}", response_model=CapacitacionOut)
+async def actualizar_capacitacion(id_empresa: int, id: int, data: CapacitacionCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Capacitacion).where(Capacitacion.id == id, Capacitacion.id_empresa == id_empresa)
+    )
+    cap = result.scalar_one_or_none()
+    if not cap:
+        raise HTTPException(404, "Capacitación no encontrada")
+
+    cap.id_procedimiento      = data.id_procedimiento
+    cap.version               = data.version
+    cap.motivo                = data.motivo
+    cap.fecha                 = data.fecha
+    cap.hora_inicio           = data.hora_inicio
+    cap.hora_termino          = data.hora_termino
+    cap.duracion_horas        = data.duracion_horas
+    cap.obra                  = data.obra
+    cap.relator_nombre        = data.relator_nombre
+    cap.relator_area          = data.relator_area
+    cap.relator_rut           = data.relator_rut
+    cap.objetivo_general      = data.objetivo_general
+    cap.objetivos_especificos = data.objetivos_especificos
+    cap.lugar_establecimiento = data.lugar_establecimiento
+    cap.material_apoyo        = data.material_apoyo
+
+    # Reemplazar asistentes
+    result2 = await db.execute(
+        select(AsistenteCapacitacion).where(AsistenteCapacitacion.id_capacitacion == id)
+    )
+    for a in result2.scalars().all():
+        await db.delete(a)
+
+    for i, a in enumerate(data.asistentes):
+        db.add(AsistenteCapacitacion(
+            id_capacitacion = id,
+            orden  = a.orden or (i + 1),
+            nombre = a.nombre,
+            area   = a.area,
+            rut    = a.rut,
+        ))
+
+    await db.commit()
+
+    result3 = await db.execute(
+        select(Capacitacion)
+        .options(selectinload(Capacitacion.asistentes), selectinload(Capacitacion.procedimiento))
+        .where(Capacitacion.id == id)
+    )
+    return result3.scalar_one()
+
+
 @router.delete("/empresas/{id_empresa}/capacitaciones/{id}", status_code=204)
 async def eliminar_capacitacion(id_empresa: int, id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(

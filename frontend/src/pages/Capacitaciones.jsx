@@ -55,6 +55,7 @@ export default function Capacitaciones() {
   const [formCap, setFormCap] = useState(CAP_EMPTY)
   const [guardandoCap, setGuardandoCap] = useState(false)
   const [descargando, setDescargando] = useState(null)
+  const [editandoId, setEditandoId] = useState(null)   // id del registro en edición
 
   // Archimet: template seleccionado para nuevo registro
   const [templateSeleccionado, setTemplateSeleccionado] = useState(null)
@@ -92,6 +93,7 @@ export default function Capacitaciones() {
     if (tab !== 'archimet') setTemplateSeleccionado(null)
     setMostrarFormCap(false)
     setFormCap(CAP_EMPTY)
+    setEditandoId(null)
   }, [tab])
 
   function onProcChange(e) {
@@ -137,6 +139,30 @@ export default function Capacitaciones() {
     })
   }
 
+  function verCapacitacion(cap) {
+    setEditandoId(cap.id)
+    setTemplateSeleccionado(cap.procedimiento || null)
+    setFormCap({
+      id_procedimiento: String(cap.id_procedimiento || ''),
+      version: cap.version || '01',
+      motivo: cap.motivo || 'CAPACITACION',
+      fecha: cap.fecha,
+      hora_inicio: cap.hora_inicio || '8:00',
+      hora_termino: cap.hora_termino || '9:00',
+      duracion_horas: String(cap.duracion_horas || '1'),
+      obra: cap.obra || '',
+      relator_nombre: cap.relator_nombre || '',
+      relator_area: cap.relator_area || '',
+      relator_rut: cap.relator_rut || '',
+      objetivo_general: cap.objetivo_general || '',
+      objetivos_especificos: cap.objetivos_especificos || '',
+      lugar_establecimiento: cap.lugar_establecimiento || '',
+      material_apoyo: cap.material_apoyo || '',
+      asistentes: (cap.asistentes || []).map(a => ({ nombre: a.nombre, area: a.area || '', rut: a.rut || '' })),
+    })
+    setMostrarFormCap(true)
+  }
+
   async function guardarCap(e) {
     e.preventDefault()
     setGuardandoCap(true)
@@ -147,7 +173,12 @@ export default function Capacitaciones() {
         duracion_horas: formCap.duracion_horas ? Number(formCap.duracion_horas) : null,
         asistentes: formCap.asistentes.map((a, i) => ({ ...a, orden: i + 1 })),
       }
-      await capacitacionesApi.create(empresaActual.id, payload)
+      if (editandoId) {
+        await capacitacionesApi.update(empresaActual.id, editandoId, payload)
+        setEditandoId(null)
+      } else {
+        await capacitacionesApi.create(empresaActual.id, payload)
+      }
       setMostrarFormCap(false)
       setFormCap(CAP_EMPTY)
       setTemplateSeleccionado(null)
@@ -213,7 +244,7 @@ export default function Capacitaciones() {
       {tab === 'cap' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <button className="btn btn-primary" onClick={() => { setMostrarFormCap(true); setFormCap(CAP_EMPTY) }}>
+            <button className="btn btn-primary" onClick={() => { setMostrarFormCap(true); setFormCap(CAP_EMPTY); setEditandoId(null) }}>
               + Nuevo Registro
             </button>
           </div>
@@ -230,8 +261,9 @@ export default function Capacitaciones() {
               updateAsistente={updateAsistente}
               guardar={guardarCap}
               guardando={guardandoCap}
-              cancelar={() => setMostrarFormCap(false)}
+              cancelar={() => { setMostrarFormCap(false); setEditandoId(null) }}
               esArchimet={false}
+              editando={!!editandoId}
             />
           )}
 
@@ -241,6 +273,7 @@ export default function Capacitaciones() {
             descargando={descargando}
             onDescargar={descargarCap}
             onEliminar={eliminarCap}
+            onVer={verCapacitacion}
           />
         </>
       )}
@@ -268,14 +301,14 @@ export default function Capacitaciones() {
             </div>
           )}
 
-          {mostrarFormCap && templateSeleccionado && (
+          {mostrarFormCap && (templateSeleccionado || editandoId) && (
             <div style={{ background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: 20, marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{templateSeleccionado.codigo}</div>
-                  <h4 style={{ margin: 0 }}>{templateSeleccionado.nombre}</h4>
+                  <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{templateSeleccionado?.codigo || ''}</div>
+                  <h4 style={{ margin: 0 }}>{templateSeleccionado?.nombre || (editandoId ? 'Editar Registro' : '')}</h4>
                 </div>
-                <button className="btn btn-outline btn-sm" onClick={() => { setMostrarFormCap(false); setTemplateSeleccionado(null) }}>
+                <button className="btn btn-outline btn-sm" onClick={() => { setMostrarFormCap(false); setTemplateSeleccionado(null); setEditandoId(null) }}>
                   ← Volver
                 </button>
               </div>
@@ -290,8 +323,9 @@ export default function Capacitaciones() {
                 updateAsistente={updateAsistente}
                 guardar={guardarCap}
                 guardando={guardandoCap}
-                cancelar={() => { setMostrarFormCap(false); setTemplateSeleccionado(null) }}
+                cancelar={() => { setMostrarFormCap(false); setTemplateSeleccionado(null); setEditandoId(null) }}
                 esArchimet={true}
+                editando={!!editandoId}
               />
             </div>
           )}
@@ -302,6 +336,7 @@ export default function Capacitaciones() {
             descargando={descargando}
             onDescargar={descargarCap}
             onEliminar={eliminarCap}
+            onVer={verCapacitacion}
             etiquetaArchimet
           />
         </>
@@ -314,13 +349,13 @@ export default function Capacitaciones() {
 // ─── Componente formulario ────────────────────────────────────────────────────
 
 function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], onProcChange,
-  addAsistente, addEmpleadoCap, updateAsistente, guardar, guardando, cancelar, esArchimet }) {
+  addAsistente, addEmpleadoCap, updateAsistente, guardar, guardando, cancelar, esArchimet, editando }) {
 
   const labelCargo = esArchimet ? 'Cargo del Relator' : 'Área del Relator'
 
   return (
     <div style={{ background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 8, padding: 24, marginBottom: 24 }}>
-      {!esArchimet && <h4 style={{ marginTop: 0 }}>Nuevo Registro de Asistencia a Capacitación</h4>}
+      {!esArchimet && <h4 style={{ marginTop: 0 }}>{editando ? 'Editar Registro de Capacitación' : 'Nuevo Registro de Asistencia a Capacitación'}</h4>}
       <form onSubmit={guardar}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -490,7 +525,7 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
 
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
           <button type="submit" className="btn btn-primary" disabled={guardando}>
-            {guardando ? 'Guardando...' : 'Guardar Registro'}
+            {guardando ? 'Guardando...' : editando ? 'Actualizar Registro' : 'Guardar Registro'}
           </button>
           <button type="button" className="btn btn-outline" onClick={cancelar}>Cancelar</button>
         </div>
@@ -502,7 +537,7 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
 
 // ─── Tabla de registros ───────────────────────────────────────────────────────
 
-function TablaCapacitaciones({ caps, cargando, descargando, onDescargar, onEliminar, etiquetaArchimet }) {
+function TablaCapacitaciones({ caps, cargando, descargando, onDescargar, onEliminar, onVer, etiquetaArchimet }) {
   if (cargando) return <p>Cargando...</p>
 
   if (caps.length === 0) return (
@@ -542,6 +577,7 @@ function TablaCapacitaciones({ caps, cargando, descargando, onDescargar, onElimi
             </td>
             <td>
               <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => onVer(cap)}>Ver</button>
                 <button className="btn btn-outline btn-sm" disabled={descargando === cap.id}
                   onClick={() => onDescargar(cap)}>
                   {descargando === cap.id ? '...' : '📄 Word'}
