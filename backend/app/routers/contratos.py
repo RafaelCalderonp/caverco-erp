@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import date
 import io
 import re
+from urllib.parse import quote
 
 
 def _fname(tipo: str, empleado, fecha: date | None = None) -> str:
@@ -172,7 +173,7 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre_archivo)}"},
     )
 
 
@@ -355,7 +356,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre_archivo)}"},
     )
 
 
@@ -504,7 +505,7 @@ async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(ge
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -526,7 +527,7 @@ async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = Non
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -560,7 +561,7 @@ async def descargar_certificado_antiguedad_word(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -605,7 +606,7 @@ async def descargar_pacto_word(id: int, pacto_id: int, db: AsyncSession = Depend
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -636,7 +637,7 @@ async def descargar_amonestacion_word(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -757,7 +758,7 @@ async def descargar_carta_despido_word(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 # ---- Finiquito ----
@@ -879,5 +880,5 @@ async def descargar_finiquito_word(
     return StreamingResponse(
         _io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )

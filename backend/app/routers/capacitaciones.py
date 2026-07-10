@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import date
 from pydantic import BaseModel
 import io
+from urllib.parse import quote
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -220,7 +221,7 @@ async def descargar_word_capacitacion(id_empresa: int, id: int, db: AsyncSession
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -260,7 +261,7 @@ async def generar_reglamento_interno(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -303,7 +304,7 @@ async def generar_entrega_epp(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
 
 
@@ -350,5 +351,5 @@ async def generar_cert_antiguedad(
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )
