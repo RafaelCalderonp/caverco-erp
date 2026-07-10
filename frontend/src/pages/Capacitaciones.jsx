@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useEmpresa } from '../context/EmpresaContext'
-import { capacitacionesApi } from '../services/api'
+import { capacitacionesApi, catalogosApi } from '../services/api'
 import api from '../services/api'
 
 const RUT_ARCHIMET = '77.868.358-K'
@@ -50,6 +50,7 @@ export default function Capacitaciones() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
 
+  const [obras, setObras] = useState([])
   const [mostrarFormCap, setMostrarFormCap] = useState(false)
   const [formCap, setFormCap] = useState(CAP_EMPTY)
   const [guardandoCap, setGuardandoCap] = useState(false)
@@ -65,14 +66,16 @@ export default function Capacitaciones() {
     if (!empresaActual) return
     setCargando(true); setError('')
     try {
-      const [capRes, procRes, empRes] = await Promise.all([
+      const [capRes, procRes, empRes, obrasRes] = await Promise.all([
         capacitacionesApi.list(empresaActual.id),
         capacitacionesApi.procedimientos(esArchimet ? empresaActual.rut : null),
         api.get('/empleados').catch(() => ({ data: [] })),
+        api.get('/catalogos/obras', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
       ])
       setCapacitaciones(capRes.data)
       setProcedimientos(procRes.data)
       setEmpleados(empRes.data)
+      setObras(obrasRes.data)
     } catch (err) {
       const msg = err?.response?.status === 500
         ? 'Error del servidor. Verifica que la migración 30_capacitaciones_archimet.sql fue ejecutada.'
@@ -109,6 +112,7 @@ export default function Capacitaciones() {
       id_procedimiento: String(proc.id),
       objetivo_general: proc.objetivo_general || '',
       objetivos_especificos: proc.objetivos_especificos || '',
+      material_apoyo: proc.codigo || '',
     })
     setMostrarFormCap(true)
   }
@@ -219,6 +223,7 @@ export default function Capacitaciones() {
               form={formCap} setForm={setFormCap}
               procedimientos={procedimientosGlobales}
               empleados={empleados}
+              obras={obras}
               onProcChange={onProcChange}
               addAsistente={addAsistente}
               addEmpleadoCap={addEmpleadoCap}
@@ -278,6 +283,7 @@ export default function Capacitaciones() {
                 form={formCap} setForm={setFormCap}
                 procedimientos={[]}
                 empleados={empleados}
+                obras={obras}
                 onProcChange={() => {}}
                 addAsistente={addAsistente}
                 addEmpleadoCap={addEmpleadoCap}
@@ -307,7 +313,7 @@ export default function Capacitaciones() {
 
 // ─── Componente formulario ────────────────────────────────────────────────────
 
-function FormCapacitacion({ form, setForm, procedimientos, empleados, onProcChange,
+function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], onProcChange,
   addAsistente, addEmpleadoCap, updateAsistente, guardar, guardando, cancelar, esArchimet }) {
 
   const labelCargo = esArchimet ? 'Cargo del Relator' : 'Área del Relator'
@@ -366,8 +372,18 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, onProcChan
 
           <div className="form-group">
             <label>Obra</label>
-            <input type="text" className="form-control" value={form.obra}
-              onChange={e => setForm(f => ({ ...f, obra: e.target.value }))} />
+            {esArchimet && obras.length > 0 ? (
+              <select className="form-control" value={form.obra}
+                onChange={e => setForm(f => ({ ...f, obra: e.target.value }))}>
+                <option value="">— Sin obra —</option>
+                {obras.map(o => (
+                  <option key={o.id} value={o.nombre}>{o.codigo} — {o.nombre}</option>
+                ))}
+              </select>
+            ) : (
+              <input type="text" className="form-control" value={form.obra}
+                onChange={e => setForm(f => ({ ...f, obra: e.target.value }))} />
+            )}
           </div>
 
           <div className="form-group">
@@ -425,7 +441,9 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, onProcChan
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <strong>Participantes ({form.asistentes.length})</strong>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addAsistente}>+ Manual</button>
+              {!esArchimet && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={addAsistente}>+ Manual</button>
+              )}
               <select className="form-control" style={{ width: 'auto', fontSize: 12 }}
                 onChange={e => { const emp = empleados.find(x => String(x.id) === e.target.value); if (emp) addEmpleadoCap(emp); e.target.value = '' }}>
                 <option value="">+ Desde empleados...</option>
