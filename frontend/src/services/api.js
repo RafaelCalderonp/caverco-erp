@@ -198,6 +198,7 @@ export const capacitacionesApi = {
   delete:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/capacitaciones/${id}`),
   word:         (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word`,          { responseType: 'blob' }),
   wordArchimet: (idEmpresa, id) => api.get(`/empresas/${idEmpresa}/capacitaciones/${id}/word-archimet`, { responseType: 'blob' }),
+  irl:          (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/irl/word`, data, { responseType: 'blob' }),
 }
 
 export const planCuentasApi = {

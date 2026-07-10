@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi, liquidacionesApi } from '../services/api'
+import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi } from '../services/api'
 
 function nombreDesdeHeader(disposition, fallback) {
   // RFC 5987: filename*=UTF-8''nombre%20codificado.docx
@@ -93,6 +93,16 @@ export default function ContratoDetalle() {
   const [ciudadCertificado, setCiudadCertificado] = useState('Santiago')
   const [fechaCertificado, setFechaCertificado] = useState(new Date().toISOString().slice(0, 10))
   const [descargandoCertificado, setDescargandoCertificado] = useState(false)
+
+  const [formIrl, setFormIrl] = useState({
+    fecha: new Date().toISOString().slice(0, 10),
+    hora_inicio: '8:30',
+    hora_termino: '12:30',
+    obra_nombre: '',
+    obra_direccion: '',
+    relator_cargo: 'Gerente General',
+  })
+  const [descargandoIrl, setDescargandoIrl] = useState(false)
 
   const MOTIVOS_AMONESTACION = [
     'Atrasos reiterados e injustificados al lugar de trabajo',
@@ -391,6 +401,30 @@ export default function ContratoDetalle() {
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Certificado_Antiguedad_${id}.docx`))
     } catch { alert('Error al generar certificado') }
     finally { setDescargandoCertificado(false) }
+  }
+
+  async function descargarIrl() {
+    const emp = contrato?.empleado
+    if (!emp) { alert('No hay datos del trabajador'); return }
+    const idEmpresa = emp.id_empresa || localStorage.getItem('empresaActualId')
+    if (!idEmpresa) { alert('No se pudo determinar la empresa'); return }
+    setDescargandoIrl(true)
+    try {
+      const nombre = `${emp.nombres} ${emp.apellido_paterno}${emp.apellido_materno ? ' ' + emp.apellido_materno : ''}`.trim()
+      const res = await capacitacionesApi.irl(idEmpresa, {
+        nombre_trabajador: nombre,
+        rut_trabajador: emp.rut || '',
+        cargo: emp.cargo_nombre || '',
+        obra_nombre: formIrl.obra_nombre,
+        obra_direccion: formIrl.obra_direccion,
+        fecha: formIrl.fecha,
+        hora_inicio: formIrl.hora_inicio,
+        hora_termino: formIrl.hora_termino,
+        relator_cargo: formIrl.relator_cargo,
+      })
+      descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `IRL_${nombre.replace(/ /g, '_')}.docx`))
+    } catch { alert('Error al generar IRL') }
+    finally { setDescargandoIrl(false) }
   }
 
   async function descargarAmonestacion() {
@@ -1007,6 +1041,46 @@ export default function ContratoDetalle() {
             </div>
           ))
         }
+      </div>
+
+      {/* ── IRL (Información de Riesgos Laborales - Art. 15 DS44) ── */}
+      <div className="card mt-4">
+        <h3 style={{fontWeight:600, marginBottom:12}}>IRL — Información de Riesgos Laborales (Art. 15 DS44)</h3>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10}}>
+          <div>
+            <label className="form-label">Fecha</label>
+            <input className="form-control" type="date" value={formIrl.fecha}
+              onChange={e => setFormIrl(f => ({...f, fecha: e.target.value}))} />
+          </div>
+          <div>
+            <label className="form-label">Hora Inicio</label>
+            <input className="form-control" type="text" value={formIrl.hora_inicio}
+              onChange={e => setFormIrl(f => ({...f, hora_inicio: e.target.value}))} />
+          </div>
+          <div>
+            <label className="form-label">Hora Término</label>
+            <input className="form-control" type="text" value={formIrl.hora_termino}
+              onChange={e => setFormIrl(f => ({...f, hora_termino: e.target.value}))} />
+          </div>
+          <div>
+            <label className="form-label">Cargo Relator</label>
+            <input className="form-control" type="text" value={formIrl.relator_cargo}
+              onChange={e => setFormIrl(f => ({...f, relator_cargo: e.target.value}))} />
+          </div>
+          <div>
+            <label className="form-label">Nombre Obra / Proyecto</label>
+            <input className="form-control" type="text" value={formIrl.obra_nombre}
+              onChange={e => setFormIrl(f => ({...f, obra_nombre: e.target.value}))} />
+          </div>
+          <div>
+            <label className="form-label">Dirección Obra</label>
+            <input className="form-control" type="text" value={formIrl.obra_direccion}
+              onChange={e => setFormIrl(f => ({...f, obra_direccion: e.target.value}))} />
+          </div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={descargarIrl} disabled={descargandoIrl}>
+          {descargandoIrl ? 'Generando…' : '📄 Generar IRL Word'}
+        </button>
       </div>
 
       {/* ── Anexos ── */}

@@ -19,6 +19,7 @@ from app.services.capacitacion_word import (
     generar_reglamento_docx,
     generar_epp_docx,
     generar_certificado_antiguedad_docx,
+    generar_irl_docx,
 )
 
 router = APIRouter(tags=["Capacitaciones"], dependencies=[Depends(get_current_user)])
@@ -461,6 +462,51 @@ async def generar_cert_antiguedad(
     )
     fname = f"Certificado_Antiguedad_{(nombre or 'trabajador').replace(' ', '_')}.docx"
 
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ─── IRL ──────────────────────────────────────────────────────────────────────
+
+class IrlCreate(BaseModel):
+    nombre_trabajador: str
+    rut_trabajador: str
+    cargo: str
+    obra_nombre: str
+    obra_direccion: str
+    fecha: date
+    hora_inicio: str = "8:30"
+    hora_termino: str = "12:30"
+    relator_cargo: str = "Gerente General"
+
+
+@router.post("/empresas/{id_empresa}/irl/word")
+async def generar_irl(
+    id_empresa: int,
+    data: IrlCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    empresa_res = await db.execute(select(Empresa).where(Empresa.id == id_empresa))
+    empresa = empresa_res.scalar_one_or_none()
+    relator_nombre = (empresa.contacto or "") if empresa else ""
+
+    docx_bytes = generar_irl_docx(
+        nombre_trabajador=data.nombre_trabajador,
+        rut_trabajador=data.rut_trabajador,
+        cargo=data.cargo,
+        obra_nombre=data.obra_nombre,
+        obra_direccion=data.obra_direccion,
+        fecha=data.fecha,
+        hora_inicio=data.hora_inicio,
+        hora_termino=data.hora_termino,
+        relator_nombre=relator_nombre,
+        relator_cargo=data.relator_cargo,
+        empresa=empresa,
+    )
+    fname = f"IRL_{data.nombre_trabajador.replace(' ', '_')}.docx"
     return StreamingResponse(
         io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

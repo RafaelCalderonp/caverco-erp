@@ -815,3 +815,533 @@ def generar_certificado_antiguedad_docx(
     doc.save(buf)
     buf.seek(0)
     return buf.read()
+
+
+# ─── IRL DS44 ─────────────────────────────────────────────────────────────────
+
+_PROC_F  = ("* Procedimiento Uso herramientas electricas.\n"
+            "* procedimiemto instalacion cielo americano\n"
+            "* procedimiento trabajo altura\n"
+            "* procedimiento instalacion revestimiento metálico")
+_PROC_Q  = ("* Procedimiemto instalacion cielo americano\n"
+            "* Procedimiemto instalacion revestimiento metálico")
+_PROC_B  = ("* Procedimiento Uso, Mantención y Reposición de EPP\n"
+            "* RIOHS (última versión)")
+_PROC_PS = "RIOHS (última versión)\nprotocolo de RPS"
+_PROC_E  = ("* Protocolo TMERT\n"
+            "* Procedimiento Uso, Mantención y Reposición de EPP\n"
+            "* Procedimiento Uso herramientas electricas.\n"
+            "* procedimiemto instalacion cielo americano\n"
+            "* procedimiento trabajo altura\n"
+            "* Procedimiemto instalacion revestimiento metálico")
+_PROC_EM = "* Plan de emergencias"
+
+_IRL_ITEMS = [
+    "1. Difusión ley de accidentes y enfermedades profesionales. Ley N°16.744",
+    "2. Difusión Política de seguridad y Salud Opcupacional de la empresa.",
+    "3. Difusión reglamento interno de Orden Higiene y Seguridad.",
+    "4. Correcto uso de elementos de proteccion personal, cuidados y mantenimientos.",
+    "5. Difusión matriz de riesgos DS.44",
+    "6. Difusión procedimiento como actuar en caso de accidente.",
+    "7. Difusión procedimiento de trabajo en altura, metodologia de trabajo correcto.",
+    "8. Difusión procedimiento uso de herramientas electricas.",
+    "9. Respetar señalizacion al interior de Obra.",
+    "10. Desplazamiento por áreas de trabajo señalizadas.",
+    "11. Evaluar entorno de trabajo , metodologia de trabajo correcto antes , durante y despues.",
+    "12. Prohibición de plataformas de trabajos improvidasas.",
+    "13. Autocuidado.",
+    "14. Prohibición de ingreso a obra bajo influencia de alcohol y/odrogas.",
+    "15. Es obligacion dar aviso inmediato a jefe directo respecto a todo tipo de accidente o lesión que sufra.",
+]
+
+_ESPACIO_TRABAJO = (
+    "Características generales:\n"
+    "Superficies amplias, lisas y a menudo húmedas: se trabaja en superficies de grandes y pequeñas dimensiones que pueden "
+    "estar en condiciones despejadas u obstruidas por materiales y estructuras diversas.\n"
+    "Ambiente abierto y/o cerrado con ventilación variable: aunque son recintos amplios, pueden tener problemas de recambio "
+    "de aire, especialmente si no hay ventilación forzada.\n"
+    "Zonas de tránsito de personal y maquinaria.\n"
+    "El área debe estar delimitada y señalizada mientras se realizan las obras.\n"
+    "Iluminación adecuada (natural o artificial), evitando zonas de penumbra o reflejos en los pisos o techumbres."
+)
+_COND_AMBIENT = (
+    "Idealmente entre 10°C y 30°C, según ficha técnica de los productos con los que se pueda trabajar.\n"
+    "Temperaturas extremas pueden afectar el secado y la seguridad del producto aplicado o de los materiales utilizados, "
+    "además de afectar al trabajador (hipotermia, estrés térmico).\n"
+    "La humedad relativa y la presencia de agua o vapor en el ambiente pueden alterar la adherencia de los productos y/o materiales.\n"
+    "Zonas húmedas aumentan el riesgo de resbalones.\n"
+    "Ventilación mecánica o natural eficiente es indispensable.\n"
+    "En espacios cerrados se deben instalar extractores o equipos de ventilación forzada.\n"
+    "Posible exposición a niveles de ruido moderados por maquinaria industrial (evaluar con sonómetro).\n"
+    "Si supera los 85 dB(A), debe utilizarse protección auditiva y plan de conservación auditiva.\n"
+    "Mínimo 300 lux en áreas de aplicación para garantizar visibilidad de la superficie y detectar imperfecciones.\n"
+    "Evitar sombras que puedan dificultar la percepción del piso o de obstáculos."
+)
+_COND_ORDEN = (
+    "Organización de materiales y herramientas: deben almacenarse en zonas designadas, separadas de zonas de tránsito.\n"
+    "Señalización y delimitación de áreas: cintas, conos, barreras físicas para restringir el acceso a zonas de trabajo.\n"
+    "Evitar cables y mangueras en el suelo sin protección para prevenir caídas.\n"
+    "Eliminación de polvo, grasa o restos de productos anteriores.\n"
+    "Secado total de la superficie.\n"
+    "Limpieza inmediata de derrames químicos según protocolo específico (fichas de datos de seguridad).\n"
+    "Se debe realizar una limpieza post-trabajo rigurosa, incluyendo:\n"
+    "Lavado de herramientas.\n"
+    "Eliminación adecuada de residuos peligrosos (contenedores, restos de productos).\n"
+    "Retiro de elementos de señalización cuando el área esté segura."
+)
+_MAQUINAS = [
+    "Aspiradora industrial", "Soldadora", "Esmeril angular de corte",
+    "Esmeril angular de desbaste", "Atornillador", "Demoledor manual",
+    "Taladro", "Sierra circular", "Sierra sable", "Soplador", "Turbo calefactor",
+    "Herramientas manuales (Martillo, Alicate, Pinzas, Llaves variedades, Atornillador, Barreta/Barretilla, Entre otras)",
+    "Otras",
+]
+
+# (riesgo, daño, medida, proc)
+_RIESGOS_FISICOS = [
+    ("Caídas al mismo nivel", "Contusión", "Mantener superficies de tránsito en óptimas condiciones, libres de humedad y señalizadas", _PROC_F),
+    ("Caídas al mismo nivel", "Fractura(s)", "Transitar solo por zonas demarcadas y habilitadas", _PROC_F),
+    ("Caídas al mismo nivel", "Esguince(s)", "Uso de calzado bien ajustado, amarrado y en buen estado", _PROC_F),
+    ("Caídas al mismo nivel", "Torceduras", "No utilizar elementos distractores mientras se desplaza", _PROC_F),
+    ("Caídas a distinto nivel", "Contusión", "Uso de arnés con doble cabo de vida para trabajos sobre 1,8 metros", _PROC_F),
+    ("Caídas a distinto nivel", "Fractura(s)", "Uso de 3 puntos de apoyo al subir y bajar de escaleras o escalas", _PROC_F),
+    ("Caídas a distinto nivel", "Esguince(s)", "Mantener superficies de tránsito en óptimas condiciones, libres de humedad y señalizadas", _PROC_F),
+    ("Caídas a distinto nivel", "Torceduras", "No detenerse a conversar en escaleras, ni utilizar elementos distractores", _PROC_F),
+    ("Caídas de altura", "Contusión", "Uso de 3 puntos de apoyo al subir y bajar de escaleras o escalas", _PROC_F),
+    ("Caídas de altura", "Fractura(s)", "Mantener superficies de tránsito en óptimas condiciones, libres de humedad y señalizadas", _PROC_F),
+    ("Caídas de altura", "Esguince(s)", "Verificar que la iluminación adecuada para ejecutar las actividades", _PROC_F),
+    ("Caídas de altura", "Torceduras", "Contar con examen ocupacional vigente y aprobado para realizar trabajos en altura", _PROC_F),
+    ("Caídas de altura", "Muerte", "Utilizar solo plataformas de trabajo certificadas y que posean barandas de protección", _PROC_F),
+    ("Atrapamiento", "Herida", "Verificar la ausencia de energías previo a la intervención", _PROC_F),
+    ("Atrapamiento", "Corte", "No utilizar ropa holgada, anillos, cadenas o cabello suelto", _PROC_F),
+    ("Atrapamiento", "Amputación(es)", "No realizar intervenciones si no se encuentra habilitado para ello", _PROC_F),
+    ("Atrapamiento", "Contusión", "Bloqueo de energías. Asegurarse que las maquinarias y herramientas posean todos los sistemas de protección", _PROC_F),
+    ("Cortes por objetos / herramientas corto-punzantes", "Corte", "Contar con los EPP necesarios y en buen estado para ejecutar la actividad", _PROC_F),
+    ("Cortes por objetos / herramientas corto-punzantes", "Amputación(es)", "Asegurarse que las maquinarias y herramientas posean todos los sistemas de protección", _PROC_F),
+    ("Choque contra objetos", "Contusión", "Desplazamiento atento a las condiciones del entorno. No utilizar elementos distractores en el desplazamiento", _PROC_F),
+    ("Choque contra objetos", "Herida", "Dispositivos de seguridad de equipos móviles (cámaras, sensores de proximidad, balizas, alarmas de retroceso)", _PROC_F),
+    ("Contactos térmicos por calor", "Quemaduras", "Contar con los EPP necesarios y en buen estado para ejecutar la actividad", _PROC_F),
+    ("Contactos térmicos por calor", "Herida", "No tocar superficies calientes directamente con las manos", _PROC_F),
+    ("Contactos térmicos por frío", "Quemaduras", "Uso de EPP necesarios para la ejecución de la tarea", _PROC_F),
+    ("Contactos eléctricos directos baja tensión", "Quemaduras", "No exceder la capacidad de los enchufes", _PROC_F),
+    ("Contactos eléctricos directos baja tensión", "Herida", "Desconectar inmediatamente el suministro de energía en caso de cortes circuitos.", _PROC_F),
+    ("Contactos eléctricos directos alta tensión", "Asfixia", "Des energizar fuentes de energía previo a ejecución de actividades", _PROC_F),
+    ("Contactos eléctricos indirectos baja tensión", "Quemaduras", "Respetar distancias de seguridad entre líneas eléctricas y elementos conductores", _PROC_F),
+    ("Contactos eléctricos indirectos alta tensión", "Quemaduras", "Restricción de trabajos próximos a tendido de alta tensión (máximo 15m de próximidad)", _PROC_F),
+    ("Contactos eléctricos indirectos alta tensión", "Asfixia", "En caso de arco eléctrico no manipular partes metálicas del equipo que puedan ocasionar descarga eléctrica.", _PROC_F),
+    ("Proyección de fragmentos y/o partículas", "Lesión ocular", "No posicionarse en lugares donde exista proyección de partículas.", _PROC_F),
+    ("Proyección de fragmentos y/o partículas", "Quemaduras", "Utilización de biombos para evitar la proyección de fragmentos y partículas", _PROC_F),
+    ("Proyección de fragmentos y/o partículas", "Dermatitis", "Contar con EPP adecuados para la ejecución de la actividad", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Herida", "Dispositivos de seguridad de equipos móviles (cámaras, sensores de proximidad, balizas, sensores de retroceso, luces, alarmas de retroceso)", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Contusión", "Respetar normativa de tránsito.", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Fractura(s)", "Respetar velocidad máxima permitida. Utilizar solo zonas de tránsito habilitadas", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Esguince(s)", "No ingresar a zonas de operación de equipos móviles en operación. Cualquier actividad en estas zonas debe ser coordinada previamente con Jefe del área asegurando la detención del equipo", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Muerte", "Está prohibido el acto de interponer nuestro cuerpo o parte de él, entre, frente o bajo una fuente de energía considerablemente mayor a lo que nuestro cuerpo puede soportar (línea de fuego). Ej. trayectoria de equipos móviles, entre otros.", _PROC_F),
+    ("Atropellos o golpes con vehículos", "Amputación(es)", "Uso de EPP básicos y chaleco reflectante para visibilidad de personas", _PROC_F),
+    ("Choque, colisión o volcamiento", "Herida", "Dispositivos de seguridad de equipos móviles (cámaras, sensores de proximidad, balizas, sensores de retroceso, luces, alarmas de retroceso)", _PROC_F),
+    ("Choque, colisión o volcamiento", "Contusión", "Respetar normativa de tránsito.", _PROC_F),
+    ("Choque, colisión o volcamiento", "Esguince(s)", "Respetar velocidad máxima permitida. Utilizar solo zonas de tránsito habilitadas", _PROC_F),
+    ("Choque, colisión o volcamiento", "Amputación(es)", "Prohibido el uso de elementos distractores mientras conduce", _PROC_F),
+    ("Choque, colisión o volcamiento", "Muerte", "No conducir u operar equipos bajo la influencia de drogas, alcohol, estupefacientes u otras sustancias que puedan afectar la concentración o causar somnolencia", _PROC_F),
+    ("Choque, colisión o volcamiento", "Fractura(s)", "Uso obligatorio de cinturón de seguridad", _PROC_F),
+    ("Exposición a ruido", "Lesión Acústica", "Uso de Protector Auditivo.\nEvaluar periódicamente fuentes generadoras de ruido.\nOperar equipos con puertas y ventanas cerradas.", _PROC_F),
+    ("Exposición a Calor", "Colapso físico", "Realizar pausas de trabajo, hidratación abundante, implementación de zonas de sombraje, entre otras)", _PROC_F),
+    ("Exposición a Calor", "Dermatitis", "Aplicar al menos cada 2 horas, protector solar FPS 50 en zonas de cara y cuello.", _PROC_F),
+    ("Exposición a Frío", "Quemaduras", "Evitar contacto con superficies frías", _PROC_F),
+    ("Exposición a Frío", "Colapso físico", "Salas de descanso calefaccionadas", _PROC_F),
+    ("Exposición a Frío", "Enfermedad Común (resfrío, gripe)", "Sistema de control de temperatura en equipos móviles", _PROC_F),
+    ("Exposición a polvos", "Asma bronquial", "Uso de protección respiratoria (mascarilla con filtros)\nEvaluaciones cualitativas y cuantitativas del agente\nMantención de equipos móviles y sellos herméticos", _PROC_F),
+    ("Exposición a polvos", "Lesión ocular", "Uso de lentes de seguridad semisellados y protección facial para labores de limpiezas con aire comprimido.\nOperar y conducir equipos con puertas y ventanas cerradas", _PROC_F),
+]
+
+_RIESGOS_QUIMICOS = [
+    ("Exposición a sustancias químicas tóxicas", "Conjuntivitis Química", "Contar con todos los EPP adecuados en relación al tipo de sustancia a manipular", _PROC_Q),
+    ("Exposición a aerosoles sólidos.", "Asfixia", "Conocer características del producto y formas de manipulación, actuación en caso de contacto, almacenamiento y transporte de acuerdo a lo indicado en HDS", _PROC_Q),
+    ("Exposición a aerosoles sólidos.", "Dermatitis", "Almacenamiento de sustancias en estanterías y sobre bandejas para evitar derrames accidentales", _PROC_Q),
+    ("Exposición a aerosoles líquidos", "Conjuntivitis Química", "Contar con todos los EPP adecuados en relación al tipo de sustancia a manipular", _PROC_Q),
+    ("Exposición a aerosoles líquidos", "Dermatitis", "Conocer características del producto y formas de manipulación, actuación en caso de contacto, almacenamiento y transporte de acuerdo a lo indicado en HDS", _PROC_Q),
+    ("Exposición a aerosoles líquidos", "Asfixia", "Almacenamiento de sustancias en estanterías y sobre bandejas para evitar derrames accidentales", _PROC_Q),
+    ("Exposición a gases y vapores", "Asfixia", "Contar con todos los EPP adecuados en relación al tipo de sustancia a manipular", _PROC_Q),
+    ("Contacto con sustancias cáusticas y/o corrosivas", "Dermatitis", "Contar con todos los EPP adecuados en relación al tipo de sustancia a manipular", _PROC_Q),
+    ("Contacto con sustancias cáusticas y/o corrosivas", "Conjuntivitis Química", "Conocer características del producto y formas de manipulación, actuación en caso de contacto, almacenamiento y transporte de acuerdo a lo indicado en HDS", _PROC_Q),
+    ("Contacto con sustancias cáusticas y/o corrosivas", "Asfixia", "Almacenamiento de sustancias en estanterías y sobre bandejas para evitar derrames accidentales", _PROC_Q),
+]
+
+_RIESGOS_BIOLOGICOS = [
+    ("Transmisión por Fluidos Corporales", "Dermatitis", "No compartir utensilios personales.\nDesinfección de zonas de trabajo comunes\nLavado frecuente de manos con agua y jabón\nSanitización de servicios higiénicos y de alimentación", _PROC_B),
+    ("Transmisión por Fluidos Corporales", "Enfermedad Común (resfrío, gripe)", "Uso de mascarilla en caso de resfríos y enfermedades que se transmiten por fluidos.", _PROC_B),
+    ("Transmisión por Fluidos Corporales", "Alergias", "Limpieza y desinfección de zonas de trabajo comunes", _PROC_B),
+    ("Transmisión por Fluidos Corporales", "Enfermedad Común (resfrío, gripe)", "No compartir utensilios personales.\nLavado frecuente de manos con agua y jabón", _PROC_B),
+    ("Transmisión por Fluidos Corporales", "Alergias", "Uso de mascarilla en caso de resfríos y enfermedades que se transmiten por fluidos.\nSanitización de servicios higiénicos y de alimentación", _PROC_B),
+    ("Transmisión por inhalación dermal, oral y parenteral", "Dermatitis", "Desinfección de zonas de trabajo comunes", _PROC_B),
+    ("Contacto con animales y/o insectos", "Herida", "Desinfección, desinsectación y control de plagas en espacios de trabajo", _PROC_B),
+    ("Contacto con animales y/o insectos", "Dermatitis", "Establecer programa anual de control de plagas", _PROC_B),
+    ("Contacto con animales y/o insectos", "Alergias", "No alimentar animales en lugares de trabajo.\nMantener espacios de trabajo limpios y libres de desechos orgánicos", _PROC_B),
+]
+
+_RIESGOS_PSICOSOCIALES = [
+    ("Dimensión carga de trabajo (CT)", "Colapso Mental", "Planificación de actividades y organización de tiempo de trabajo.", _PROC_PS),
+    ("Dimensión carga de trabajo (CT)", "Neurosis", "Revisión periódica de carga de trabajo y metas.\nEstablecer pausas de trabajo", _PROC_PS),
+    ("Dimensión carga de trabajo (CT)", "Colapso físico", "Capacitaciones y conocimientos adecuados a las personas para que puedan desarrollar su trabajo en los tiempos asignados", _PROC_PS),
+    ("Dimensión exigencias emocionales (EM)", "Colapso físico", "Tiempos de recuperación y descanso", _PROC_PS),
+    ("Dimensión exigencias emocionales (EM)", "Colapso Mental", "Verificar estado de infraestructura física de espacios de trabajo", _PROC_PS),
+    ("Dimensión exigencias emocionales (EM)", "Neurosis", "Aplicación y otorgamiento de apoyo organizacional", _PROC_PS),
+    ("Dimensión desarrollo profesionales (DP)", "Colapso físico", "Programa de capacitación anual basado en detección de necesidades", _PROC_PS),
+    ("Dimensión desarrollo profesionales (DP)", "Colapso Mental", "Programa de promoción interna de trabajadores", _PROC_PS),
+    ("Dimensión desarrollo profesionales (DP)", "Neurosis", "Generar instancias de aprendizaje y retroalimentación a los trabajadores", _PROC_PS),
+    ("Dimensión reconocimiento y claridad de rol (RC)", "Colapso físico", "Establecer descriptores de cargo y darlos a conocer al personal", _PROC_PS),
+    ("Dimensión reconocimiento y claridad de rol (RC)", "Colapso Mental", "Reforzar canales de comunicación interna en la organización", _PROC_PS),
+    ("Dimensión reconocimiento y claridad de rol (RC)", "Neurosis", "Establecer instancias de reconocimiento a trabajadores destacados", _PROC_PS),
+    ("Dimensión conflicto de rol (CR)", "Colapso físico", "Planificación de trabajo y actividades a realizar", _PROC_PS),
+    ("Dimensión conflicto de rol (CR)", "Colapso Mental", "Definir canales de comunicación", _PROC_PS),
+    ("Dimensión conflicto de rol (CR)", "Neurosis", "Difundir estructura organizacional", _PROC_PS),
+    ("Dimensión calidad del liderazgo (QL)", "Colapso físico", "Formación de lideres en materias de seguridad", _PROC_PS),
+    ("Dimensión calidad del liderazgo (QL)", "Colapso Mental", "Generar instancias de retroalimentación bidireccional entre trabajadores y jefaturas", _PROC_PS),
+    ("Dimensión calidad del liderazgo (QL)", "Neurosis", "Consensuar normas de respeto a las personas.", _PROC_PS),
+    ("Dimensión compañerismo(CM)", "Colapso Mental", "Instancias de recreación grupal (celebraciones de cumpleaños, hitos importantes en faena)", _PROC_PS),
+    ("Dimensión compañerismo(CM)", "Neurosis", "Organizar breves encuentros diarios al comenzar la jornada para repartir responsabilidades en forma colectiva.", _PROC_PS),
+    ("Dimensión inseguridad en las condiciones de trabajo (IT)", "Colapso físico", "Realizar campañas de buen trato entre las personas.\nFormación a jefaturas.", _PROC_PS),
+    ("Dimensión inseguridad en las condiciones de trabajo (IT)", "Colapso Mental", "Consensuar normas de respeto a las personas.", _PROC_PS),
+    ("Dimensión inseguridad en las condiciones de trabajo (IT)", "Neurosis", "Promover la organización sindical", _PROC_PS),
+]
+
+_RIESGOS_ERGONOMICOS = [
+    ("Sobrecarga física debido a la manipulación manual de cargas", "Trastornos músculo-esqueléticos", "Utilización de elementos mecánicos para evitar el MMC.\nRespetar capacidades de carga máximas permitidas legalmente\nCapacitar en técnicas de levantamiento correcto y almacenamiento de materiales", _PROC_E),
+    ("Exposición a Vibraciones", "Trastornos músculo-esqueléticos", "Evaluación cualitativa y cuantitativa de los puestos de trabajo\nRealizar Pausas de trabajo y ejercicios compensatorios\nImplementación de Protocolo TMERT", _PROC_E),
+    ("Exposición a Vibraciones", "Tendinitis", "Mantención de equipos y herramientas", _PROC_E),
+    ("Sobrecarga Postural debido a trabajo de pie", "Trastornos músculo-esqueléticos", "Realizar pausas de trabajo y ejercicios compensatorios\nImplementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga postural debido a trabajo sentado", "Trastornos músculo-esqueléticos", "Definir zonas de descanso y contar con el personal necesario para la rotación de estos", _PROC_E),
+    ("Sobrecarga postural debido a trabajo en cuclillas.", "Trastornos músculo-esqueléticos", "Evaluación cualitativa y cuantitativa de los puestos de trabajo\nRealizar Pausas de trabajo y ejercicios compensatorios\nImplementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga postural debido a trabajo arrodillado", "Trastornos músculo-esqueléticos", "Evaluación cualitativa y cuantitativa de los puestos de trabajo\nRealizar Pausas de trabajo y ejercicios compensatorios\nImplementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga Postural debido a Tronco inclinado, en torsión o lateralización", "Trastornos músculo-esqueléticos", "Implementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga Postural debido a Tronco inclinado, en torsión o lateralización", "Tendinitis", "Realizar pausas de trabajo y ejercicios compensatorios", _PROC_E),
+    ("Sobrecarga postural por flexión o extensión de la columna cervical", "Trastornos músculo-esqueléticos", "Definir zonas de descanso y contar con el personal necesario para la rotación de estos", _PROC_E),
+    ("Sobrecarga Postural debido a trabajo fuera del alcance funcional", "Trastornos músculo-esqueléticos", "Implementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga Postural debido a trabajo fuera del alcance funcional", "Tendinitis", "Realizar pausas de trabajo y ejercicios compensatorios.\nDefinir zonas de descanso y contar con el personal necesario para la rotación de estos", _PROC_E),
+    ("Sobrecarga postural debido a actividad muscular estática", "Trastornos músculo-esqueléticos", "Implementación de Protocolo TMERT", _PROC_E),
+    ("Sobrecarga postural debido a actividad muscular estática", "Tendinitis", "Realizar pausas de trabajo y ejercicios compensatorios.\nDefinir zonas de descanso y contar con el personal necesario para la rotación de estos", _PROC_E),
+]
+
+_RIESGOS_EMERGENCIAS = [
+    ("Explosiones", "Quemaduras", "Establecer plan de emergencias y evacuación\nDefinir y dar a conocer zonas de seguridad\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Explosiones", "Herida", "Establecer plan de emergencias y evacuación\nDefinir y dar a conocer zonas de seguridad\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Explosiones", "Lesión Acústica", "Establecer plan de emergencias y evacuación\nDefinir y dar a conocer zonas de seguridad\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Incendios", "Quemaduras", "Establecer plan de emergencias y evacuación\nDefinir y dar a conocer zonas de seguridad\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas\nSistemas de extintores tanto en equipos como en espacios de trabajo\nCapacitación uso de extintores", _PROC_EM),
+    ("Incendios", "Herida", "Establecer plan de emergencias y evacuación\nDefinir y dar a conocer zonas de seguridad\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas\nSistemas de extintores tanto en equipos como en espacios de trabajo\nCapacitación uso de extintores", _PROC_EM),
+    ("Derrame hidrocarburos", "Herida", "Establecer plan de emergencias y evacuación\nBaterías de control de derrames\nPrograma de mantenciones preventivas y correctivas de equipos\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Derrame químicos (Diluyentes)", "Herida", "Establecer plan de emergencias y evacuación\nBaterías de control de derrames\nCapacitación en Procedimientos de almacenamiento de materiales\nBandejas de contención de residuos para almacenamiento de materiales\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Manejo inadecuado de residuos", "Herida", "Establecer plan de emergencias y evacuación\nBaterías de control de derrames\nProcedimiento de manejos de residuos estableciendo identificación, clasificación, segregación y eliminación\nPlan de simulacros anual\nRealizar simulacros y establecer medidas correctivas y preventivas", _PROC_EM),
+    ("Transporte inadecuado de sustancias peligrosas", "Herida", "Establecer plan de emergencias y evacuación\nBaterías de control de derrames\nHabilitación y certificación de vehículos para transporte de SUSPEL\nCapacitación en HDS de SUSPEL", _PROC_EM),
+    ("Emisiones de aire", "Herida", "Revisión técnica de equipos\nCertificación de equipos móviles\nPrograma de mantención de equipos móviles", _PROC_EM),
+]
+
+
+def _irl_risk_table(doc, categoria: str, filas: list):
+    """Agrega una tabla de riesgos al documento IRL."""
+    hdr_bg = "D9D9D9"
+    tbl = doc.add_table(rows=1 + len(filas), cols=4)
+    tbl.style = "Table Grid"
+    tbl.autofit = False
+    from docx.shared import Cm
+    widths = [Cm(3.8), Cm(2.8), Cm(6.0), Cm(5.4)]
+    for row in tbl.rows:
+        for i, cell in enumerate(row.cells):
+            cell.width = widths[i]
+
+    # Header row
+    hdr = tbl.rows[0]
+    headers = [
+        categoria,
+        "Daño Potencial",
+        "Medidas Preventivas (Eliminación;\nSustitución; Controles Ing. Y adm.; EPP",
+        "Capacitación/Procedimiento",
+    ]
+    for i, (cell, txt) in enumerate(zip(hdr.cells, headers)):
+        _set_cell_bg(cell, hdr_bg)
+        cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        p = cell.paragraphs[0]
+        p.clear()
+        run = p.add_run(txt)
+        run.bold = True
+        run.font.size = Pt(7)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Data rows
+    for r_idx, (riesgo, dano, medida, proc) in enumerate(filas):
+        row = tbl.rows[r_idx + 1]
+        for i, (cell, txt) in enumerate(zip(row.cells, [riesgo, dano, medida, proc])):
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+            p = cell.paragraphs[0]
+            p.clear()
+            run = p.add_run(txt)
+            run.font.size = Pt(7)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if i <= 1 else WD_ALIGN_PARAGRAPH.LEFT
+
+    doc.add_paragraph()
+
+
+def generar_irl_docx(
+    nombre_trabajador: str,
+    rut_trabajador: str,
+    cargo: str,
+    obra_nombre: str,
+    obra_direccion: str,
+    fecha,
+    hora_inicio: str,
+    hora_termino: str,
+    relator_nombre: str,
+    relator_cargo: str,
+    empresa=None,
+) -> bytes:
+    doc = Document()
+
+    # Márgenes
+    from docx.oxml.ns import qn as _qn
+    from docx.oxml import OxmlElement as _OE
+    sec = doc.sections[0]
+    sec.page_width  = Cm(21.59)
+    sec.page_height = Cm(27.94)
+    for attr, val in [("top","1.5cm"),("bottom","1.5cm"),("left","2cm"),("right","1.5cm")]:
+        setattr(sec, f"{attr}_margin", Cm(float(val[:-2])))
+
+    # ── Header ──
+    hdr_tbl = doc.add_table(rows=1, cols=3)
+    hdr_tbl.style = "Table Grid"
+    hdr_tbl.autofit = False
+    widths_h = [Cm(3.5), Cm(11.0), Cm(3.5)]
+    for i, cell in enumerate(hdr_tbl.rows[0].cells):
+        cell.width = widths_h[i]
+
+    # Logo
+    logo_cell = hdr_tbl.rows[0].cells[0]
+    logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    lp = logo_cell.paragraphs[0]
+    lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if os.path.exists(LOGO_PATH):
+        run = lp.add_run()
+        run.add_picture(LOGO_PATH, width=Cm(3.0))
+
+    # Título centro
+    title_cell = hdr_tbl.rows[0].cells[1]
+    title_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _set_cell_bg(title_cell, "FFFFFF")
+    for line in ["INFORMACIÓN DE RIESGOS LABORALES", "INDUCCION TRABAJADOR NUEVO", "Artículo N°15 - Decreto Supremo N°44"]:
+        p = title_cell.add_paragraph(line)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.runs[0]
+        run.bold = True
+        run.font.size = Pt(10)
+
+    # Versión
+    ver_cell = hdr_tbl.rows[0].cells[2]
+    ver_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    for line in ["Versión 0", "Agosto 2025"]:
+        p = ver_cell.add_paragraph(line)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.runs[0].font.size = Pt(8)
+
+    doc.add_paragraph()
+
+    # ── Texto legal ──
+    legal = doc.add_paragraph()
+    legal.paragraph_format.space_after = Pt(6)
+    run = legal.add_run(
+        '"La entidad empleadora deberá garantizar que cada persona trabajadora, previo al inicio de las labores, '
+        'reciba de forma oportuna y adecuada información acerca de los riesgos que entrañan sus labores, de las '
+        'medidas preventivas y los métodos o procedimientos de trabajo correctos, los riesgos son los inherentes '
+        'a la actividad de cada empresa".'
+    )
+    run.font.size = Pt(8)
+    legal.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    # ── Datos Generales ──
+    def _sec_title(txt):
+        tbl = doc.add_table(rows=1, cols=1)
+        tbl.style = "Table Grid"
+        cell = tbl.rows[0].cells[0]
+        _set_cell_bg(cell, "D9D9D9")
+        p = cell.paragraphs[0]
+        p.clear()
+        run = p.add_run(txt)
+        run.bold = True
+        run.font.size = Pt(9)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        return tbl
+
+    _sec_title("DATOS GENERALES")
+
+    dg = doc.add_table(rows=4, cols=4)
+    dg.style = "Table Grid"
+    dg.autofit = False
+    for row in dg.rows:
+        for cell in row.cells:
+            cell.width = Cm(4.5)
+
+    def _dg(row, col, label, value, bold_label=True):
+        cell = dg.rows[row].cells[col]
+        cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        p = cell.paragraphs[0]
+        p.clear()
+        r = p.add_run(label)
+        r.bold = bold_label
+        r.font.size = Pt(8)
+        if value:
+            r2 = p.add_run(f"  {value}")
+            r2.font.size = Pt(8)
+
+    # Row 0: obra span (merge cols 0-1) | dirección span (2-3)
+    dg.rows[0].cells[0].merge(dg.rows[0].cells[1])
+    dg.rows[0].cells[2].merge(dg.rows[0].cells[3])
+    _dg(0, 0, f"OBRA: {obra_nombre}", "")
+    _dg(0, 2, f"DIRECCION: {obra_direccion}", "")
+
+    _dg(1, 0, "Nombre trabajador", "")
+    dg.rows[1].cells[0].merge(dg.rows[1].cells[1])
+    c = dg.rows[1].cells[0]
+    c.paragraphs[0].clear()
+    r = c.paragraphs[0].add_run("Nombre trabajador")
+    r.bold = True; r.font.size = Pt(8)
+    r2 = c.paragraphs[0].add_run(f"  {nombre_trabajador}")
+    r2.bold = True; r2.font.size = Pt(8)
+
+    _dg(1, 2, "Rut", f"  {rut_trabajador}")
+
+    fecha_str = fecha.strftime("%d-%m-%Y") if hasattr(fecha, "strftime") else str(fecha)
+    _dg(2, 0, "Fecha", fecha_str)
+    _dg(2, 2, "Cargo/Especialidad", cargo)
+
+    _dg(3, 0, "Hora inicio", hora_inicio)
+    _dg(3, 2, "Hora término", hora_termino)
+
+    doc.add_paragraph()
+
+    # ── De la información de los riesgos laborales ──
+    _sec_title("DE LA INFORMACION DE LOS RIESGOS LABORALES")
+    items_tbl = doc.add_table(rows=len(_IRL_ITEMS), cols=1)
+    items_tbl.style = "Table Grid"
+    for i, item in enumerate(_IRL_ITEMS):
+        cell = items_tbl.rows[i].cells[0]
+        p = cell.paragraphs[0]
+        p.clear()
+        run = p.add_run(item)
+        run.font.size = Pt(8)
+
+    doc.add_paragraph()
+
+    # ── Características del lugar de trabajo ──
+    _sec_title("CARACTERISTICAS DEL LUGAR DE TRABAJO")
+
+    char_tbl = doc.add_table(rows=5, cols=2)
+    char_tbl.style = "Table Grid"
+    char_tbl.autofit = False
+    char_tbl.rows[0].cells[0].width = Cm(4)
+    char_tbl.rows[0].cells[1].width = Cm(14)
+
+    char_data = [
+        ("Equipo", "No Aplica\t\tMarca-Modelo\t\tNo Aplica"),
+        ("Espacio de Trabajo", _ESPACIO_TRABAJO),
+        ("Condiciones Ambientales del Puesto de Trabajo", _COND_AMBIENT),
+        ("Condiciones de Orden y Aseo exigidas en el Lugar de Trabajo", _COND_ORDEN),
+        ("Máquinas o herramientas que se deben emplear", "\n".join(f"☐  {m}" for m in _MAQUINAS)),
+    ]
+    for i, (label, content) in enumerate(char_data):
+        lc = char_tbl.rows[i].cells[0]
+        lc.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        p = lc.paragraphs[0]
+        p.clear()
+        run = p.add_run(label)
+        run.bold = True; run.font.size = Pt(7.5)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        cc = char_tbl.rows[i].cells[1]
+        cc.vertical_alignment = WD_ALIGN_VERTICAL.TOP
+        p2 = cc.paragraphs[0]
+        p2.clear()
+        run2 = p2.add_run(content)
+        run2.font.size = Pt(7.5)
+
+    doc.add_paragraph()
+
+    # ── Riesgos Específicos ──
+    rt = doc.add_table(rows=1, cols=1)
+    rt.style = "Table Grid"
+    _set_cell_bg(rt.rows[0].cells[0], "D9D9D9")
+    p = rt.rows[0].cells[0].paragraphs[0]
+    p.clear()
+    run = p.add_run("RIESGOS ESPECÍFICOS , DAÑO POTENCIAL , MEDIDAS DE CONTROL Y CAPACITACIÓN")
+    run.bold = True; run.font.size = Pt(9)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph()
+
+    _irl_risk_table(doc, "Riesgos Físicos", _RIESGOS_FISICOS)
+    _irl_risk_table(doc, "Riesgos Químicos", _RIESGOS_QUIMICOS)
+    _irl_risk_table(doc, "Riesgos Biológicos", _RIESGOS_BIOLOGICOS)
+    _irl_risk_table(doc, "Riesgos Psicosociales", _RIESGOS_PSICOSOCIALES)
+    _irl_risk_table(doc, "Riesgos Ergonómicos", _RIESGOS_ERGONOMICOS)
+    _irl_risk_table(doc, "Riesgos por Emergencias", _RIESGOS_EMERGENCIAS)
+
+    # ── Consentimiento del trabajador ──
+    ct = doc.add_table(rows=2, cols=3)
+    ct.style = "Table Grid"
+    ct.autofit = False
+    _set_cell_bg(ct.rows[0].cells[0], "D9D9D9")
+    ct.rows[0].cells[0].merge(ct.rows[0].cells[1])
+    ct.rows[0].cells[0].merge(ct.rows[0].cells[2])
+    p = ct.rows[0].cells[0].paragraphs[0]
+    p.clear()
+    run = p.add_run("CONSENTIMIENTO DEL TRABAJADOR")
+    run.bold = True; run.font.size = Pt(9)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Row 1: nombre | rut | firma
+    c0 = ct.rows[1].cells[0]
+    p = c0.paragraphs[0]; p.clear()
+    r = p.add_run("Nombre del Trabajador : "); r.bold = True; r.font.size = Pt(8)
+    r2 = p.add_run(nombre_trabajador); r2.font.size = Pt(8)
+
+    c1 = ct.rows[1].cells[1]
+    p = c1.paragraphs[0]; p.clear()
+    r = p.add_run("Rut: "); r.bold = True; r.font.size = Pt(8)
+    r2 = p.add_run(rut_trabajador); r2.font.size = Pt(8)
+
+    c2 = ct.rows[1].cells[2]
+    p = c2.paragraphs[0]; p.clear()
+    r = p.add_run("Firma del Trabajador"); r.bold = True; r.font.size = Pt(8)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # blank lines for signature
+    for _ in range(3):
+        c2.add_paragraph()
+
+    doc.add_paragraph()
+
+    # ── Datos Relator ──
+    dr = doc.add_table(rows=2, cols=3)
+    dr.style = "Table Grid"
+    _set_cell_bg(dr.rows[0].cells[0], "D9D9D9")
+    dr.rows[0].cells[0].merge(dr.rows[0].cells[1])
+    dr.rows[0].cells[0].merge(dr.rows[0].cells[2])
+    p = dr.rows[0].cells[0].paragraphs[0]; p.clear()
+    run = p.add_run("DATOS RELATOR"); run.bold = True; run.font.size = Pt(9)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    c0 = dr.rows[1].cells[0]
+    p = c0.paragraphs[0]; p.clear()
+    r = p.add_run("Nombre Relator : "); r.bold = True; r.font.size = Pt(8)
+    r2 = p.add_run(relator_nombre); r2.font.size = Pt(8)
+
+    c1 = dr.rows[1].cells[1]
+    p = c1.paragraphs[0]; p.clear()
+    r = p.add_run("Cargo : "); r.bold = True; r.font.size = Pt(8)
+    r2 = p.add_run(relator_cargo); r2.font.size = Pt(8)
+
+    c2 = dr.rows[1].cells[2]
+    p = c2.paragraphs[0]; p.clear()
+    r = p.add_run("Firma Relator"); r.bold = True; r.font.size = Pt(8)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for _ in range(3):
+        c2.add_paragraph()
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()
