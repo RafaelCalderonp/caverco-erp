@@ -1038,15 +1038,37 @@ _RIESGOS_EMERGENCIAS = [
 
 def _irl_risk_table(doc, categoria: str, filas: list):
     """Agrega una tabla de riesgos al documento IRL."""
+    from docx.shared import Cm
+    from docx.oxml.ns import qn as _qn3
+    from docx.oxml import OxmlElement as _OE3
     hdr_bg = "D9D9D9"
     tbl = doc.add_table(rows=1 + len(filas), cols=4)
     tbl.style = "Table Grid"
     tbl.autofit = False
-    from docx.shared import Cm
-    widths = [Cm(3.8), Cm(2.8), Cm(6.0), Cm(5.4)]
+    widths = [Cm(3.8), Cm(2.8), Cm(6.51), Cm(5.0)]  # total 18.11 ≈ 18.09
+    # fijar ancho total de tabla
+    tbl_pr = tbl._tbl.find(_qn3('w:tblPr'))
+    if tbl_pr is not None:
+        tbl_w = _OE3('w:tblW')
+        total_twips = sum(int(w.pt * 20) for w in widths)
+        tbl_w.set(_qn3('w:w'), str(total_twips))
+        tbl_w.set(_qn3('w:type'), 'dxa')
+        existing = tbl_pr.find(_qn3('w:tblW'))
+        if existing is not None:
+            tbl_pr.remove(existing)
+        tbl_pr.append(tbl_w)
     for row in tbl.rows:
         for i, cell in enumerate(row.cells):
             cell.width = widths[i]
+        # evitar corte de fila entre páginas
+        tr_pr = row._tr.find(_qn3('w:trPr'))
+        if tr_pr is None:
+            tr_pr = _OE3('w:trPr')
+            row._tr.insert(0, tr_pr)
+        cant = _OE3('w:cantSplit')
+        cant.set(_qn3('w:val'), 'true')
+        if tr_pr.find(_qn3('w:cantSplit')) is None:
+            tr_pr.append(cant)
 
     # Header row
     hdr = tbl.rows[0]
@@ -1105,12 +1127,51 @@ def generar_irl_docx(
         setattr(sec, f"{attr}_margin", Cm(float(val[:-2])))
 
     # ── Header ──
+    W = Cm(18.09)  # ancho útil = 21.59 - 2.0 - 1.5
+
+    def _fix_table(tbl, col_widths, no_split=True):
+        """Fija ancho de tabla, columnas y evita corte de filas entre páginas."""
+        from docx.oxml.ns import qn as _qn2
+        from docx.oxml import OxmlElement as _OE2
+        tbl.autofit = False
+        # ancho total de tabla
+        tbl_pr = tbl._tbl.find(_qn2('w:tblPr'))
+        if tbl_pr is None:
+            tbl_pr = _OE2('w:tblPr')
+            tbl._tbl.insert(0, tbl_pr)
+        tbl_w = _OE2('w:tblW')
+        total_twips = sum(int(w.pt * 20) for w in col_widths)
+        tbl_w.set(_qn2('w:w'), str(total_twips))
+        tbl_w.set(_qn2('w:type'), 'dxa')
+        existing = tbl_pr.find(_qn2('w:tblW'))
+        if existing is not None:
+            tbl_pr.remove(existing)
+        tbl_pr.append(tbl_w)
+        for row in tbl.rows:
+            # ancho de celdas (saltar celdas fusionadas ya visitadas)
+            used = set()
+            ci = 0
+            for cell in row.cells:
+                if id(cell._tc) in used:
+                    continue
+                used.add(id(cell._tc))
+                if ci < len(col_widths):
+                    cell.width = col_widths[ci]
+                ci += 1
+            # evitar corte de fila entre páginas
+            if no_split:
+                tr_pr = row._tr.find(_qn2('w:trPr'))
+                if tr_pr is None:
+                    tr_pr = _OE2('w:trPr')
+                    row._tr.insert(0, tr_pr)
+                cant = _OE2('w:cantSplit')
+                cant.set(_qn2('w:val'), 'true')
+                if tr_pr.find(_qn2('w:cantSplit')) is None:
+                    tr_pr.append(cant)
+
     hdr_tbl = doc.add_table(rows=1, cols=3)
     hdr_tbl.style = "Table Grid"
-    hdr_tbl.autofit = False
-    widths_h = [Cm(3.5), Cm(11.0), Cm(3.5)]
-    for i, cell in enumerate(hdr_tbl.rows[0].cells):
-        cell.width = widths_h[i]
+    _fix_table(hdr_tbl, [Cm(3.5), Cm(11.09), Cm(3.5)])
 
     # Logo
     logo_cell = hdr_tbl.rows[0].cells[0]
@@ -1139,10 +1200,9 @@ def generar_irl_docx(
         run = p.add_run(line)
         run.font.size = Pt(8)
 
-    doc.add_paragraph()
-
     # ── Texto legal ──
     legal = doc.add_paragraph()
+    legal.paragraph_format.space_before = Pt(6)
     legal.paragraph_format.space_after = Pt(6)
     run = legal.add_run(
         '"La entidad empleadora deberá garantizar que cada persona trabajadora, previo al inicio de las labores, '
@@ -1157,6 +1217,7 @@ def generar_irl_docx(
     def _sec_title(txt):
         tbl = doc.add_table(rows=1, cols=1)
         tbl.style = "Table Grid"
+        _fix_table(tbl, [W])
         cell = tbl.rows[0].cells[0]
         _set_cell_bg(cell, "D9D9D9")
         p = cell.paragraphs[0]
@@ -1171,10 +1232,7 @@ def generar_irl_docx(
 
     dg = doc.add_table(rows=4, cols=4)
     dg.style = "Table Grid"
-    dg.autofit = False
-    for row in dg.rows:
-        for cell in row.cells:
-            cell.width = Cm(4.5)
+    _fix_table(dg, [Cm(4.52)] * 4)  # 4×4.52 = 18.09
 
     def _dg(row, col, label, value, bold_label=True):
         cell = dg.rows[row].cells[col]
@@ -1212,11 +1270,10 @@ def generar_irl_docx(
     _dg(3, 0, "Hora inicio", hora_inicio)
     _dg(3, 2, "Hora término", hora_termino)
 
-    doc.add_paragraph()
-
     # ── De la información de los riesgos laborales ──
     _sec_title("DE LA INFORMACION DE LOS RIESGOS LABORALES")
     items_tbl = doc.add_table(rows=len(_IRL_ITEMS), cols=1)
+    _fix_table(items_tbl, [W])
     items_tbl.style = "Table Grid"
     for i, item in enumerate(_IRL_ITEMS):
         cell = items_tbl.rows[i].cells[0]
@@ -1225,16 +1282,12 @@ def generar_irl_docx(
         run = p.add_run(item)
         run.font.size = Pt(8)
 
-    doc.add_paragraph()
-
     # ── Características del lugar de trabajo ──
     _sec_title("CARACTERISTICAS DEL LUGAR DE TRABAJO")
 
     char_tbl = doc.add_table(rows=5, cols=2)
     char_tbl.style = "Table Grid"
-    char_tbl.autofit = False
-    char_tbl.rows[0].cells[0].width = Cm(4)
-    char_tbl.rows[0].cells[1].width = Cm(14)
+    _fix_table(char_tbl, [Cm(4.5), Cm(13.59)])
 
     char_data = [
         ("Equipo", "No Aplica\t\tMarca-Modelo\t\tNo Aplica"),
@@ -1259,18 +1312,16 @@ def generar_irl_docx(
         run2 = p2.add_run(content)
         run2.font.size = Pt(7.5)
 
-    doc.add_paragraph()
-
     # ── Riesgos Específicos ──
     rt = doc.add_table(rows=1, cols=1)
     rt.style = "Table Grid"
+    _fix_table(rt, [W])
     _set_cell_bg(rt.rows[0].cells[0], "D9D9D9")
     p = rt.rows[0].cells[0].paragraphs[0]
     p.clear()
     run = p.add_run("RIESGOS ESPECÍFICOS , DAÑO POTENCIAL , MEDIDAS DE CONTROL Y CAPACITACIÓN")
     run.bold = True; run.font.size = Pt(9)
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph()
 
     _irl_risk_table(doc, "Riesgos Físicos", _RIESGOS_FISICOS)
     _irl_risk_table(doc, "Riesgos Químicos", _RIESGOS_QUIMICOS)
@@ -1282,7 +1333,7 @@ def generar_irl_docx(
     # ── Consentimiento del trabajador ──
     ct = doc.add_table(rows=2, cols=3)
     ct.style = "Table Grid"
-    ct.autofit = False
+    _fix_table(ct, [Cm(7.0), Cm(5.0), Cm(6.09)])
     _set_cell_bg(ct.rows[0].cells[0], "D9D9D9")
     ct.rows[0].cells[0].merge(ct.rows[0].cells[1])
     ct.rows[0].cells[0].merge(ct.rows[0].cells[2])
@@ -1311,11 +1362,10 @@ def generar_irl_docx(
     for _ in range(3):
         c2.add_paragraph()
 
-    doc.add_paragraph()
-
     # ── Datos Relator ──
     dr = doc.add_table(rows=2, cols=3)
     dr.style = "Table Grid"
+    _fix_table(dr, [Cm(7.0), Cm(5.0), Cm(6.09)])
     _set_cell_bg(dr.rows[0].cells[0], "D9D9D9")
     dr.rows[0].cells[0].merge(dr.rows[0].cells[1])
     dr.rows[0].cells[0].merge(dr.rows[0].cells[2])
