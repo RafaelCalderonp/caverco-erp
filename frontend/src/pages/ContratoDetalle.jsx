@@ -155,6 +155,7 @@ export default function ContratoDetalle() {
   })
   const [despidoGuardado, setDespidoGuardado] = useState(() => !!localStorage.getItem(`despido_${id}`))
   const [despidoExpandido, setDespidoExpandido] = useState(() => !localStorage.getItem(`despido_${id}`))
+  const [amonExpandido, setAmonExpandido] = useState(false)
 
   function guardarDespido() {
     localStorage.setItem(DESPIDO_KEY, JSON.stringify(formDespido))
@@ -1134,9 +1135,15 @@ export default function ContratoDetalle() {
 
       {/* ── Carta de Amonestación ── */}
       <div className="card mt-4">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: amonExpandido ? 12 : 0}}>
           <h3 style={{fontWeight:600}}>Carta de Amonestación</h3>
+          <button className="btn btn-outline btn-sm"
+            onClick={() => setAmonExpandido(v => !v)}
+            style={{fontSize:12}}>
+            {amonExpandido ? '▲ Contraer' : '▼ Expandir'}
+          </button>
         </div>
+        {amonExpandido && <>
         <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
           Genera una carta de amonestación escrita con los datos del trabajador. Motivos aceptados por la Dirección del Trabajo.
         </p>
@@ -1164,6 +1171,7 @@ export default function ContratoDetalle() {
         <button className="btn btn-outline btn-sm" onClick={descargarAmonestacion} disabled={descargandoAmon}>
           {descargandoAmon ? '...' : '📄 Generar Word'}
         </button>
+        </>}
       </div>
 
       {/* ── Carta de Despido ── */}
