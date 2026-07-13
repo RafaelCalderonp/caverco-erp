@@ -232,6 +232,14 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
             ". Las partes pueden ponerle término, además de común acuerdo, en la forma, las condiciones y "
             "las causales que señalan los artículos 159, 160 y 161 del Código del Trabajo.",
         ])
+    elif tipo_contrato_codigo == "POR_OBRA" and obra:
+        _parrafo(doc, [
+            ("QUINTO: ", True),
+            "El presente contrato tendrá una duración determinada hasta el término de la obra ",
+            (obra.nombre or "", True),
+            ". Las partes pueden ponerle término, además de común acuerdo; y una de ellas, en la forma, "
+            "las condiciones y las causales que señalan los artículos 159, 160 y 161 del Código del Trabajo.",
+        ])
     else:
         _parrafo(doc, [
             ("QUINTO: ", True),
