@@ -153,6 +153,7 @@ class EmpleadoBase(BaseModel):
     email_corporativo: Optional[str] = None
     id_departamento: Optional[int] = None
     id_cargo: Optional[int] = None
+    id_centro_costo: Optional[int] = None
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
     id_afp: Optional[int] = None
@@ -171,11 +172,16 @@ class EmpleadoUpdate(BaseModel):
     nombres: Optional[str] = None
     apellido_paterno: Optional[str] = None
     apellido_materno: Optional[str] = None
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    ciudad: Optional[str] = None
     region: Optional[str] = None
     telefono: Optional[str] = None
+    email_personal: Optional[str] = None
     email_corporativo: Optional[str] = None
     id_departamento: Optional[int] = None
     id_cargo: Optional[int] = None
+    id_centro_costo: Optional[int] = None
     sueldo_base: Optional[Decimal] = None
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
@@ -196,6 +202,7 @@ class EmpleadoOut(EmpleadoBase):
     created_at: datetime
     departamento: Optional[DepartamentoOut] = None
     cargo: Optional[CargoOut] = None
+    centro_costo: Optional[CentroCostoOut] = None
     model_config = {"from_attributes": True}
 
 class EmpleadoListOut(BaseModel):
@@ -263,6 +270,9 @@ class EmpleadoMiniOut(BaseModel):
     cargo_nombre: Optional[str] = None
     id_empresa: Optional[int] = None
     id_afp: Optional[int] = None
+    telefono: Optional[str] = None
+    email_corporativo: Optional[str] = None
+    email_personal: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { empleadosApi, catalogosApi } from '../services/api'
+import { empleadosApi, catalogosApi, departamentosApi } from '../services/api'
 import { formatearRut } from '../utils/rut'
 
 export default function EmpleadoDetalle() {
@@ -13,6 +13,9 @@ export default function EmpleadoDetalle() {
   const [errorCarga, setErrorCarga] = useState('')
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
+  const [departamentos, setDepartamentos] = useState([])
+  const [cargos, setCargos] = useState([])
+  const [centrosCosto, setCentrosCosto] = useState([])
 
   const cargar = () => {
     setErrorCarga('')
@@ -24,6 +27,9 @@ export default function EmpleadoDetalle() {
     cargar()
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
     catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
+    catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
+    catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
+    departamentosApi.list().then(r => setDepartamentos(r.data)).catch(() => {})
   }, [id])
 
   if (errorCarga) return (
@@ -50,6 +56,14 @@ export default function EmpleadoDetalle() {
       apellido_materno: emp.apellido_materno || '',
       telefono: emp.telefono || '',
       email_corporativo: emp.email_corporativo || '',
+      email_personal: emp.email_personal || '',
+      direccion: emp.direccion || '',
+      comuna: emp.comuna || '',
+      ciudad: emp.ciudad || '',
+      id_departamento: emp.id_departamento || '',
+      id_cargo: emp.id_cargo || '',
+      id_centro_costo: emp.id_centro_costo || '',
+      sueldo_base: emp.sueldo_base || '',
       id_afp: emp.id_afp || '',
       id_isapre: emp.id_isapre || '',
       valor_isapre_uf: emp.valor_isapre_uf || '',
@@ -61,7 +75,13 @@ export default function EmpleadoDetalle() {
   const guardar = async () => {
     setGuardando(true); setError('')
     try {
-      const payload = { ...form }
+      const payload = {
+        ...form,
+        id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
+        id_cargo: form.id_cargo ? Number(form.id_cargo) : null,
+        id_centro_costo: form.id_centro_costo ? Number(form.id_centro_costo) : null,
+        sueldo_base: form.sueldo_base ? Number(form.sueldo_base) : null,
+      }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
       if (!payload.valor_isapre_uf) delete payload.valor_isapre_uf
@@ -102,6 +122,11 @@ export default function EmpleadoDetalle() {
               <span style={{fontSize:11,color:'var(--gray-500)'}}>El RUT no se puede modificar</span>
             </div>
             <div className="form-group">
+              <label className="form-label">Código</label>
+              <input className="input" value={emp.codigo || ''} disabled />
+              <span style={{fontSize:11,color:'var(--gray-500)'}}>El código se asigna automáticamente</span>
+            </div>
+            <div className="form-group">
               <label className="form-label">Nombres</label>
               <input className="input" value={form.nombres} onChange={e => setForm(f => ({ ...f, nombres: e.target.value }))} />
             </div>
@@ -120,6 +145,51 @@ export default function EmpleadoDetalle() {
             <div className="form-group">
               <label className="form-label">Email Corporativo</label>
               <input className="input" type="email" value={form.email_corporativo} onChange={e => setForm(f => ({ ...f, email_corporativo: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email Personal</label>
+              <input className="input" type="email" value={form.email_personal} onChange={e => setForm(f => ({ ...f, email_personal: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Dirección</label>
+              <input className="input" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Comuna</label>
+              <input className="input" value={form.comuna} onChange={e => setForm(f => ({ ...f, comuna: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Ciudad</label>
+              <input className="input" value={form.ciudad} onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
+            </div>
+          </div>
+
+          <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Datos Laborales</h4>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16}}>
+            <div className="form-group">
+              <label className="form-label">Departamento</label>
+              <select className="input" value={form.id_departamento} onChange={e => setForm(f => ({ ...f, id_departamento: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Cargo</label>
+              <select className="input" value={form.id_cargo} onChange={e => setForm(f => ({ ...f, id_cargo: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Centro de Costo</label>
+              <select className="input" value={form.id_centro_costo} onChange={e => setForm(f => ({ ...f, id_centro_costo: e.target.value }))}>
+                <option value="">Sin asignar</option>
+                {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Sueldo Base</label>
+              <input className="input" type="number" value={form.sueldo_base} onChange={e => setForm(f => ({ ...f, sueldo_base: e.target.value }))} />
             </div>
           </div>
 
@@ -160,8 +230,9 @@ export default function EmpleadoDetalle() {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos Personales</h3>
-          {[['RUT', formatearRut(emp.rut)],['Email Corporativo', emp.email_corporativo],
-            ['Teléfono', emp.telefono],['Dirección', emp.direccion],['Ciudad', emp.ciudad]].map(([k,v]) => (
+          {[['RUT', formatearRut(emp.rut)],['Código', emp.codigo],
+            ['Email Corporativo', emp.email_corporativo],['Email Personal', emp.email_personal],
+            ['Teléfono', emp.telefono],['Dirección', emp.direccion],['Comuna', emp.comuna],['Ciudad', emp.ciudad]].map(([k,v]) => (
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--gray-100)'}}>
               <span className="text-muted">{k}</span><span style={{fontWeight:500}}>{v || '—'}</span>
             </div>
@@ -171,7 +242,9 @@ export default function EmpleadoDetalle() {
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Información Laboral y Previsión</h3>
           {[
+            ['Departamento', emp.departamento?.nombre],
             ['Cargo', emp.cargo?.nombre],
+            ['Centro de Costo', emp.centro_costo ? `${emp.centro_costo.codigo} — ${emp.centro_costo.nombre}` : null],
             ['Fecha Ingreso', emp.fecha_ingreso],
             ['Sueldo Base', fmt(emp.sueldo_base)],
             ['AFP', afpNombre(emp.id_afp)],

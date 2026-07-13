@@ -148,6 +148,7 @@ class Empleado(Base):
 
     departamento     = relationship("Departamento", back_populates="empleados")
     cargo             = relationship("Cargo", back_populates="empleados")
+    centro_costo      = relationship("CentroCosto")
     contratos         = relationship("Contrato", back_populates="empleado")
     licencias         = relationship("Licencia", back_populates="empleado", foreign_keys="Licencia.id_empleado")
     afp_rel           = relationship("AFP")

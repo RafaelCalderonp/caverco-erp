@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi } from '../services/api'
+import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi, empleadosApi } from '../services/api'
 
 function nombreDesdeHeader(disposition, fallback) {
   // RFC 5987: filename*=UTF-8''nombre%20codificado.docx
@@ -35,6 +35,26 @@ function calcularFechaTermino(fechaInicioStr, dias) {
   return fecha.toISOString().slice(0, 10)
 }
 
+const PLAZOS_PRESET = [30, 60, 90, 120]
+
+function inferirPlazoDias(fechaInicio, fechaTerminoPactada) {
+  if (!fechaInicio || !fechaTerminoPactada) return ''
+  for (const dias of PLAZOS_PRESET) {
+    if (calcularFechaTermino(fechaInicio, dias) === fechaTerminoPactada) return String(dias)
+  }
+  const a = new Date(fechaInicio + 'T00:00:00')
+  const b = new Date(fechaTerminoPactada + 'T00:00:00')
+  const dias = Math.round((b - a) / 86400000)
+  return dias > 0 ? String(dias) : ''
+}
+
+const PASOS_EDICION_CONTRATO = [
+  { num: 1, label: 'Datos del Contrato',       icon: '📄' },
+  { num: 2, label: 'Remuneración y Jornada',   icon: '💰' },
+  { num: 3, label: 'Asignación',               icon: '📍' },
+  { num: 4, label: 'Término',                  icon: '🏁' },
+]
+
 export default function ContratoDetalle() {
   const { id } = useParams()
   const [contrato, setContrato] = useState(null)
@@ -51,6 +71,7 @@ export default function ContratoDetalle() {
   const [topeGratifMensual, setTopeGratifMensual] = useState(213354)
 
   const [editando, setEditando] = useState(false)
+  const [pasoEdicion, setPasoEdicion] = useState(1)
   const [formContrato, setFormContrato] = useState(null)
   const [guardandoContrato, setGuardandoContrato] = useState(false)
   const [errorContrato, setErrorContrato] = useState('')
@@ -266,7 +287,9 @@ export default function ContratoDetalle() {
     setFormContrato({
       numero_contrato: contrato.numero_contrato || '',
       id_tipo_contrato: contrato.id_tipo_contrato || '',
-      plazo_dias: '30',
+      plazo_dias: inferirPlazoDias(contrato.fecha_inicio, contrato.fecha_termino_pactada),
+      telefono: contrato.empleado?.telefono || '',
+      email_corporativo: contrato.empleado?.email_corporativo || '',
       fecha_contrato: contrato.fecha_contrato || '',
       fecha_inicio: contrato.fecha_inicio || '',
       fecha_termino_pactada: contrato.fecha_termino_pactada || '',
@@ -284,13 +307,14 @@ export default function ContratoDetalle() {
       id_cargo: contrato.id_cargo || '',
     })
     setErrorContrato('')
+    setPasoEdicion(1)
     setEditando(true)
   }
 
   const guardarContrato = async () => {
     setGuardandoContrato(true); setErrorContrato('')
     try {
-      const { plazo_dias, ...formSinPlazo } = formContrato
+      const { plazo_dias, telefono, email_corporativo, ...formSinPlazo } = formContrato
       await contratosApi.update(id, {
         ...formSinPlazo,
         id_tipo_contrato: formContrato.id_tipo_contrato ? Number(formContrato.id_tipo_contrato) : null,
@@ -308,6 +332,9 @@ export default function ContratoDetalle() {
         id_centro_costo: formContrato.id_centro_costo ? Number(formContrato.id_centro_costo) : null,
         id_cargo: formContrato.id_cargo ? Number(formContrato.id_cargo) : null,
       })
+      if (contrato.id_empleado) {
+        await empleadosApi.update(contrato.id_empleado, { telefono, email_corporativo })
+      }
       setEditando(false)
       cargar()
     } catch (err) {
@@ -665,142 +692,198 @@ export default function ContratoDetalle() {
               {errorContrato}
             </div>
           )}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:10}}>
+
+          <h4 style={{marginBottom:10, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Contacto del Trabajador</h4>
+          <div className="form-grid" style={{marginBottom:16}}>
             <div className="form-group">
-              <label className="form-label">N° de Contrato</label>
-              <input className="input" value={formContrato.numero_contrato}
-                onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
+              <label className="form-label">Teléfono</label>
+              <input className="input" value={formContrato.telefono}
+                onChange={e => setFormContrato(f => ({ ...f, telefono: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label className="form-label">Tipo de Contrato</label>
-              <select className="select" value={formContrato.id_tipo_contrato}
-                onChange={e => setFormContrato(f => ({ ...f, id_tipo_contrato: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-            </div>
-            {esPlazoFijo && (
-              <div className="form-group">
-                <label className="form-label">Plazo</label>
-                <select className="select" value={formContrato.plazo_dias || '30'}
-                  onChange={e => {
-                    const dias = e.target.value
-                    setFormContrato(f => {
-                      const next = { ...f, plazo_dias: dias }
-                      if (dias && f.fecha_inicio) next.fecha_termino_pactada = calcularFechaTermino(f.fecha_inicio, dias)
-                      return next
-                    })
-                  }}>
-                  <option value="30">30 días</option>
-                  <option value="60">60 días</option>
-                  <option value="90">90 días</option>
-                  <option value="120">120 días</option>
-                </select>
-              </div>
-            )}
-            <div className="form-group">
-              <label className="form-label">Sueldo Bruto</label>
-              <input className="input" type="number" value={formContrato.sueldo_bruto}
-                onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Colación ($ mensual)</label>
-              <input className="input" type="number" value={formContrato.colacion}
-                onChange={e => setFormContrato(f => ({ ...f, colacion: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Movilización ($ mensual)</label>
-              <input className="input" type="number" value={formContrato.movilizacion}
-                onChange={e => setFormContrato(f => ({ ...f, movilizacion: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Horas Semanales</label>
-              <input className="input" type="number" value={formContrato.horas_semanales}
-                onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Jornada</label>
-              <select className="select" value={formContrato.jornada}
-                onChange={e => setFormContrato(f => ({ ...f, jornada: e.target.value }))}>
-                <option value="Completa">Completa</option>
-                <option value="Parcial">Parcial</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha Contrato</label>
-              <input className="input" type="date" value={formContrato.fecha_contrato}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_contrato: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha Inicio</label>
-              <input className="input" type="date" value={formContrato.fecha_inicio}
-                onChange={e => {
-                  const fechaInicio = e.target.value
-                  setFormContrato(f => {
-                    const next = { ...f, fecha_inicio: fechaInicio }
-                    if (esPlazoFijo && f.plazo_dias && fechaInicio) next.fecha_termino_pactada = calcularFechaTermino(fechaInicio, f.plazo_dias)
-                    return next
-                  })
-                }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Obra</label>
-              <select className="select" value={formContrato.id_obra}
-                onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Centro de Costo</label>
-              <select className="select" value={formContrato.id_centro_costo}
-                onChange={e => setFormContrato(f => ({ ...f, id_centro_costo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Cargo</label>
-              <select className="select" value={formContrato.id_cargo}
-                onChange={e => setFormContrato(f => ({ ...f, id_cargo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group span2">
-              <label className="form-label">Detalle de Horario</label>
-              <textarea className="input" rows={2} value={formContrato.horario_detalle}
-                onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha Término Pactada</label>
-              <input className="input" type="date" value={formContrato.fecha_termino_pactada}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha Término Real</label>
-              <input className="input" type="date" value={formContrato.fecha_termino_real}
-                onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Motivo Término</label>
-              <select className="select" value={formContrato.id_motivo_termino}
-                onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Aviso Previo (fecha)</label>
-              <input className="input" type="date" value={formContrato.aviso_previo_fecha}
-                onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
+              <label className="form-label">Correo</label>
+              <input className="input" type="email" value={formContrato.email_corporativo}
+                onChange={e => setFormContrato(f => ({ ...f, email_corporativo: e.target.value }))} />
             </div>
           </div>
-          <div style={{display:'flex', gap:8}}>
-            <button className="btn btn-primary btn-sm" onClick={guardarContrato} disabled={guardandoContrato}>
-              {guardandoContrato ? 'Guardando…' : 'Guardar Cambios'}
-            </button>
-            <button className="btn btn-outline btn-sm" onClick={() => setEditando(false)}>Cancelar</button>
+
+          <div className="wizard-steps">
+            {PASOS_EDICION_CONTRATO.map(p => (
+              <div key={p.num} className={`wizard-step${pasoEdicion===p.num?' active':pasoEdicion>p.num?' done':''}`}>
+                <div className="step-num">{pasoEdicion > p.num ? '✓' : p.num}</div>
+                <span>{p.icon} {p.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="wizard-body">
+            {pasoEdicion === 1 && (
+              <div className="form-grid" style={{marginBottom:10}}>
+                <div className="form-group">
+                  <label className="form-label">N° de Contrato</label>
+                  <input className="input" value={formContrato.numero_contrato}
+                    onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Tipo de Contrato</label>
+                  <select className="select" value={formContrato.id_tipo_contrato}
+                    onChange={e => setFormContrato(f => ({ ...f, id_tipo_contrato: e.target.value }))}>
+                    <option value="">Sin asignar</option>
+                    {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                </div>
+                {esPlazoFijo && (
+                  <div className="form-group">
+                    <label className="form-label">Plazo</label>
+                    <select className="select" value={formContrato.plazo_dias}
+                      onChange={e => {
+                        const dias = e.target.value
+                        setFormContrato(f => {
+                          const next = { ...f, plazo_dias: dias }
+                          if (dias && f.fecha_inicio) next.fecha_termino_pactada = calcularFechaTermino(f.fecha_inicio, dias)
+                          return next
+                        })
+                      }}>
+                      <option value="">Seleccionar…</option>
+                      {[...new Set([...PLAZOS_PRESET, Number(formContrato.plazo_dias) || null].filter(Boolean))]
+                        .sort((a, b) => a - b)
+                        .map(d => <option key={d} value={d}>{d} días</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Fecha Contrato</label>
+                  <input className="input" type="date" value={formContrato.fecha_contrato}
+                    onChange={e => setFormContrato(f => ({ ...f, fecha_contrato: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha Inicio</label>
+                  <input className="input" type="date" value={formContrato.fecha_inicio}
+                    onChange={e => {
+                      const fechaInicio = e.target.value
+                      setFormContrato(f => {
+                        const next = { ...f, fecha_inicio: fechaInicio }
+                        if (esPlazoFijo && f.plazo_dias && fechaInicio) next.fecha_termino_pactada = calcularFechaTermino(fechaInicio, f.plazo_dias)
+                        return next
+                      })
+                    }} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha Término Pactada</label>
+                  <input className="input" type="date" value={formContrato.fecha_termino_pactada}
+                    onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {pasoEdicion === 2 && (
+              <div className="form-grid" style={{marginBottom:10}}>
+                <div className="form-group">
+                  <label className="form-label">Sueldo Bruto</label>
+                  <input className="input" type="number" value={formContrato.sueldo_bruto}
+                    onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Colación ($ mensual)</label>
+                  <input className="input" type="number" value={formContrato.colacion}
+                    onChange={e => setFormContrato(f => ({ ...f, colacion: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Movilización ($ mensual)</label>
+                  <input className="input" type="number" value={formContrato.movilizacion}
+                    onChange={e => setFormContrato(f => ({ ...f, movilizacion: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Horas Semanales</label>
+                  <input className="input" type="number" value={formContrato.horas_semanales}
+                    onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Jornada</label>
+                  <select className="select" value={formContrato.jornada}
+                    onChange={e => setFormContrato(f => ({ ...f, jornada: e.target.value }))}>
+                    <option value="Completa">Completa</option>
+                    <option value="Parcial">Parcial</option>
+                  </select>
+                </div>
+                <div className="form-group span2">
+                  <label className="form-label">Detalle de Horario</label>
+                  <textarea className="input" rows={2} value={formContrato.horario_detalle}
+                    onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {pasoEdicion === 3 && (
+              <div className="form-grid" style={{marginBottom:10}}>
+                <div className="form-group">
+                  <label className="form-label">Obra</label>
+                  <select className="select" value={formContrato.id_obra}
+                    onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
+                    <option value="">Sin asignar</option>
+                    {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Centro de Costo</label>
+                  <select className="select" value={formContrato.id_centro_costo}
+                    onChange={e => setFormContrato(f => ({ ...f, id_centro_costo: e.target.value }))}>
+                    <option value="">Sin asignar</option>
+                    {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cargo</label>
+                  <select className="select" value={formContrato.id_cargo}
+                    onChange={e => setFormContrato(f => ({ ...f, id_cargo: e.target.value }))}>
+                    <option value="">Sin asignar</option>
+                    {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {pasoEdicion === 4 && (
+              <div className="form-grid" style={{marginBottom:10}}>
+                <div className="form-group">
+                  <label className="form-label">Fecha Término Real</label>
+                  <input className="input" type="date" value={formContrato.fecha_termino_real}
+                    onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Motivo Término</label>
+                  <select className="select" value={formContrato.id_motivo_termino}
+                    onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
+                    <option value="">Sin asignar</option>
+                    {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Aviso Previo (fecha)</label>
+                  <input className="input" type="date" value={formContrato.aviso_previo_fecha}
+                    onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="wizard-footer">
+            <div>
+              {pasoEdicion > 1 && (
+                <button className="btn btn-outline btn-sm" onClick={() => setPasoEdicion(p => p - 1)}>← Anterior</button>
+              )}
+            </div>
+            <div style={{fontSize:12, color:'var(--gray-500)'}}>Paso {pasoEdicion} de {PASOS_EDICION_CONTRATO.length}</div>
+            <div style={{display:'flex', gap:8}}>
+              <button className="btn btn-outline btn-sm" onClick={() => setEditando(false)}>Cancelar</button>
+              {pasoEdicion < PASOS_EDICION_CONTRATO.length ? (
+                <button className="btn btn-primary btn-sm" onClick={() => setPasoEdicion(p => p + 1)}>Siguiente →</button>
+              ) : (
+                <button className="btn btn-primary btn-sm" onClick={guardarContrato} disabled={guardandoContrato}>
+                  {guardandoContrato ? 'Guardando…' : 'Guardar Cambios'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -808,6 +891,8 @@ export default function ContratoDetalle() {
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
           {[['Empleado', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
+            ['Teléfono', contrato.empleado?.telefono],
+            ['Correo', contrato.empleado?.email_corporativo],
             ['Tipo de Contrato', tiposContrato.find(t => t.id === contrato.id_tipo_contrato)?.nombre || (contrato.id_tipo_contrato ? `#${contrato.id_tipo_contrato}` : '—')],
             ['Fecha Contrato', contrato.fecha_contrato],
             ['Fecha Inicio', contrato.fecha_inicio],
