@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi, empleadosApi } from '../services/api'
+import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
+import { formatearRut } from '../utils/rut'
+
+function Campo({ label, children, span2 }) {
+  return (
+    <div className={`form-group${span2 ? ' span2' : ''}`}>
+      <label className="form-label">{label}</label>
+      {children}
+    </div>
+  )
+}
 
 function nombreDesdeHeader(disposition, fallback) {
   // RFC 5987: filename*=UTF-8''nombre%20codificado.docx
@@ -49,10 +60,9 @@ function inferirPlazoDias(fechaInicio, fechaTerminoPactada) {
 }
 
 const PASOS_EDICION_CONTRATO = [
-  { num: 1, label: 'Datos del Contrato',       icon: '📄' },
-  { num: 2, label: 'Remuneración y Jornada',   icon: '💰' },
-  { num: 3, label: 'Asignación',               icon: '📍' },
-  { num: 4, label: 'Término',                  icon: '🏁' },
+  { num: 1, label: 'Datos del Trabajador', icon: '👤' },
+  { num: 2, label: 'Datos del Contrato',   icon: '📄' },
+  { num: 3, label: 'Previsión Social',     icon: '🏦' },
 ]
 
 export default function ContratoDetalle() {
@@ -68,12 +78,14 @@ export default function ContratoDetalle() {
   const [tiposContrato, setTiposContrato] = useState([])
   const [motivosTermino, setMotivosTermino] = useState([])
   const [afps, setAfps] = useState([])
+  const [isapres, setIsapres] = useState([])
   const [topeGratifMensual, setTopeGratifMensual] = useState(213354)
 
   const [editando, setEditando] = useState(false)
   const [pasoEdicion, setPasoEdicion] = useState(1)
   const [formContrato, setFormContrato] = useState(null)
   const [guardandoContrato, setGuardandoContrato] = useState(false)
+  const [cargandoEdicion, setCargandoEdicion] = useState(false)
   const [errorContrato, setErrorContrato] = useState('')
   const [mostrarFormAnexo, setMostrarFormAnexo] = useState(false)
   const [formAnexo, setFormAnexo] = useState({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
@@ -272,6 +284,7 @@ export default function ContratoDetalle() {
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
     catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
+    catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
     // Tope gratificación mensual del período actual (Art. 50 CT)
     const periodo = new Date().toISOString().slice(0, 7)
     liquidacionesApi.indicadores(periodo)
@@ -283,58 +296,113 @@ export default function ContratoDetalle() {
   const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
   const yaProrrogado = anexos.some(a => tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo === 'PRORROGA_PLAZO')
 
-  const abrirEdicion = () => {
-    setFormContrato({
-      numero_contrato: contrato.numero_contrato || '',
-      id_tipo_contrato: contrato.id_tipo_contrato || '',
-      plazo_dias: inferirPlazoDias(contrato.fecha_inicio, contrato.fecha_termino_pactada),
-      telefono: contrato.empleado?.telefono || '',
-      email_corporativo: contrato.empleado?.email_corporativo || '',
-      fecha_contrato: contrato.fecha_contrato || '',
-      fecha_inicio: contrato.fecha_inicio || '',
-      fecha_termino_pactada: contrato.fecha_termino_pactada || '',
-      fecha_termino_real: contrato.fecha_termino_real || '',
-      id_motivo_termino: contrato.id_motivo_termino || '',
-      aviso_previo_fecha: contrato.aviso_previo_fecha || '',
-      sueldo_bruto: contrato.sueldo_bruto || '',
-      colacion: contrato.colacion || 0,
-      movilizacion: contrato.movilizacion || 0,
-      horas_semanales: contrato.horas_semanales || 42,
-      jornada: contrato.jornada || 'Completa',
-      horario_detalle: contrato.horario_detalle || '',
-      id_obra: contrato.id_obra || '',
-      id_centro_costo: contrato.id_centro_costo || '',
-      id_cargo: contrato.id_cargo || '',
-    })
+  const abrirEdicion = async () => {
     setErrorContrato('')
-    setPasoEdicion(1)
-    setEditando(true)
+    setCargandoEdicion(true)
+    try {
+      const r = await empleadosApi.get(contrato.id_empleado)
+      const emp = r.data
+      setFormContrato({
+        // ── Datos del Trabajador ──
+        rut: emp.rut || '',
+        nombres: emp.nombres || '',
+        apellido_paterno: emp.apellido_paterno || '',
+        apellido_materno: emp.apellido_materno || '',
+        fecha_nacimiento: emp.fecha_nacimiento || '',
+        genero: emp.genero || '',
+        estado_civil: emp.estado_civil || '',
+        nacionalidad: emp.nacionalidad || 'Chilena',
+        telefono: emp.telefono || '',
+        email_personal: emp.email_personal || '',
+        email_corporativo: emp.email_corporativo || '',
+        direccion: emp.direccion || '',
+        region: emp.region || '',
+        comuna: emp.comuna || '',
+        // ── Datos del Contrato ──
+        numero_contrato: contrato.numero_contrato || '',
+        id_tipo_contrato: contrato.id_tipo_contrato || '',
+        plazo_dias: inferirPlazoDias(contrato.fecha_inicio, contrato.fecha_termino_pactada),
+        fecha_contrato: contrato.fecha_contrato || '',
+        fecha_inicio: contrato.fecha_inicio || '',
+        fecha_termino_pactada: contrato.fecha_termino_pactada || '',
+        fecha_termino_real: contrato.fecha_termino_real || '',
+        id_motivo_termino: contrato.id_motivo_termino || '',
+        aviso_previo_fecha: contrato.aviso_previo_fecha || '',
+        sueldo_bruto: contrato.sueldo_bruto || '',
+        colacion: contrato.colacion || 0,
+        movilizacion: contrato.movilizacion || 0,
+        horas_semanales: contrato.horas_semanales || 42,
+        jornada: contrato.jornada || 'Completa',
+        horario_detalle: contrato.horario_detalle || '',
+        id_obra: contrato.id_obra || '',
+        id_centro_costo: contrato.id_centro_costo || '',
+        id_cargo: contrato.id_cargo || '',
+        // ── Previsión Social ──
+        id_afp: emp.id_afp || '',
+        id_isapre: emp.id_isapre || '',
+        valor_isapre_uf: emp.valor_isapre_uf || '',
+        n_cargas: emp.n_cargas ?? 0,
+        banco: emp.banco || '',
+        tipo_cuenta: emp.tipo_cuenta || '',
+        numero_cuenta: emp.numero_cuenta || '',
+      })
+      setPasoEdicion(1)
+      setEditando(true)
+    } catch (err) {
+      setErrorContrato('No se pudieron cargar los datos del trabajador')
+    } finally { setCargandoEdicion(false) }
   }
 
   const guardarContrato = async () => {
     setGuardandoContrato(true); setErrorContrato('')
     try {
-      const { plazo_dias, telefono, email_corporativo, ...formSinPlazo } = formContrato
-      await contratosApi.update(id, {
-        ...formSinPlazo,
-        id_tipo_contrato: formContrato.id_tipo_contrato ? Number(formContrato.id_tipo_contrato) : null,
-        fecha_contrato: formContrato.fecha_contrato || null,
-        fecha_inicio: formContrato.fecha_inicio || null,
-        fecha_termino_pactada: formContrato.fecha_termino_pactada || null,
-        fecha_termino_real: formContrato.fecha_termino_real || null,
-        id_motivo_termino: formContrato.id_motivo_termino ? Number(formContrato.id_motivo_termino) : null,
-        aviso_previo_fecha: formContrato.aviso_previo_fecha || null,
-        sueldo_bruto: Number(formContrato.sueldo_bruto),
-        colacion: Number(formContrato.colacion) || 0,
-        movilizacion: Number(formContrato.movilizacion) || 0,
-        horas_semanales: Number(formContrato.horas_semanales),
-        id_obra: formContrato.id_obra ? Number(formContrato.id_obra) : null,
-        id_centro_costo: formContrato.id_centro_costo ? Number(formContrato.id_centro_costo) : null,
-        id_cargo: formContrato.id_cargo ? Number(formContrato.id_cargo) : null,
-      })
-      if (contrato.id_empleado) {
-        await empleadosApi.update(contrato.id_empleado, { telefono, email_corporativo })
-      }
+      const f = formContrato
+      await Promise.all([
+        contratosApi.update(id, {
+          numero_contrato: f.numero_contrato || null,
+          id_tipo_contrato: f.id_tipo_contrato ? Number(f.id_tipo_contrato) : null,
+          fecha_contrato: f.fecha_contrato || null,
+          fecha_inicio: f.fecha_inicio || null,
+          fecha_termino_pactada: f.fecha_termino_pactada || null,
+          fecha_termino_real: f.fecha_termino_real || null,
+          id_motivo_termino: f.id_motivo_termino ? Number(f.id_motivo_termino) : null,
+          aviso_previo_fecha: f.aviso_previo_fecha || null,
+          sueldo_bruto: Number(f.sueldo_bruto),
+          colacion: Number(f.colacion) || 0,
+          movilizacion: Number(f.movilizacion) || 0,
+          horas_semanales: Number(f.horas_semanales),
+          jornada: f.jornada,
+          horario_detalle: f.horario_detalle || null,
+          id_obra: f.id_obra ? Number(f.id_obra) : null,
+          id_centro_costo: f.id_centro_costo ? Number(f.id_centro_costo) : null,
+          id_cargo: f.id_cargo ? Number(f.id_cargo) : null,
+        }),
+        empleadosApi.update(contrato.id_empleado, {
+          nombres: f.nombres,
+          apellido_paterno: f.apellido_paterno,
+          apellido_materno: f.apellido_materno || null,
+          fecha_nacimiento: f.fecha_nacimiento || null,
+          genero: f.genero || null,
+          estado_civil: f.estado_civil || null,
+          nacionalidad: f.nacionalidad || null,
+          telefono: f.telefono || null,
+          email_personal: f.email_personal || null,
+          email_corporativo: f.email_corporativo || null,
+          direccion: f.direccion || null,
+          region: f.region || null,
+          comuna: f.comuna || null,
+          id_cargo: f.id_cargo ? Number(f.id_cargo) : null,
+          id_centro_costo: f.id_centro_costo ? Number(f.id_centro_costo) : null,
+          sueldo_base: f.sueldo_bruto ? Number(f.sueldo_bruto) : null,
+          id_afp: f.id_afp ? Number(f.id_afp) : null,
+          id_isapre: f.id_isapre ? Number(f.id_isapre) : null,
+          valor_isapre_uf: f.valor_isapre_uf ? Number(f.valor_isapre_uf) : 0,
+          n_cargas: Number(f.n_cargas) || 0,
+          banco: f.banco || null,
+          tipo_cuenta: f.tipo_cuenta || null,
+          numero_cuenta: f.numero_cuenta || null,
+        }),
+      ])
       setEditando(false)
       cargar()
     } catch (err) {
@@ -671,7 +739,9 @@ export default function ContratoDetalle() {
         </div>
         <div className="flex items-center gap-2">
           {!editando && (
-            <button className="btn btn-outline btn-sm" onClick={abrirEdicion}>✏️ Editar</button>
+            <button className="btn btn-outline btn-sm" onClick={abrirEdicion} disabled={cargandoEdicion}>
+              {cargandoEdicion ? 'Cargando…' : '✏️ Editar'}
+            </button>
           )}
           <button className="btn btn-primary btn-sm" onClick={descargarWord} disabled={descargando}>
             {descargando ? 'Generando…' : '📄 Descargar Word'}
@@ -693,20 +763,6 @@ export default function ContratoDetalle() {
             </div>
           )}
 
-          <h4 style={{marginBottom:10, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Contacto del Trabajador</h4>
-          <div className="form-grid" style={{marginBottom:16}}>
-            <div className="form-group">
-              <label className="form-label">Teléfono</label>
-              <input className="input" value={formContrato.telefono}
-                onChange={e => setFormContrato(f => ({ ...f, telefono: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Correo</label>
-              <input className="input" type="email" value={formContrato.email_corporativo}
-                onChange={e => setFormContrato(f => ({ ...f, email_corporativo: e.target.value }))} />
-            </div>
-          </div>
-
           <div className="wizard-steps">
             {PASOS_EDICION_CONTRATO.map(p => (
               <div key={p.num} className={`wizard-step${pasoEdicion===p.num?' active':pasoEdicion>p.num?' done':''}`}>
@@ -717,153 +773,254 @@ export default function ContratoDetalle() {
           </div>
 
           <div className="wizard-body">
+            {/* ── PASO 1: Datos del Trabajador ── */}
             {pasoEdicion === 1 && (
-              <div className="form-grid" style={{marginBottom:10}}>
-                <div className="form-group">
-                  <label className="form-label">N° de Contrato</label>
-                  <input className="input" value={formContrato.numero_contrato}
-                    onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
+              <>
+                <h4 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h4>
+                <div className="form-grid">
+                  <Campo label="RUT">
+                    <input className="input" value={formatearRut(formContrato.rut)} disabled />
+                  </Campo>
+                  <Campo label="Nombres">
+                    <input className="input" value={formContrato.nombres}
+                      onChange={e => setFormContrato(f => ({ ...f, nombres: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Apellido Paterno">
+                    <input className="input" value={formContrato.apellido_paterno}
+                      onChange={e => setFormContrato(f => ({ ...f, apellido_paterno: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Apellido Materno">
+                    <input className="input" value={formContrato.apellido_materno}
+                      onChange={e => setFormContrato(f => ({ ...f, apellido_materno: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Fecha de Nacimiento">
+                    <input className="input" type="date" value={formContrato.fecha_nacimiento}
+                      onChange={e => setFormContrato(f => ({ ...f, fecha_nacimiento: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Género">
+                    <select className="select" value={formContrato.genero}
+                      onChange={e => setFormContrato(f => ({ ...f, genero: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Femenino</option>
+                      <option value="O">Otro</option>
+                    </select>
+                  </Campo>
+                  <Campo label="Estado Civil">
+                    <select className="select" value={formContrato.estado_civil}
+                      onChange={e => setFormContrato(f => ({ ...f, estado_civil: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {['Soltero','Casado','Conviviente civil','Divorciado','Viudo'].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Nacionalidad">
+                    <input className="input" value={formContrato.nacionalidad}
+                      onChange={e => setFormContrato(f => ({ ...f, nacionalidad: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Teléfono">
+                    <input className="input" value={formContrato.telefono}
+                      onChange={e => setFormContrato(f => ({ ...f, telefono: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Email Personal">
+                    <input className="input" type="email" value={formContrato.email_personal}
+                      onChange={e => setFormContrato(f => ({ ...f, email_personal: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Email Corporativo">
+                    <input className="input" type="email" value={formContrato.email_corporativo}
+                      onChange={e => setFormContrato(f => ({ ...f, email_corporativo: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Dirección" span2>
+                    <input className="input" value={formContrato.direccion}
+                      onChange={e => setFormContrato(f => ({ ...f, direccion: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Región">
+                    <select className="select" value={formContrato.region}
+                      onChange={e => setFormContrato(f => ({ ...f, region: e.target.value, comuna: '' }))}>
+                      <option value="">Seleccionar…</option>
+                      {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Comuna">
+                    <select className="select" value={formContrato.comuna}
+                      onChange={e => setFormContrato(f => ({ ...f, comuna: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {(COMUNAS_POR_REGION[formContrato.region] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Campo>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Tipo de Contrato</label>
-                  <select className="select" value={formContrato.id_tipo_contrato}
-                    onChange={e => setFormContrato(f => ({ ...f, id_tipo_contrato: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                  </select>
-                </div>
-                {esPlazoFijo && (
-                  <div className="form-group">
-                    <label className="form-label">Plazo</label>
-                    <select className="select" value={formContrato.plazo_dias}
+              </>
+            )}
+
+            {/* ── PASO 2: Datos del Contrato ── */}
+            {pasoEdicion === 2 && (
+              <>
+                <h4 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>📄 Datos del Contrato</h4>
+                <div className="form-grid">
+                  <Campo label="N° de Contrato">
+                    <input className="input" value={formContrato.numero_contrato}
+                      onChange={e => setFormContrato(f => ({ ...f, numero_contrato: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Tipo de Contrato">
+                    <select className="select" value={formContrato.id_tipo_contrato}
+                      onChange={e => setFormContrato(f => ({ ...f, id_tipo_contrato: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {tiposContrato.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Fecha del Contrato">
+                    <input className="input" type="date" value={formContrato.fecha_contrato}
+                      onChange={e => setFormContrato(f => ({ ...f, fecha_contrato: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Fecha de Inicio">
+                    <input className="input" type="date" value={formContrato.fecha_inicio}
                       onChange={e => {
-                        const dias = e.target.value
+                        const fechaInicio = e.target.value
                         setFormContrato(f => {
-                          const next = { ...f, plazo_dias: dias }
-                          if (dias && f.fecha_inicio) next.fecha_termino_pactada = calcularFechaTermino(f.fecha_inicio, dias)
+                          const next = { ...f, fecha_inicio: fechaInicio }
+                          if (esPlazoFijo && f.plazo_dias && fechaInicio) next.fecha_termino_pactada = calcularFechaTermino(fechaInicio, f.plazo_dias)
                           return next
                         })
-                      }}>
-                      <option value="">Seleccionar…</option>
-                      {[...new Set([...PLAZOS_PRESET, Number(formContrato.plazo_dias) || null].filter(Boolean))]
-                        .sort((a, b) => a - b)
-                        .map(d => <option key={d} value={d}>{d} días</option>)}
+                      }} />
+                  </Campo>
+                  {esPlazoFijo && (
+                    <Campo label="Plazo">
+                      <select className="select" value={formContrato.plazo_dias}
+                        onChange={e => {
+                          const dias = e.target.value
+                          setFormContrato(f => {
+                            const next = { ...f, plazo_dias: dias }
+                            if (dias && f.fecha_inicio) next.fecha_termino_pactada = calcularFechaTermino(f.fecha_inicio, dias)
+                            return next
+                          })
+                        }}>
+                        <option value="">Seleccionar…</option>
+                        {[...new Set([...PLAZOS_PRESET, Number(formContrato.plazo_dias) || null].filter(Boolean))]
+                          .sort((a, b) => a - b)
+                          .map(d => <option key={d} value={d}>{d} días</option>)}
+                      </select>
+                    </Campo>
+                  )}
+                  <Campo label="Fecha Término Pactada">
+                    <input className="input" type="date" value={formContrato.fecha_termino_pactada}
+                      onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Sueldo Bruto (CLP)">
+                    <input className="input" type="number" value={formContrato.sueldo_bruto}
+                      onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Colación (CLP)">
+                    <input className="input" type="number" value={formContrato.colacion}
+                      onChange={e => setFormContrato(f => ({ ...f, colacion: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Movilización (CLP)">
+                    <input className="input" type="number" value={formContrato.movilizacion}
+                      onChange={e => setFormContrato(f => ({ ...f, movilizacion: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Horas Semanales">
+                    <select className="select" value={formContrato.horas_semanales}
+                      onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))}>
+                      {[42, 40, 30, 20].map(h => <option key={h} value={h}>{h} horas</option>)}
                     </select>
-                  </div>
-                )}
-                <div className="form-group">
-                  <label className="form-label">Fecha Contrato</label>
-                  <input className="input" type="date" value={formContrato.fecha_contrato}
-                    onChange={e => setFormContrato(f => ({ ...f, fecha_contrato: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Jornada">
+                    <select className="select" value={formContrato.jornada}
+                      onChange={e => setFormContrato(f => ({ ...f, jornada: e.target.value }))}>
+                      <option value="Completa">Completa</option>
+                      <option value="Parcial">Parcial</option>
+                      <option value="Excluida">Excluida (Art. 22)</option>
+                    </select>
+                  </Campo>
+                  <Campo label="Obra">
+                    <select className="select" value={formContrato.id_obra}
+                      onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
+                      <option value="">Sin asignar</option>
+                      {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Cargo">
+                    <select className="select" value={formContrato.id_cargo}
+                      onChange={e => setFormContrato(f => ({ ...f, id_cargo: e.target.value }))}>
+                      <option value="">Sin asignar</option>
+                      {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Centro de Costo">
+                    <select className="select" value={formContrato.id_centro_costo}
+                      onChange={e => setFormContrato(f => ({ ...f, id_centro_costo: e.target.value }))}>
+                      <option value="">Sin asignar</option>
+                      {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Distribución del Horario" span2>
+                    <textarea className="input" rows={3} value={formContrato.horario_detalle}
+                      onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Fecha Término Real">
+                    <input className="input" type="date" value={formContrato.fecha_termino_real}
+                      onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Motivo Término">
+                    <select className="select" value={formContrato.id_motivo_termino}
+                      onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
+                      <option value="">Sin asignar</option>
+                      {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Aviso Previo (fecha)">
+                    <input className="input" type="date" value={formContrato.aviso_previo_fecha}
+                      onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
+                  </Campo>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Fecha Inicio</label>
-                  <input className="input" type="date" value={formContrato.fecha_inicio}
-                    onChange={e => {
-                      const fechaInicio = e.target.value
-                      setFormContrato(f => {
-                        const next = { ...f, fecha_inicio: fechaInicio }
-                        if (esPlazoFijo && f.plazo_dias && fechaInicio) next.fecha_termino_pactada = calcularFechaTermino(fechaInicio, f.plazo_dias)
-                        return next
-                      })
-                    }} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Fecha Término Pactada</label>
-                  <input className="input" type="date" value={formContrato.fecha_termino_pactada}
-                    onChange={e => setFormContrato(f => ({ ...f, fecha_termino_pactada: e.target.value }))} />
-                </div>
-              </div>
+              </>
             )}
 
-            {pasoEdicion === 2 && (
-              <div className="form-grid" style={{marginBottom:10}}>
-                <div className="form-group">
-                  <label className="form-label">Sueldo Bruto</label>
-                  <input className="input" type="number" value={formContrato.sueldo_bruto}
-                    onChange={e => setFormContrato(f => ({ ...f, sueldo_bruto: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Colación ($ mensual)</label>
-                  <input className="input" type="number" value={formContrato.colacion}
-                    onChange={e => setFormContrato(f => ({ ...f, colacion: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Movilización ($ mensual)</label>
-                  <input className="input" type="number" value={formContrato.movilizacion}
-                    onChange={e => setFormContrato(f => ({ ...f, movilizacion: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Horas Semanales</label>
-                  <input className="input" type="number" value={formContrato.horas_semanales}
-                    onChange={e => setFormContrato(f => ({ ...f, horas_semanales: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Jornada</label>
-                  <select className="select" value={formContrato.jornada}
-                    onChange={e => setFormContrato(f => ({ ...f, jornada: e.target.value }))}>
-                    <option value="Completa">Completa</option>
-                    <option value="Parcial">Parcial</option>
-                  </select>
-                </div>
-                <div className="form-group span2">
-                  <label className="form-label">Detalle de Horario</label>
-                  <textarea className="input" rows={2} value={formContrato.horario_detalle}
-                    onChange={e => setFormContrato(f => ({ ...f, horario_detalle: e.target.value }))} />
-                </div>
-              </div>
-            )}
-
+            {/* ── PASO 3: Previsión Social ── */}
             {pasoEdicion === 3 && (
-              <div className="form-grid" style={{marginBottom:10}}>
-                <div className="form-group">
-                  <label className="form-label">Obra</label>
-                  <select className="select" value={formContrato.id_obra}
-                    onChange={e => setFormContrato(f => ({ ...f, id_obra: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} — {o.nombre}</option>)}
-                  </select>
+              <>
+                <h4 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>🏦 Previsión Social</h4>
+                <div className="form-grid">
+                  <Campo label="AFP">
+                    <select className="select" value={formContrato.id_afp}
+                      onChange={e => setFormContrato(f => ({ ...f, id_afp: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {afps.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Sistema de Salud">
+                    <select className="select" value={formContrato.id_isapre}
+                      onChange={e => setFormContrato(f => ({ ...f, id_isapre: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {isapres.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="Valor Isapre (UF)">
+                    <input className="input" type="number" step="0.0001"
+                      value={formContrato.valor_isapre_uf}
+                      onChange={e => setFormContrato(f => ({ ...f, valor_isapre_uf: e.target.value }))}
+                      disabled={isapres.find(i => i.id === Number(formContrato.id_isapre))?.es_fonasa} />
+                  </Campo>
+                  <Campo label="N° Cargas Familiares">
+                    <input className="input" type="number" min="0" max="20"
+                      value={formContrato.n_cargas}
+                      onChange={e => setFormContrato(f => ({ ...f, n_cargas: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Banco">
+                    <input className="input" value={formContrato.banco}
+                      onChange={e => setFormContrato(f => ({ ...f, banco: e.target.value }))} />
+                  </Campo>
+                  <Campo label="Tipo de Cuenta">
+                    <select className="select" value={formContrato.tipo_cuenta}
+                      onChange={e => setFormContrato(f => ({ ...f, tipo_cuenta: e.target.value }))}>
+                      <option value="">Seleccionar…</option>
+                      {['Cuenta Corriente','Cuenta Vista','Cuenta de Ahorro'].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </Campo>
+                  <Campo label="N° de Cuenta">
+                    <input className="input" value={formContrato.numero_cuenta}
+                      onChange={e => setFormContrato(f => ({ ...f, numero_cuenta: e.target.value }))} />
+                  </Campo>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Centro de Costo</label>
-                  <select className="select" value={formContrato.id_centro_costo}
-                    onChange={e => setFormContrato(f => ({ ...f, id_centro_costo: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Cargo</label>
-                  <select className="select" value={formContrato.id_cargo}
-                    onChange={e => setFormContrato(f => ({ ...f, id_cargo: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {pasoEdicion === 4 && (
-              <div className="form-grid" style={{marginBottom:10}}>
-                <div className="form-group">
-                  <label className="form-label">Fecha Término Real</label>
-                  <input className="input" type="date" value={formContrato.fecha_termino_real}
-                    onChange={e => setFormContrato(f => ({ ...f, fecha_termino_real: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Motivo Término</label>
-                  <select className="select" value={formContrato.id_motivo_termino}
-                    onChange={e => setFormContrato(f => ({ ...f, id_motivo_termino: e.target.value }))}>
-                    <option value="">Sin asignar</option>
-                    {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Aviso Previo (fecha)</label>
-                  <input className="input" type="date" value={formContrato.aviso_previo_fecha}
-                    onChange={e => setFormContrato(f => ({ ...f, aviso_previo_fecha: e.target.value }))} />
-                </div>
-              </div>
+              </>
             )}
           </div>
 

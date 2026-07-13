@@ -172,6 +172,10 @@ class EmpleadoUpdate(BaseModel):
     nombres: Optional[str] = None
     apellido_paterno: Optional[str] = None
     apellido_materno: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    genero: Optional[str] = None
+    estado_civil: Optional[str] = None
+    nacionalidad: Optional[str] = None
     direccion: Optional[str] = None
     comuna: Optional[str] = None
     ciudad: Optional[str] = None
