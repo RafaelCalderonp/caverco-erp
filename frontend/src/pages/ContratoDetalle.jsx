@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi, empleadosApi } from '../services/api'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 import { formatearRut } from '../utils/rut'
+import { HORARIO_DETALLE_DEFAULT } from './ContratoNuevo'
 
 function Campo({ label, children, span2 }) {
   return (
@@ -333,7 +334,7 @@ export default function ContratoDetalle() {
         movilizacion: contrato.movilizacion || 0,
         horas_semanales: contrato.horas_semanales || 42,
         jornada: contrato.jornada || 'Completa',
-        horario_detalle: contrato.horario_detalle || '',
+        horario_detalle: contrato.horario_detalle || HORARIO_DETALLE_DEFAULT,
         id_obra: contrato.id_obra || '',
         id_centro_costo: contrato.id_centro_costo || '',
         id_cargo: contrato.id_cargo || '',
