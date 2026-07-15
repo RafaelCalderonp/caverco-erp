@@ -901,13 +901,15 @@ def generar_carta_despido_docx(
     if gratificacion > 0:
         label_dias += " (incl. gratif. prop.)"
 
-    items = [
-        (label_dias, monto_dias_trabajados),
-        (f"  − AFP ({tasa_afp*100:.2f}%)", -desc_afp),
-        ("  − Salud (7.00%)", -desc_salud),
-        ("  − AFC (0.60%)", -desc_afc),
-        ("  Neto días trabajados", neto_dias),
-    ]
+    items = []
+    if monto_dias_trabajados > 0:
+        items += [
+            (label_dias, monto_dias_trabajados),
+            (f"  − AFP ({tasa_afp*100:.2f}%)", -desc_afp),
+            ("  − Salud (7.00%)", -desc_salud),
+            ("  − AFC (0.60%)", -desc_afc),
+            ("  Neto días trabajados", neto_dias),
+        ]
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (no imponible)", rem_pendiente))
     if vacaciones_proporcionales > 0:
@@ -1054,14 +1056,15 @@ def generar_finiquito_docx(
     ], space_after=6)
 
     items = []
-    label_dias = f"Remuneración imponible días trabajados ({dias_trabajados_mes} días)"
-    if gratificacion > 0:
-        label_dias += " incl. gratif. prop."
-    items.append((label_dias, monto_dias_trabajados))
-    items.append((f"  Menos AFP ({tasa_afp*100:.2f}%)", -desc_afp))
-    items.append(("  Menos Salud (7,00%)", -desc_salud))
-    items.append(("  Menos AFC (0,60%)", -desc_afc))
-    items.append(("  Neto días trabajados", neto_dias))
+    if monto_dias_trabajados > 0:
+        label_dias = f"Remuneración imponible días trabajados ({dias_trabajados_mes} días)"
+        if gratificacion > 0:
+            label_dias += " incl. gratif. prop."
+        items.append((label_dias, monto_dias_trabajados))
+        items.append((f"  Menos AFP ({tasa_afp*100:.2f}%)", -desc_afp))
+        items.append(("  Menos Salud (7,00%)", -desc_salud))
+        items.append(("  Menos AFC (0,60%)", -desc_afc))
+        items.append(("  Neto días trabajados", neto_dias))
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (Art. 41 CT, no imponible)", rem_pendiente))
     if vacaciones_proporcionales > 0:

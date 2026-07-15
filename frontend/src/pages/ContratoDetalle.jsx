@@ -1670,7 +1670,8 @@ export default function ContratoDetalle() {
         </div>
         {montosDespido && (
           <div style={{padding:'12px', background:'var(--gray-50)', borderRadius:8, fontSize:13}}>
-            {/* Remuneración días trabajados (imponible = sueldo + gratif proporcional) */}
+            {/* Remuneración días trabajados — solo si procede */}
+            {formDespido.remun_pendiente_procede === true && (<>
             <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
               <span className="text-muted">Remuneración días trabajados — {montosDespido.diasMes} días{formDespido.incluye_gratificacion ? ' (incl. gratif. prop.)' : ''}</span>
               <span>{fmt(montosDespido.montoDias)}</span>
@@ -1691,6 +1692,7 @@ export default function ContratoDetalle() {
               <span style={{paddingLeft:12}}>Neto días trabajados</span>
               <span>{fmt(montosDespido.montoDiasNeto)}</span>
             </div>
+            </>)}
             {montosDespido.remPendiente > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">Colación + movilización proporcional ({montosDespido.diasMes} días) — no imponible</span>
