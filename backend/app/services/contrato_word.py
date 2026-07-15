@@ -938,12 +938,7 @@ def generar_carta_despido_docx(
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (no imponible)", rem_pendiente))
     if vacaciones_proporcionales > 0:
         if dias_ganados_vac:
-            label_vac = (
-                f"Vacaciones proporcionales (Art. 67 CT) — "
-                f"{dias_ganados_vac} días ganados − {dias_tomados_vac} tomados = "
-                f"{dias_pendientes_vac} hábiles + {dias_inhabiles_vac} inhábiles = "
-                f"{dias_calendario_vac} días calendario"
-            )
+            label_vac = f"Vacaciones proporcionales (Art. 67 CT) — {dias_ganados_vac} días"
         else:
             label_vac = "Vacaciones proporcionales (Art. 67 CT)"
         items.append((label_vac, vacaciones_proporcionales))
