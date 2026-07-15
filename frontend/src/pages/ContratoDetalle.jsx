@@ -193,7 +193,7 @@ export default function ContratoDetalle() {
       causal_codigo: '', fecha_termino: '',
       aviso_con_30_dias: false,
       incluye_gratificacion: false,
-      remun_pendiente_procede: true,
+      remun_pendiente_procede: null,
       colacion_mensual: '',
       movilizacion_mensual: '',
       dias_vacaciones_tomados: 0,
@@ -265,6 +265,14 @@ export default function ContratoDetalle() {
     contratosApi.getFull(id).then(r => {
       const d = r.data
       setContrato(d)
+      // Pre-llenar colación y movilización desde el contrato si no hay datos guardados
+      if (!localStorage.getItem(`despido_${id}`)) {
+        setFormDespido(f => ({
+          ...f,
+          colacion_mensual: d.colacion ? String(Math.round(Number(d.colacion))) : '',
+          movilizacion_mensual: d.movilizacion ? String(Math.round(Number(d.movilizacion))) : '',
+        }))
+      }
       setAnexos(d.anexos || [])
       setRequisitos(d.requisitos_obra || [])
       setEntregas(d.entregas_epp || [])
@@ -551,6 +559,7 @@ export default function ContratoDetalle() {
 
   function calcularMontosDespido() {
     if (!formDespido.causal_codigo || !formDespido.fecha_termino || !contrato?.sueldo_bruto) return
+    if (formDespido.remun_pendiente_procede === null) { alert('Debe indicar si procede la remuneración por días pendientes del mes (Sí o No)'); return }
     const sueldo = Math.max(Number(contrato.sueldo_bruto), sueldoMinimo)
     const fTermino = new Date(formDespido.fecha_termino + 'T00:00:00')
     const diasMes = fTermino.getDate()
@@ -1553,7 +1562,7 @@ export default function ContratoDetalle() {
                 onClick={() => {
                   if (!confirm('¿Reiniciar el formulario de carta de despido? Se borrarán los datos guardados.')) return
                   localStorage.removeItem(`despido_${id}`)
-                  setFormDespido({ causal_codigo:'', fecha_termino:'', aviso_con_30_dias:false, incluye_gratificacion:false, remun_pendiente_procede:true, colacion_mensual:'', movilizacion_mensual:'', dias_vacaciones_tomados:0, descripcion_adicional:'' })
+                  setFormDespido({ causal_codigo:'', fecha_termino:'', aviso_con_30_dias:false, incluye_gratificacion:false, remun_pendiente_procede:null, colacion_mensual: contrato?.colacion ? String(Math.round(Number(contrato.colacion))) : '', movilizacion_mensual: contrato?.movilizacion ? String(Math.round(Number(contrato.movilizacion))) : '', dias_vacaciones_tomados:0, descripcion_adicional:'' })
                   setMontosDespido(null)
                   setDespidoGuardado(false)
                   setDespidoExpandido(true)
@@ -1621,12 +1630,12 @@ export default function ContratoDetalle() {
             <div style={{display:'flex', alignItems:'center', gap:12, fontSize:13}}>
               <span>¿Procede remuneración por días pendientes del mes?</span>
               <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
-                <input type="radio" name="remun_pendiente" checked={formDespido.remun_pendiente_procede}
+                <input type="radio" name="remun_pendiente" checked={formDespido.remun_pendiente_procede === true}
                   onChange={() => { setFormDespido(f => ({ ...f, remun_pendiente_procede: true })); setMontosDespido(null) }} />
                 Sí
               </label>
               <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
-                <input type="radio" name="remun_pendiente" checked={!formDespido.remun_pendiente_procede}
+                <input type="radio" name="remun_pendiente" checked={formDespido.remun_pendiente_procede === false}
                   onChange={() => { setFormDespido(f => ({ ...f, remun_pendiente_procede: false })); setMontosDespido(null) }} />
                 No
               </label>
