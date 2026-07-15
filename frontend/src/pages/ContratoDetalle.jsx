@@ -606,7 +606,7 @@ export default function ContratoDetalle() {
     // Vacaciones proporcionales
     // Días ganados = días_trabajados / 30 * 1.25 (1.25 días por mes de 30 días)
     // Valor día = sueldo_base / 30 (sin gratificación, Art. 67 CT)
-    const diasGanados = fInicio ? Math.round((diasTrabajados / 30) * 1.25 * 10000) / 10000 : 0
+    const diasGanados = fInicio ? Math.round((diasTrabajados / 30) * 1.25 * 100) / 100 : 0
     const diasTomados = Number(formDespido.dias_vacaciones_tomados) || 0
     const diasPendientes = Math.max(0, Math.round((diasGanados - diasTomados) * 100) / 100)
     // Conversión a días calendario: contar días hábiles desde el día siguiente al despido

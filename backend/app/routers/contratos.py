@@ -768,8 +768,9 @@ async def descargar_carta_despido_word(
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
-        dias_ganados_hab  = round(dias_trabajados_total / 30 * 1.25, 4)
-        dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
+        from decimal import ROUND_HALF_UP
+        dias_ganados_hab  = float(Decimal(str(dias_trabajados_total / 30 * 1.25)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        dias_pendientes_hab = float(max(Decimal("0"), Decimal(str(dias_ganados_hab - dias_vacaciones_tomados)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
         fecha_post_despido = fecha_termino + timedelta(days=1)
         dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
         valor_dia_vac = sueldo / Decimal("30")
@@ -910,8 +911,9 @@ async def descargar_finiquito_word(
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
-        dias_ganados_hab  = round(dias_trabajados_total / 30 * 1.25, 4)
-        dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
+        from decimal import ROUND_HALF_UP
+        dias_ganados_hab  = float(Decimal(str(dias_trabajados_total / 30 * 1.25)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        dias_pendientes_hab = float(max(Decimal("0"), Decimal(str(dias_ganados_hab - dias_vacaciones_tomados)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
         fecha_post_despido = fecha_termino + timedelta(days=1)
         dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
         valor_dia_vac = sueldo / Decimal("30")
