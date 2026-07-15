@@ -732,7 +732,7 @@ async def descargar_carta_despido_word(
         sueldo = max(sueldo, sueldo_minimo)
         gratif_mensual = Decimal("0")
 
-    gratif_dia = int(gratif_mensual / 30 * dias_mes)
+    gratif_dia = int(gratif_mensual / 30 * dias_mes) if remun_pendiente_procede else 0
 
     # Imponible días = sueldo proporcional + gratif proporcional (combinados, igual que frontend)
     monto_dias_imponible = monto_dias + gratif_dia
@@ -879,7 +879,7 @@ async def descargar_finiquito_word(
     else:
         gratif_mensual = Decimal("0")
 
-    gratif_dia          = int(gratif_mensual / 30 * dias_mes)
+    gratif_dia          = int(gratif_mensual / 30 * dias_mes) if remun_pendiente_procede else 0
     monto_dias_imponible = monto_dias + gratif_dia
 
     TASA_SALUD = 0.07

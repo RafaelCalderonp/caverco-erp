@@ -15,6 +15,25 @@ MESES = [
 ]
 
 
+def _set_table_light_borders(tbl, color: str = "CCCCCC"):
+    """Aplica bordes grises suaves a toda la tabla vía XML."""
+    tblPr = tbl._tbl.tblPr
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl._tbl.insert(0, tblPr)
+    tblBorders = OxmlElement("w:tblBorders")
+    for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), "4")
+        el.set(qn("w:color"), color)
+        tblBorders.append(el)
+    existing = tblPr.find(qn("w:tblBorders"))
+    if existing is not None:
+        tblPr.remove(existing)
+    tblPr.append(tblBorders)
+
+
 def _fecha_larga(d: date | None) -> str:
     if not d:
         return ""
@@ -924,7 +943,7 @@ def generar_carta_despido_docx(
     _parrafo(doc, ["En virtud de lo anterior, se pone a su disposición el siguiente finiquito:"], space_after=8)
 
     tbl = doc.add_table(rows=len(items) + 2, cols=2)
-    tbl.style = "Table Grid"
+    _set_table_light_borders(tbl)
     # Header
     _cell_text(tbl.rows[0].cells[0], "CONCEPTO", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(tbl.rows[0].cells[1], "MONTO ($)", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -1077,7 +1096,7 @@ def generar_finiquito_docx(
         items.append(("Indemnización por tiempo servido — Art. 163 bis CT (2,5 días/mes)", indem_tiempo_servido))
 
     tbl = doc.add_table(rows=len(items) + 2, cols=2)
-    tbl.style = "Table Grid"
+    _set_table_light_borders(tbl)
     _cell_text(tbl.rows[0].cells[0], "CONCEPTO", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(tbl.rows[0].cells[1], "MONTO ($)", bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     for i, (concepto, monto) in enumerate(items, 1):
