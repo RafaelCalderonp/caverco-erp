@@ -604,12 +604,25 @@ export default function ContratoDetalle() {
     const indemAnos = tieneIndem ? Math.round(baseIndem * anosCompletos) : 0
     const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? Math.round(baseIndem) : 0
 
+    // Indemnización por tiempo servido — Art. 163 bis CT
+    // Solo para 159_5 (conclusión obra/faena)
+    let indemTiempoServido = 0
+    if (formDespido.causal_codigo === '159_5' && fInicio) {
+      const diasTot = (fTermino - fInicio) / (1000 * 60 * 60 * 24)
+      const mesesRaw = diasTot / 30.4375
+      const mesesEnt = Math.floor(mesesRaw)
+      const fracDias = (mesesRaw - mesesEnt) * 30.4375
+      const mesesConFrac = mesesEnt + (fracDias > 15 ? 1 : 0)
+      indemTiempoServido = Math.round(baseIndem / 30 * 2.5 * mesesConFrac)
+    }
+
     setMontosDespido({
       diasMes, montoDias, montoDiasNeto, remPendiente, vacProp,
       diasGanados, diasTomados, diasPendientes,
       anosCompletos, indemAnos, aviso, tieneIndem, gratifMensual,
       descAfp, descSalud, descAfc, totalDescuentos, tasaAfp,
-      total: montoDiasNeto + remPendiente + vacProp + indemAnos + aviso,
+      indemTiempoServido,
+      total: montoDiasNeto + remPendiente + vacProp + indemAnos + aviso + indemTiempoServido,
     })
   }
 
@@ -1632,12 +1645,14 @@ export default function ContratoDetalle() {
                 <span>{fmt(montosDespido.remPendiente)}</span>
               </div>
             )}
-            <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
-              <span className="text-muted">
-                Vacaciones proporcionales — {montosDespido.diasGanados} días ganados − {montosDespido.diasTomados} tomados = {montosDespido.diasPendientes} hábiles pendientes
-              </span>
-              <span>{fmt(montosDespido.vacProp)}</span>
-            </div>
+            {montosDespido.vacProp > 0 && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">
+                  Vacaciones proporcionales — {montosDespido.diasGanados} días ganados − {montosDespido.diasTomados} tomados = {montosDespido.diasPendientes} hábiles pendientes
+                </span>
+                <span>{fmt(montosDespido.vacProp)}</span>
+              </div>
+            )}
             {montosDespido.tieneIndem && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">
@@ -1650,6 +1665,12 @@ export default function ContratoDetalle() {
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">Indemnización sustitutiva aviso previo — misma base</span>
                 <span>{fmt(montosDespido.aviso)}</span>
+              </div>
+            )}
+            {montosDespido.indemTiempoServido > 0 && (
+              <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
+                <span className="text-muted">Indem. tiempo servido — Art. 163 bis CT (2,5 días/mes)</span>
+                <span>{fmt(montosDespido.indemTiempoServido)}</span>
               </div>
             )}
             <div style={{display:'flex', justifyContent:'space-between', padding:'8px 0', marginTop:4, fontWeight:700}}>

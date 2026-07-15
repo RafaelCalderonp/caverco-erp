@@ -831,6 +831,7 @@ def generar_carta_despido_docx(
     vacaciones_proporcionales: int = 0,
     indemnizacion_anos: int = 0,
     aviso_previo: int = 0,
+    indem_tiempo_servido: int = 0,
     anos_servicio: int = 0,
     gratificacion: int = 0,
     rem_pendiente: int = 0,
@@ -894,7 +895,7 @@ def generar_carta_despido_docx(
     # monto_dias_trabajados ya incluye gratificación proporcional (combinados en frontend)
     total_descuentos = desc_afp + desc_salud + desc_afc
     neto_dias = monto_dias_trabajados - total_descuentos
-    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo + indem_tiempo_servido
 
     label_dias = f"Remuneración días trabajados — {dias_trabajados_mes} días"
     if gratificacion > 0:
@@ -909,11 +910,14 @@ def generar_carta_despido_docx(
     ]
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (no imponible)", rem_pendiente))
-    items.append(("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales))
+    if vacaciones_proporcionales > 0:
+        items.append(("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:
         items.append(("Indemnización sustitutiva de aviso previo (Art. 161 CT)", aviso_previo))
+    if indem_tiempo_servido > 0:
+        items.append(("Indemnización por tiempo servido (Art. 163 bis CT) — 2,5 días/mes", indem_tiempo_servido))
 
     _parrafo(doc, ["En virtud de lo anterior, se pone a su disposición el siguiente finiquito:"], space_after=8)
 
@@ -978,11 +982,12 @@ def generar_finiquito_docx(
     desc_salud: int = 0,
     desc_afc: int = 0,
     tasa_afp: float = 0.1144,
+    indem_tiempo_servido: int = 0,
 ) -> bytes:
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
 
-    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo
+    total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo + indem_tiempo_servido
 
     doc = Document()
     style = doc.styles["Normal"]
@@ -1059,11 +1064,14 @@ def generar_finiquito_docx(
     items.append(("  Neto días trabajados", neto_dias))
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (Art. 41 CT, no imponible)", rem_pendiente))
-    items.append(("Vacaciones proporcionales (Art. 67 y 73 CT)", vacaciones_proporcionales))
+    if vacaciones_proporcionales > 0:
+        items.append(("Vacaciones proporcionales (Art. 67 y 73 CT)", vacaciones_proporcionales))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:
         items.append(("Indemnización sustitutiva de aviso previo (Art. 161 CT)", aviso_previo))
+    if indem_tiempo_servido > 0:
+        items.append(("Indemnización por tiempo servido — Art. 163 bis CT (2,5 días/mes)", indem_tiempo_servido))
 
     tbl = doc.add_table(rows=len(items) + 2, cols=2)
     tbl.style = "Table Grid"

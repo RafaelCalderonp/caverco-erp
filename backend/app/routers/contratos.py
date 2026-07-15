@@ -765,6 +765,17 @@ async def descargar_carta_despido_word(
     indem_anos = int(base_indem * anos_completos) if tiene_indem else 0
     aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
 
+    # Indemnización por tiempo servido — Art. 163 bis CT
+    # Solo Art. 159 N°5 (conclusión obra). No aplica en causales de abandono/ausencias.
+    if causal_codigo == "159_5" and fi:
+        meses = dias_totales / 30.4375
+        meses_enteros = floor(meses)
+        fraccion = meses - meses_enteros
+        meses_con_fraccion = meses_enteros + (1 if fraccion * 30.4375 > 15 else 0)
+        indem_tiempo_servido = int(base_indem / 30 * 2.5 * meses_con_fraccion)
+    else:
+        indem_tiempo_servido = 0
+
     docx_bytes = generar_carta_despido_docx(
         empresa                    = empresa,
         empleado                   = empleado,
@@ -777,6 +788,7 @@ async def descargar_carta_despido_word(
         vacaciones_proporcionales  = vac_prop,
         indemnizacion_anos         = indem_anos,
         aviso_previo               = aviso_calculado,
+        indem_tiempo_servido       = indem_tiempo_servido,
         gratificacion              = gratif_dia,
         rem_pendiente              = rem_pendiente,
         anos_servicio              = anos_completos,
@@ -886,6 +898,16 @@ async def descargar_finiquito_word(
     indem_anos     = int(base_indem * anos_completos) if tiene_indem else 0
     aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
 
+    if causal_codigo == "159_5" and fi:
+        from math import floor as _floor
+        dias_tot = (fecha_termino - fi).days
+        meses_raw = dias_tot / 30.4375
+        meses_ent = _floor(meses_raw)
+        meses_con_frac = meses_ent + (1 if (meses_raw - meses_ent) * 30.4375 > 15 else 0)
+        indem_tiempo_servido = int(base_indem / 30 * Decimal("2.5") * meses_con_frac)
+    else:
+        indem_tiempo_servido = 0
+
     docx_bytes = generar_finiquito_docx(
         empresa              = empresa,
         empleado             = empleado,
@@ -900,6 +922,7 @@ async def descargar_finiquito_word(
         vacaciones_proporcionales = vac_prop,
         indemnizacion_anos   = indem_anos,
         aviso_previo         = aviso_calculado,
+        indem_tiempo_servido = indem_tiempo_servido,
         anos_servicio        = anos_completos,
         gratificacion        = gratif_dia,
         dias_trabajados_mes  = dias_mes,
