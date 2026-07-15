@@ -642,7 +642,7 @@ def generar_epp_docx(empresa, empleado, entrega) -> bytes:
 
     # ── Firmas ────────────────────────────────────────────────────────────────
     firma = doc.add_table(rows=2, cols=2)
-    firma.style = "Table Grid"
+    _set_table_light_borders(firma)
     _cell_text(firma.rows[0].cells[0], "Entregado por", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[0].cells[1], "Firma Trabajador / Recibí conforme", bold=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[1].cells[0], entregado_por, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -720,7 +720,7 @@ def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nom
 
     # Firmas
     firma = doc.add_table(rows=2, cols=2)
-    firma.style = "Table Grid"
+    _set_table_light_borders(firma)
     _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
                size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador",
@@ -823,7 +823,7 @@ def generar_amonestacion_docx(empresa, empleado, motivo: str, descripcion: str, 
 
     # Firmas
     firma = doc.add_table(rows=2, cols=2)
-    firma.style = "Table Grid"
+    _set_table_light_borders(firma)
     _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
                size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador / Notificado",
@@ -859,6 +859,11 @@ def generar_carta_despido_docx(
     desc_salud: int = 0,
     desc_afc: int = 0,
     tasa_afp: float = 0.1144,
+    dias_ganados_vac: float = 0,
+    dias_tomados_vac: float = 0,
+    dias_pendientes_vac: float = 0,
+    dias_calendario_vac: float = 0,
+    dias_inhabiles_vac: float = 0,
 ) -> bytes:
     from decimal import Decimal
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
@@ -932,7 +937,16 @@ def generar_carta_despido_docx(
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (no imponible)", rem_pendiente))
     if vacaciones_proporcionales > 0:
-        items.append(("Vacaciones proporcionales (Art. 67 CT)", vacaciones_proporcionales))
+        if dias_ganados_vac:
+            label_vac = (
+                f"Vacaciones proporcionales (Art. 67 CT) — "
+                f"{dias_ganados_vac} días ganados − {dias_tomados_vac} tomados = "
+                f"{dias_pendientes_vac} hábiles + {dias_inhabiles_vac} inhábiles = "
+                f"{dias_calendario_vac} días calendario"
+            )
+        else:
+            label_vac = "Vacaciones proporcionales (Art. 67 CT)"
+        items.append((label_vac, vacaciones_proporcionales))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:
@@ -967,7 +981,7 @@ def generar_carta_despido_docx(
 
     # Firmas
     firma = doc.add_table(rows=2, cols=2)
-    firma.style = "Table Grid"
+    _set_table_light_borders(firma)
     _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
                size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador / Recibí conforme",
@@ -1004,6 +1018,11 @@ def generar_finiquito_docx(
     desc_afc: int = 0,
     tasa_afp: float = 0.1144,
     indem_tiempo_servido: int = 0,
+    dias_ganados_vac: float = 0,
+    dias_tomados_vac: float = 0,
+    dias_pendientes_vac: float = 0,
+    dias_calendario_vac: float = 0,
+    dias_inhabiles_vac: float = 0,
 ) -> bytes:
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
@@ -1087,7 +1106,16 @@ def generar_finiquito_docx(
     if rem_pendiente > 0:
         items.append((f"Colación y movilización proporcional — {dias_trabajados_mes} días (Art. 41 CT, no imponible)", rem_pendiente))
     if vacaciones_proporcionales > 0:
-        items.append(("Vacaciones proporcionales (Art. 67 y 73 CT)", vacaciones_proporcionales))
+        if dias_ganados_vac:
+            label_vac = (
+                f"Vacaciones proporcionales (Art. 67 y 73 CT) — "
+                f"{dias_ganados_vac} días ganados − {dias_tomados_vac} tomados = "
+                f"{dias_pendientes_vac} hábiles + {dias_inhabiles_vac} inhábiles = "
+                f"{dias_calendario_vac} días calendario"
+            )
+        else:
+            label_vac = "Vacaciones proporcionales (Art. 67 y 73 CT)"
+        items.append((label_vac, vacaciones_proporcionales))
     if tiene_indem and indemnizacion_anos > 0:
         items.append((f"Indemnización por años de servicio (Art. 163 CT) — {anos_servicio} año(s)", indemnizacion_anos))
     if tiene_aviso and aviso_previo > 0:
@@ -1151,7 +1179,7 @@ def generar_finiquito_docx(
 
     _parrafo(doc, [("RATIFICACIÓN ANTE MINISTRO DE FE", True)], align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
     rat = doc.add_table(rows=1, cols=2)
-    rat.style = "Table Grid"
+    _set_table_light_borders(rat)
     _cell_text(rat.rows[0].cells[0],
                "Ministro de fe: ___________________________\n"
                "Cargo / Institución: _______________________\n"
@@ -1171,7 +1199,7 @@ def generar_finiquito_docx(
     ], space_after=20)
 
     firma = doc.add_table(rows=3, cols=2)
-    firma.style = "Table Grid"
+    _set_table_light_borders(firma)
     _cell_text(firma.rows[0].cells[0], "\n\n\n____________________________\nFirma Empleador",
                size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_text(firma.rows[0].cells[1], "\n\n\n____________________________\nFirma Trabajador",

@@ -764,6 +764,7 @@ async def descargar_carta_despido_word(
         anos_completos = 0
 
     # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
+    dias_ganados_hab = 0.0; dias_pendientes_hab = 0.0; dias_calendario_vac = Decimal("0")
     if fi:
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
@@ -815,6 +816,11 @@ async def descargar_carta_despido_word(
         desc_salud                 = desc_salud,
         desc_afc                   = desc_afc,
         tasa_afp                   = tasa_afp,
+        dias_ganados_vac           = dias_ganados_hab if fi else 0,
+        dias_tomados_vac           = float(dias_vacaciones_tomados),
+        dias_pendientes_vac        = dias_pendientes_hab if fi else 0,
+        dias_calendario_vac        = float(dias_calendario_vac) if fi else 0,
+        dias_inhabiles_vac         = float(dias_calendario_vac - Decimal(str(dias_pendientes_hab))) if fi else 0,
     )
     fname = _fname("Carta Despido", empleado, fecha_termino)
     return StreamingResponse(
@@ -958,6 +964,11 @@ async def descargar_finiquito_word(
         desc_salud           = desc_salud,
         desc_afc             = desc_afc,
         tasa_afp             = tasa_afp,
+        dias_ganados_vac     = dias_ganados_hab if fi else 0,
+        dias_tomados_vac     = float(dias_vacaciones_tomados),
+        dias_pendientes_vac  = dias_pendientes_hab if fi else 0,
+        dias_calendario_vac  = float(dias_calendario_vac) if fi else 0,
+        dias_inhabiles_vac   = float(dias_calendario_vac - Decimal(str(dias_pendientes_hab))) if fi else 0,
     )
     fname = _fname("Finiquito", empleado, fecha_termino)
     return StreamingResponse(
