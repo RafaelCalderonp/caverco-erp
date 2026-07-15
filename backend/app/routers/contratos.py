@@ -712,10 +712,23 @@ async def descargar_carta_despido_word(
             await asegurar_indicadores(db, periodo_actual)
             val = await obtener_valor_periodo(db, periodo_actual)
             tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+            sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
         except Exception:
             tope_mensual = Decimal("213354")
+            sueldo_minimo = Decimal("553553")
+        sueldo = max(sueldo, sueldo_minimo)
         gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
     else:
+        # Aplicar piso de sueldo mínimo aunque no haya gratificación
+        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+        periodo_actual = fecha_termino.strftime("%Y-%m")
+        try:
+            await asegurar_indicadores(db, periodo_actual)
+            val = await obtener_valor_periodo(db, periodo_actual)
+            sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
+        except Exception:
+            sueldo_minimo = Decimal("553553")
+        sueldo = max(sueldo, sueldo_minimo)
         gratif_mensual = Decimal("0")
 
     gratif_dia = int(gratif_mensual / 30 * dias_mes)
@@ -839,19 +852,24 @@ async def descargar_finiquito_word(
     colacion     = Decimal(str(colacion_mensual))
     movilizacion = Decimal(str(movilizacion_mensual))
 
+    # Aplicar piso sueldo mínimo legal
+    from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+    periodo_actual = fecha_termino.strftime("%Y-%m")
+    try:
+        await asegurar_indicadores(db, periodo_actual)
+        val = await obtener_valor_periodo(db, periodo_actual)
+        sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
+        tope_mensual  = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+    except Exception:
+        sueldo_minimo = Decimal("553553")
+        tope_mensual  = Decimal("213354")
+    sueldo = max(sueldo, sueldo_minimo)
+
     dias_mes = fecha_termino.day
     monto_dias  = int(sueldo / 30 * dias_mes)
     rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes)
 
     if incluye_gratificacion:
-        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
-        periodo_actual = fecha_termino.strftime("%Y-%m")
-        try:
-            await asegurar_indicadores(db, periodo_actual)
-            val = await obtener_valor_periodo(db, periodo_actual)
-            tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
-        except Exception:
-            tope_mensual = Decimal("213354")
         gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
     else:
         gratif_mensual = Decimal("0")

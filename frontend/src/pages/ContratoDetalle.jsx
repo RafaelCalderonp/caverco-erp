@@ -81,6 +81,7 @@ export default function ContratoDetalle() {
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
   const [topeGratifMensual, setTopeGratifMensual] = useState(213354)
+  const [sueldoMinimo, setSueldoMinimo] = useState(553553)
 
   const [editando, setEditando] = useState(false)
   const [pasoEdicion, setPasoEdicion] = useState(1)
@@ -289,7 +290,10 @@ export default function ContratoDetalle() {
     // Tope gratificación mensual del período actual (Art. 50 CT)
     const periodo = new Date().toISOString().slice(0, 7)
     liquidacionesApi.indicadores(periodo)
-      .then(r => { if (r.data?.tope_gratif) setTopeGratifMensual(Number(r.data.tope_gratif)) })
+      .then(r => {
+        if (r.data?.tope_gratif) setTopeGratifMensual(Number(r.data.tope_gratif))
+        if (r.data?.sueldo_minimo) setSueldoMinimo(Number(r.data.sueldo_minimo))
+      })
       .catch(() => {})
   }, [id])
 
@@ -545,7 +549,7 @@ export default function ContratoDetalle() {
 
   function calcularMontosDespido() {
     if (!formDespido.causal_codigo || !formDespido.fecha_termino || !contrato?.sueldo_bruto) return
-    const sueldo = Number(contrato.sueldo_bruto)
+    const sueldo = Math.max(Number(contrato.sueldo_bruto), sueldoMinimo)
     const fTermino = new Date(formDespido.fecha_termino + 'T00:00:00')
     const diasMes = fTermino.getDate()
     const colacion = Number(formDespido.colacion_mensual) || 0
