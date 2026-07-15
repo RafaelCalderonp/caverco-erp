@@ -193,6 +193,7 @@ export default function ContratoDetalle() {
       causal_codigo: '', fecha_termino: '',
       aviso_con_30_dias: false,
       incluye_gratificacion: false,
+      remun_pendiente_procede: true,
       colacion_mensual: '',
       movilizacion_mensual: '',
       dias_vacaciones_tomados: 0,
@@ -576,7 +577,10 @@ export default function ContratoDetalle() {
     const montoDiasNeto = montoDias - totalDescuentos
 
     // Colación + Movilización proporcional (no imponible, sin descuentos)
-    const remPendiente = Math.round((colacion + movilizacion) * diasMes / 30)
+    const remPendiente = formDespido.remun_pendiente_procede
+      ? Math.round((colacion + movilizacion) * diasMes / 30)
+      : 0
+    const montoDiasNetoFinal = formDespido.remun_pendiente_procede ? montoDiasNeto : 0
 
     // Base para indemnizaciones = sueldo + gratif + colación + movilización
     const baseIndem = sueldo + gratifMensual + colacion + movilizacion
@@ -626,12 +630,12 @@ export default function ContratoDetalle() {
     }
 
     setMontosDespido({
-      diasMes, montoDias, montoDiasNeto, remPendiente, vacProp,
+      diasMes, montoDias, montoDiasNeto: montoDiasNetoFinal, remPendiente, vacProp,
       diasGanados, diasTomados, diasPendientes, diasCalendario, diasInhabiles,
       anosCompletos, indemAnos, aviso, tieneIndem, gratifMensual,
       descAfp, descSalud, descAfc, totalDescuentos, tasaAfp,
       indemTiempoServido,
-      total: montoDiasNeto + remPendiente + vacProp + indemAnos + aviso + indemTiempoServido,
+      total: montoDiasNetoFinal + remPendiente + vacProp + indemAnos + aviso + indemTiempoServido,
     })
   }
 
@@ -644,6 +648,7 @@ export default function ContratoDetalle() {
         fecha_termino: formDespido.fecha_termino,
         aviso_con_30_dias: formDespido.aviso_con_30_dias,
         incluye_gratificacion: formDespido.incluye_gratificacion,
+        remun_pendiente_procede: formDespido.remun_pendiente_procede,
         colacion_mensual: Number(formDespido.colacion_mensual) || 0,
         movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
@@ -664,6 +669,7 @@ export default function ContratoDetalle() {
         fecha_termino: formDespido.fecha_termino,
         aviso_con_30_dias: formDespido.aviso_con_30_dias,
         incluye_gratificacion: formDespido.incluye_gratificacion,
+        remun_pendiente_procede: formDespido.remun_pendiente_procede,
         colacion_mensual: Number(formDespido.colacion_mensual) || 0,
         movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
@@ -1597,6 +1603,19 @@ export default function ContratoDetalle() {
               style={{fontSize:13}} placeholder="0" />
           </div>
           <div style={{gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:8}}>
+            <div style={{display:'flex', alignItems:'center', gap:12, fontSize:13}}>
+              <span>¿Procede remuneración por días pendientes del mes?</span>
+              <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
+                <input type="radio" name="remun_pendiente" checked={formDespido.remun_pendiente_procede}
+                  onChange={() => { setFormDespido(f => ({ ...f, remun_pendiente_procede: true })); setMontosDespido(null) }} />
+                Sí
+              </label>
+              <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
+                <input type="radio" name="remun_pendiente" checked={!formDespido.remun_pendiente_procede}
+                  onChange={() => { setFormDespido(f => ({ ...f, remun_pendiente_procede: false })); setMontosDespido(null) }} />
+                No
+              </label>
+            </div>
             <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer'}}>
               <input type="checkbox" checked={formDespido.incluye_gratificacion}
                 onChange={e => { setFormDespido(f => ({ ...f, incluye_gratificacion: e.target.checked })); setMontosDespido(null) }} />

@@ -681,6 +681,7 @@ async def descargar_carta_despido_word(
     fecha_termino: date,
     aviso_con_30_dias: bool = False,
     incluye_gratificacion: bool = False,
+    remun_pendiente_procede: bool = True,
     colacion_mensual: int = 0,
     movilizacion_mensual: int = 0,
     dias_vacaciones_tomados: float = 0,
@@ -701,8 +702,8 @@ async def descargar_carta_despido_word(
 
     # Días trabajados del mes en que se terminó
     dias_mes = fecha_termino.day
-    monto_dias = int(sueldo / 30 * dias_mes)
-    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes)
+    monto_dias = int(sueldo / 30 * dias_mes) if remun_pendiente_procede else 0
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes) if remun_pendiente_procede else 0
 
     # Gratificación mensual
     if incluye_gratificacion:
@@ -829,6 +830,7 @@ async def descargar_finiquito_word(
     fecha_termino: date,
     aviso_con_30_dias: bool = False,
     incluye_gratificacion: bool = False,
+    remun_pendiente_procede: bool = True,
     colacion_mensual: int = 0,
     movilizacion_mensual: int = 0,
     dias_vacaciones_tomados: float = 0,
@@ -869,8 +871,8 @@ async def descargar_finiquito_word(
     sueldo = max(sueldo, sueldo_minimo)
 
     dias_mes = fecha_termino.day
-    monto_dias  = int(sueldo / 30 * dias_mes)
-    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes)
+    monto_dias    = int(sueldo / 30 * dias_mes) if remun_pendiente_procede else 0
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes) if remun_pendiente_procede else 0
 
     if incluye_gratificacion:
         gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
