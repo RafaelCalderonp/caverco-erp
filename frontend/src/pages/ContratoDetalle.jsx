@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, liquidacionesApi, capacitacionesApi, empleadosApi } from '../services/api'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 import { formatearRut } from '../utils/rut'
+import { calcularDiasCalendario } from '../utils/feriados'
 import { HORARIO_DETALLE_DEFAULT } from './ContratoNuevo'
 
 function Campo({ label, children, span2 }) {
@@ -598,8 +599,12 @@ export default function ContratoDetalle() {
     const diasGanados = fInicio ? Math.round((diasTrabajados / 365) * 15 * 100) / 100 : 0
     const diasTomados = Number(formDespido.dias_vacaciones_tomados) || 0
     const diasPendientes = Math.max(0, Math.round((diasGanados - diasTomados) * 100) / 100)
-    // Conversión a días calendario: por cada 5 hábiles hay 2 inhábiles (fines de semana)
-    const diasCalendario = diasPendientes * 7 / 5
+    // Conversión a días calendario: contar días hábiles desde el día siguiente al despido
+    // incluyendo feriados reales para obtener días inhábiles exactos
+    const fechaPostDespido = new Date(fTermino); fechaPostDespido.setDate(fechaPostDespido.getDate() + 1)
+    const { diasCalendario, diasInhabiles } = calcularDiasCalendario(
+      fechaPostDespido.toISOString().slice(0, 10), diasPendientes
+    )
     const valorDiaVac = (sueldo + gratifMensual) / 30
     const vacProp = Math.round(valorDiaVac * diasCalendario)
 
@@ -622,7 +627,7 @@ export default function ContratoDetalle() {
 
     setMontosDespido({
       diasMes, montoDias, montoDiasNeto, remPendiente, vacProp,
-      diasGanados, diasTomados, diasPendientes,
+      diasGanados, diasTomados, diasPendientes, diasCalendario, diasInhabiles,
       anosCompletos, indemAnos, aviso, tieneIndem, gratifMensual,
       descAfp, descSalud, descAfc, totalDescuentos, tasaAfp,
       indemTiempoServido,
@@ -1652,7 +1657,7 @@ export default function ContratoDetalle() {
             {montosDespido.vacProp > 0 && (
               <div style={{display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid var(--gray-200)'}}>
                 <span className="text-muted">
-                  Vacaciones proporcionales — {montosDespido.diasGanados} días ganados − {montosDespido.diasTomados} tomados = {montosDespido.diasPendientes} hábiles pendientes
+                  Vacaciones proporcionales — {montosDespido.diasGanados} días ganados − {montosDespido.diasTomados} tomados = {montosDespido.diasPendientes} hábiles + {montosDespido.diasInhabiles} inhábiles = {montosDespido.diasCalendario} días calendario
                 </span>
                 <span>{fmt(montosDespido.vacProp)}</span>
               </div>

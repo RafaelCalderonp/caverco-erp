@@ -762,12 +762,15 @@ async def descargar_carta_despido_word(
         dias_totales = 0
         anos_completos = 0
 
-    # Vacaciones proporcionales — fórmula idéntica al frontend
+    # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
     if fi:
+        from app.utils.feriados import calcular_dias_calendario
+        from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
         dias_ganados_hab  = round(dias_trabajados_total / 365 * 15, 2)
         dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
-        dias_calendario_vac = Decimal(str(dias_pendientes_hab)) * Decimal("7") / Decimal("5")
+        fecha_post_despido = fecha_termino + timedelta(days=1)
+        dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
         valor_dia_vac = (sueldo + gratif_mensual) / Decimal("30")
         vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
     else:
@@ -900,12 +903,15 @@ async def descargar_finiquito_word(
         dias_totales   = 0
         anos_completos = 0
 
-    # Vacaciones proporcionales — fórmula idéntica al frontend y a carta-despido
+    # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
     if fi:
+        from app.utils.feriados import calcular_dias_calendario
+        from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
         dias_ganados_hab  = round(dias_trabajados_total / 365 * 15, 2)
         dias_pendientes_hab = max(0, round(dias_ganados_hab - dias_vacaciones_tomados, 2))
-        dias_calendario_vac = Decimal(str(dias_pendientes_hab)) * Decimal("7") / Decimal("5")
+        fecha_post_despido = fecha_termino + timedelta(days=1)
+        dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
         valor_dia_vac = (sueldo + gratif_mensual) / Decimal("30")
         vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
     else:
