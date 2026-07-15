@@ -579,17 +579,14 @@ export default function ContratoDetalle() {
     // Descuentos legales sobre imponible días (AFP + Salud 7% + AFC 0.6%)
     const afpObj = afps.find(a => a.id === contrato?.empleado?.id_afp) || null
     const tasaAfp = afpObj ? afpObj.tasa : 0.1144  // fallback Capital
-    const descAfp = Math.round(montoDias * tasaAfp)
-    const descSalud = Math.round(montoDias * TASA_SALUD)
-    const descAfc = Math.round(montoDias * TASA_AFC)
+    const procede = formDespido.remun_pendiente_procede === true
+    const descAfp   = procede ? Math.round(montoDias * tasaAfp) : 0
+    const descSalud = procede ? Math.round(montoDias * TASA_SALUD) : 0
+    const descAfc   = procede ? Math.round(montoDias * TASA_AFC) : 0
     const totalDescuentos = descAfp + descSalud + descAfc
-    const montoDiasNeto = montoDias - totalDescuentos
-
-    // Colación + Movilización proporcional (no imponible, sin descuentos)
-    const remPendiente = formDespido.remun_pendiente_procede
-      ? Math.round((colacion + movilizacion) * diasMes / 30)
-      : 0
-    const montoDiasNetoFinal = formDespido.remun_pendiente_procede ? montoDiasNeto : 0
+    const montoDiasNeto = procede ? montoDias - totalDescuentos : 0
+    const remPendiente = procede ? Math.round((colacion + movilizacion) * diasMes / 30) : 0
+    const montoDiasNetoFinal = montoDiasNeto
 
     // Base para indemnizaciones = sueldo + gratif + colación + movilización
     const baseIndem = sueldo + gratifMensual + colacion + movilizacion
@@ -639,7 +636,7 @@ export default function ContratoDetalle() {
     }
 
     setMontosDespido({
-      diasMes, montoDias, montoDiasNeto: montoDiasNetoFinal, remPendiente, vacProp,
+      diasMes, montoDias: procede ? montoDias : 0, montoDiasNeto: montoDiasNetoFinal, remPendiente, vacProp,
       diasGanados, diasTomados, diasPendientes, diasCalendario, diasInhabiles,
       anosCompletos, indemAnos, aviso, tieneIndem, gratifMensual,
       descAfp, descSalud, descAfc, totalDescuentos, tasaAfp,
