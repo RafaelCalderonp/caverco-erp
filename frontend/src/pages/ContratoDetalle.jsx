@@ -1547,11 +1547,26 @@ export default function ContratoDetalle() {
               </p>
             )}
           </div>
-          <button className="btn btn-outline btn-sm"
-            onClick={() => setDespidoExpandido(v => !v)}
-            style={{fontSize:12}}>
-            {despidoExpandido ? '▲ Contraer' : '▼ Expandir'}
-          </button>
+          <div style={{display:'flex', gap:8}}>
+            {despidoGuardado && (
+              <button className="btn btn-outline btn-sm" style={{fontSize:12, color:'var(--danger)'}}
+                onClick={() => {
+                  if (!confirm('¿Reiniciar el formulario de carta de despido? Se borrarán los datos guardados.')) return
+                  localStorage.removeItem(`despido_${id}`)
+                  setFormDespido({ causal_codigo:'', fecha_termino:'', aviso_con_30_dias:false, incluye_gratificacion:false, remun_pendiente_procede:true, colacion_mensual:'', movilizacion_mensual:'', dias_vacaciones_tomados:0, descripcion_adicional:'' })
+                  setMontosDespido(null)
+                  setDespidoGuardado(false)
+                  setDespidoExpandido(true)
+                }}>
+                Reiniciar
+              </button>
+            )}
+            <button className="btn btn-outline btn-sm"
+              onClick={() => setDespidoExpandido(v => !v)}
+              style={{fontSize:12}}>
+              {despidoExpandido ? '▲ Contraer' : '▼ Expandir'}
+            </button>
+          </div>
         </div>
         {despidoExpandido && <>
         <p style={{fontSize:13, color:'var(--gray-600)', marginBottom:12}}>
