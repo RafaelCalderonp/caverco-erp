@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     ENCRYPTION_KEY: Optional[str] = None     # Fernet key (urlsafe-base64, 32 bytes) para credenciales cifradas. Si no se define, se deriva de SECRET_KEY (solo recomendado en dev).
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"  # Lista separada por comas de orígenes permitidos (frontend en producción).
+    BROWSERLESS_API_KEY: Optional[str] = None  # API key de Browserless.io, usada por el scraping del SII (Playwright remoto)
+    BROWSERLESS_WS_URL: str = "wss://chrome.browserless.io"  # Endpoint WS del proveedor de browser headless
 
     class Config:
         env_file = ".env"

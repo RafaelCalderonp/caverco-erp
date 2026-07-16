@@ -6,28 +6,36 @@ import logo from '../../assets/caverco-logo.png'
 
 const NAV = [
   { to: '/seleccionar-empresa', icon: '🏠', label: 'Home' },
-  { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
+  { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
+  { section: 'RRHH' },
   { to: '/empleados',     icon: '👥', label: 'Empleados' },
-  { to: '/departamentos', icon: '🏢', label: 'Departamentos' },
   { to: '/catalogos',     icon: '⚙️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
+  { to: '/capacitaciones', icon: '🎓', label: 'Capacitaciones' },
   { to: '/contratos',     icon: '📄', label: 'Contratos' },
   { to: '/liquidaciones',  icon: '💵', label: 'Liquidaciones' },
+  { section: 'Contabilidad' },
+  { to: '/contabilidad',  icon: '🧮', label: 'Contabilidad' },
+  { to: '/plan-cuentas',       icon: '📒', label: 'Plan de Cuentas' },
+  { to: '/libro-diario',       icon: '📓', label: 'Libro Diario' },
+  { to: '/balance-8-columnas',        icon: '⚖️', label: 'Balance 8 Col.' },
+  { to: '/plantillas-contabilizacion', icon: '🗂️', label: 'Plantillas' },
+  { section: null },
   { to: '/usuarios',      icon: '🛡️', label: 'Usuarios', roles: ['SUPERADMIN', 'ADMIN'] },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
-const REQUIERE_EMPRESA = ['/empleados', '/departamentos', '/catalogos', '/licencias', '/contratos', '/liquidaciones']
+const REQUIERE_EMPRESA = ['/empleados', '/catalogos', '/licencias', '/capacitaciones', '/contratos', '/liquidaciones', '/contabilidad', '/libro-diario', '/balance-8-columnas', '/plantillas-contabilizacion']
 const STORAGE_KEY = 'sidebarColapsado'
 
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { usuario, logout } = useAuth()
-  const { empresaActual } = useEmpresa()
+  const { empresaActual, cargando: cargandoEmpresas, errorConexion, recargarEmpresas } = useEmpresa()
   const [colapsado, setColapsado] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
-  const pageTitle = NAV.find(n => location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
+  const pageTitle = NAV.find(n => n.to && location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
 
   function onLogout() {
     logout()
@@ -45,15 +53,20 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <img
-            src={empresaActual?.logo_url || logo}
+            src={logo}
             alt="Caverco"
-            style={{ height: 28, objectFit: 'contain', background: empresaActual?.logo_url ? 'transparent' : '#fff', borderRadius: 6, padding: empresaActual?.logo_url ? 0 : '4px 8px', flexShrink: 0 }}
+            style={{ height: 28, objectFit: 'contain', background: '#fff', borderRadius: 6, padding: '4px 8px', flexShrink: 0 }}
           />
-          <span className="sidebar-logo-label">{empresaActual ? empresaActual.razon_social : 'Recursos Humanos'}</span>
+          <span className="sidebar-logo-label">Caverco Partners SpA</span>
         </div>
-        <div className="sidebar-section">Módulos</div>
         <nav>
-          {NAV.filter(n => !n.roles || n.roles.includes(usuario?.rol)).map(({ to, icon, label }) => {
+          {NAV.filter(n => n.section !== undefined || !n.roles || n.roles.includes(usuario?.rol)).map((item, i) => {
+            if (item.section !== undefined) {
+              return item.section
+                ? <div key={`section-${i}`} className="sidebar-section">{item.section}</div>
+                : null
+            }
+            const { to, icon, label } = item
             const disabled = REQUIERE_EMPRESA.includes(to) && !empresaActual
             return disabled ? (
               <span key={to} className="nav-item" style={{ opacity: .4, cursor: 'not-allowed' }} title="Selecciona una empresa primero">
@@ -88,6 +101,30 @@ export default function Layout() {
             <button onClick={onLogout} style={{marginLeft: 12}}>Salir</button>
           </div>
         </header>
+        {errorConexion && (
+          <div style={{
+            padding: '14px 20px', background: '#fef3c7', borderBottom: '1px solid #fbbf24',
+            display: 'flex', alignItems: 'center', gap: 12, fontSize: 14,
+          }}>
+            <span style={{fontSize:18}}>⚠️</span>
+            <span style={{flex:1, color:'#92400e', fontWeight:500}}>
+              No se pudo conectar al servidor. Las empresas pueden no estar cargadas.
+              El servidor puede estar iniciando — esto es normal tras un período de inactividad.
+            </span>
+            <button className="btn btn-sm" style={{background:'#f59e0b',color:'#fff',border:'none'}}
+              onClick={recargarEmpresas} disabled={cargandoEmpresas}>
+              {cargandoEmpresas ? 'Conectando…' : '🔄 Reintentar'}
+            </button>
+          </div>
+        )}
+        {cargandoEmpresas && !errorConexion && (
+          <div style={{
+            padding: '8px 20px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe',
+            fontSize: 13, color: '#1d4ed8',
+          }}>
+            ⏳ Conectando con el servidor… (puede tomar hasta 60 segundos si estaba inactivo)
+          </div>
+        )}
         <main className="content">
           <Outlet />
         </main>

@@ -6,15 +6,33 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
 import io
+import re
+from urllib.parse import quote
+
+
+def _fname(tipo: str, empleado, fecha: date | None = None) -> str:
+    """Genera nombre de archivo: YYMMDD Tipo Nombre Apellido.docx"""
+    d = fecha or date.today()
+    yymmdd = d.strftime("%y%m%d")
+    nombres = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", empleado.nombres or "").strip()
+    apellido = re.sub(r"[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]", "", empleado.apellido_paterno or "").strip()
+    return f"{yymmdd} {tipo} {nombres} {apellido}.docx"
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
     Contrato, AnexoContrato, ContratoDocumento, ContratoRequisitoObra,
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
-    Empresa, AFP, Isapre, TipoContrato,
+    Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
 )
-from app.services.contrato_word import generar_contrato_docx
+from app.services.contrato_word import (
+    generar_contrato_docx, generar_anexo_docx, generar_epp_docx,
+    generar_reglamento_docx, generar_pacto_horas_extra_docx,
+    generar_amonestacion_docx, generar_carta_despido_docx, generar_finiquito_docx,
+    CAUSALES_DESPIDO,
+)
+from app.services.capacitacion_word import generar_certificado_antiguedad_docx
+from sqlalchemy import func
 from app.services.correlativos import siguiente_codigo
 from app.schemas.rrhh import (
     ContratoCreate, ContratoUpdate, ContratoOut,
@@ -69,10 +87,40 @@ async def listar_contratos(
 
 
 async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
-    """Valida que obra/centro de costo/cargo del contrato pertenezcan a la misma empresa del empleado."""
+    """Valida que obra/centro de costo/cargo del contrato pertenezcan a la misma empresa del empleado.
+    Además aplica las reglas de negocio:
+    - La empresa debe tener al menos un cargo creado (requisito para cualquier contrato).
+    - Para contratos POR_OBRA la empresa debe tener al menos una obra creada.
+    """
     empleado = await db.get(Empleado, data["id_empleado"])
     if empleado is None:
         raise HTTPException(404, "Empleado no encontrado")
+    id_empresa = empleado.id_empresa
+
+    # Regla 1: la empresa debe tener al menos un cargo
+    n_cargos = (await db.execute(
+        select(func.count()).select_from(Cargo).where(Cargo.id_empresa == id_empresa)
+    )).scalar_one()
+    if n_cargos == 0:
+        raise HTTPException(
+            400,
+            "La empresa no tiene cargos registrados. Crea al menos un cargo antes de generar contratos."
+        )
+
+    # Regla 2: para contrato POR_OBRA la empresa debe tener obras
+    id_tipo = data.get("id_tipo_contrato")
+    if id_tipo:
+        tipo = await db.get(TipoContrato, id_tipo)
+        if tipo and tipo.codigo == "POR_OBRA":
+            n_obras = (await db.execute(
+                select(func.count()).select_from(Obra).where(Obra.id_empresa == id_empresa)
+            )).scalar_one()
+            if n_obras == 0:
+                raise HTTPException(
+                    400,
+                    "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
+                )
+
     checks = [
         (Obra, data.get("id_obra"), "La obra"),
         (CentroCosto, data.get("id_centro_costo"), "El centro de costo"),
@@ -82,13 +130,45 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
         if valor is None:
             continue
         entidad = await db.get(modelo, valor)
-        if entidad is None or entidad.id_empresa != empleado.id_empresa:
+        if entidad is None or entidad.id_empresa != id_empresa:
             raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del empleado")
 
 
 @router.get("/{id}", response_model=ContratoOut)
 async def obtener_contrato(id: int, db: AsyncSession = Depends(get_db)):
     return await _get_contrato_or_404(id, db)
+
+
+@router.get("/{id}/full")
+async def obtener_contrato_full(id: int, db: AsyncSession = Depends(get_db)):
+    """Devuelve contrato + todos sus sub-recursos en paralelo (reduce round-trips del frontend)."""
+    import asyncio
+    from app.models.rrhh import EntregaEpp, PactoHorasExtra
+    from app.schemas.rrhh import AnexoContratoOut, ContratoRequisitoObraOut, EntregaEppOut, PactoHorasExtraOut
+
+    contrato_q, anexos_q, requisitos_q, epps_q, pactos_q = await asyncio.gather(
+        db.execute(
+            select(Contrato)
+            .options(selectinload(Contrato.empleado), selectinload(Contrato.anexos), selectinload(Contrato.requisitos_obra))
+            .where(Contrato.id == id)
+        ),
+        db.execute(select(AnexoContrato).where(AnexoContrato.id_contrato == id)),
+        db.execute(select(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato == id)),
+        db.execute(select(EntregaEpp).where(EntregaEpp.id_contrato == id)),
+        db.execute(select(PactoHorasExtra).where(PactoHorasExtra.id_contrato == id)),
+    )
+
+    contrato = contrato_q.scalar_one_or_none()
+    if contrato is None:
+        raise HTTPException(404, "Contrato no encontrado")
+
+    return {
+        **ContratoOut.model_validate(contrato).model_dump(),
+        "anexos":             [AnexoContratoOut.model_validate(a).model_dump() for a in anexos_q.scalars().all()],
+        "requisitos_obra":    [ContratoRequisitoObraOut.model_validate(r).model_dump() for r in requisitos_q.scalars().all()],
+        "entregas_epp":       [EntregaEppOut.model_validate(e).model_dump() for e in epps_q.scalars().all()],
+        "pactos_horas_extra": [PactoHorasExtraOut.model_validate(p).model_dump() for p in pactos_q.scalars().all()],
+    }
 
 
 @router.get("/{id}/word")
@@ -114,11 +194,18 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
         isapre_nombre=isapre.nombre if isapre else None,
         tipo_contrato_codigo=tipo_contrato.codigo if tipo_contrato else None,
     )
-    nombre_archivo = f"Contrato_{empleado.apellido_paterno}_{empleado.nombres}.docx".replace(" ", "_")
+    TIPO_LABEL = {
+        "INDEFINIDO": "Contrato Indefinido",
+        "PLAZO_FIJO": "Contrato Plazo Fijo",
+        "POR_OBRA":   "Contrato por Obra",
+        "HONORARIOS": "Contrato Honorarios",
+    }
+    tipo_label = TIPO_LABEL.get(tipo_contrato.codigo if tipo_contrato else "", "Contrato")
+    nombre_archivo = _fname(tipo_label, empleado, contrato.fecha_contrato)
     return StreamingResponse(
         io.BytesIO(contenido),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre_archivo)}"},
     )
 
 
@@ -127,6 +214,31 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
 async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: AsyncSession = Depends(get_db)):
     """Alta en un solo paso: crea el trabajador y su contrato a partir de un único formulario,
     evitando ingresar los mismos datos dos veces."""
+    id_empresa = data.id_empresa
+
+    # Regla 1: la empresa debe tener al menos un cargo
+    n_cargos = (await db.execute(
+        select(func.count()).select_from(Cargo).where(Cargo.id_empresa == id_empresa)
+    )).scalar_one()
+    if n_cargos == 0:
+        raise HTTPException(
+            400,
+            "La empresa no tiene cargos registrados. Crea al menos un cargo antes de generar contratos."
+        )
+
+    # Regla 2: para contrato POR_OBRA la empresa debe tener obras
+    if data.id_tipo_contrato:
+        tipo = await db.get(TipoContrato, data.id_tipo_contrato)
+        if tipo and tipo.codigo == "POR_OBRA":
+            n_obras = (await db.execute(
+                select(func.count()).select_from(Obra).where(Obra.id_empresa == id_empresa)
+            )).scalar_one()
+            if n_obras == 0:
+                raise HTTPException(
+                    400,
+                    "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
+                )
+
     payload = data.model_dump()
     campos_empleado = {
         "id_empresa", "rut", "nombres", "apellido_paterno", "apellido_materno",
@@ -215,7 +327,7 @@ async def finiquitar_contrato(
         raise HTTPException(400, "Solo se puede finiquitar un contrato vigente")
     contrato.estado = "finiquitado"
     contrato.id_motivo_termino = id_motivo_termino
-    contrato.fecha_termino_real = fecha_termino_real
+    contrato.fecha_termino_real = fecha_termino_real if isinstance(fecha_termino_real, date) else date.fromisoformat(str(fecha_termino_real))
     await db.commit()
     await db.refresh(contrato)
     return contrato
@@ -248,12 +360,73 @@ async def listar_anexos(id: int, db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.get("/{id}/anexos/{id_anexo}/word")
+async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    anexo = await db.get(AnexoContrato, id_anexo)
+    if anexo is None or anexo.id_contrato != id:
+        raise HTTPException(404, "Anexo no encontrado")
+    tipo_anexo = await db.get(TipoAnexo, anexo.id_tipo_anexo)
+    if tipo_anexo is None or tipo_anexo.codigo not in ("PRORROGA_PLAZO", "CONV_INDEFINIDO"):
+        raise HTTPException(400, "No hay un documento Word disponible para este tipo de anexo")
+
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    if empleado is None:
+        raise HTTPException(404, "Empleado no encontrado")
+    empresa = await db.get(Empresa, empleado.id_empresa)
+    cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
+
+    contenido = generar_anexo_docx(
+        empresa=empresa,
+        empleado=empleado,
+        contrato=contrato,
+        anexo=anexo,
+        tipo_anexo_codigo=tipo_anexo.codigo,
+        cargo_nombre=cargo.nombre if cargo else None,
+    )
+    nombre_archivo = _fname(f"Anexo {tipo_anexo.codigo}", empleado, anexo.fecha_anexo)
+    return StreamingResponse(
+        io.BytesIO(contenido),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre_archivo)}"},
+    )
+
+
 @router.post("/{id}/anexos", response_model=AnexoContratoOut, status_code=201,
              dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
     empleado = await db.get(Empleado, contrato.id_empleado)
-    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **data.model_dump())
+    tipo_anexo = await db.get(TipoAnexo, data.id_tipo_anexo)
+    if tipo_anexo is None:
+        raise HTTPException(400, "Tipo de anexo no encontrado")
+
+    payload = data.model_dump()
+
+    if tipo_anexo.codigo == "PRORROGA_PLAZO":
+        ya_prorrogado = (await db.execute(
+            select(AnexoContrato)
+            .join(TipoAnexo, TipoAnexo.id == AnexoContrato.id_tipo_anexo)
+            .where(AnexoContrato.id_contrato == id, TipoAnexo.codigo == "PRORROGA_PLAZO")
+        )).scalar_one_or_none() is not None
+        if ya_prorrogado:
+            raise HTTPException(400, "Este contrato ya tiene una prórroga registrada. Un contrato a plazo fijo solo puede prorrogarse una vez; el siguiente anexo debe ser de Conversión a Indefinido.")
+        if not data.nueva_fecha_termino:
+            raise HTTPException(400, "Debe indicar el plazo de la prórroga")
+        payload["valor_anterior"] = {"fecha_termino_pactada": contrato.fecha_termino_pactada.isoformat() if contrato.fecha_termino_pactada else None}
+        payload["valor_nuevo"] = {"fecha_termino_pactada": data.nueva_fecha_termino.isoformat()}
+        contrato.fecha_termino_pactada = data.nueva_fecha_termino
+
+    elif tipo_anexo.codigo == "CONV_INDEFINIDO":
+        tipo_indefinido = (await db.execute(select(TipoContrato).where(TipoContrato.codigo == "INDEFINIDO"))).scalar_one_or_none()
+        if tipo_indefinido is None:
+            raise HTTPException(500, "No está configurado el tipo de contrato Indefinido")
+        payload["valor_anterior"] = {"id_tipo_contrato": contrato.id_tipo_contrato}
+        payload["valor_nuevo"] = {"id_tipo_contrato": tipo_indefinido.id}
+        contrato.id_tipo_contrato = tipo_indefinido.id
+        contrato.fecha_termino_pactada = None
+
+    anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)
     await db.commit()
     await db.refresh(anexo)
@@ -319,8 +492,21 @@ async def actualizar_requisito_obra(id: int, data: ContratoRequisitoObraUpdate, 
 @router.get("/{id}/entregas-epp", response_model=List[EntregaEppOut])
 async def listar_entregas_epp(id: int, db: AsyncSession = Depends(get_db)):
     await _get_contrato_or_404(id, db)
-    result = await db.execute(select(EntregaEpp).where(EntregaEpp.id_contrato == id))
+    result = await db.execute(
+        select(EntregaEpp).where(EntregaEpp.id_contrato == id).order_by(EntregaEpp.fecha_entrega.desc())
+    )
     return result.scalars().all()
+
+
+@router.get("/{id}/entregas-epp/siguiente-folio")
+async def siguiente_folio_epp(id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    result = await db.execute(
+        select(func.count()).select_from(EntregaEpp).where(EntregaEpp.id_empresa == empleado.id_empresa)
+    )
+    count = result.scalar() or 0
+    return {"folio": f"{count + 1:03d}"}
 
 
 @router.post("/{id}/entregas-epp", response_model=EntregaEppOut, status_code=201,
@@ -333,6 +519,82 @@ async def crear_entrega_epp(id: int, data: EntregaEppCreate, db: AsyncSession = 
     await db.commit()
     await db.refresh(entrega)
     return entrega
+
+
+@router.get("/{id}/entregas-epp/{epp_id}/word")
+async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    entrega = await db.get(EntregaEpp, epp_id)
+    if not entrega or entrega.id_contrato != id:
+        raise HTTPException(404, "Entrega de EPP no encontrada")
+
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+
+    docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
+    fname  = _fname(f"Entrega EPP Folio {entrega.folio or epp_id}", empleado, entrega.fecha_entrega)
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ---- Reglamento Interno ----
+@router.get("/{id}/reglamento-interno/word")
+async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = None, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+
+    from datetime import date as date_today
+    docx_bytes = generar_reglamento_docx(
+        empresa       = empresa,
+        empleado      = empleado,
+        fecha_entrega = fecha_entrega or date_today.today(),
+    )
+    fname  = _fname("Reglamento Interno", empleado, fecha_entrega or date.today())
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ---- Certificado de Antigüedad ----
+@router.get("/{id}/certificado-antiguedad/word")
+async def descargar_certificado_antiguedad_word(
+    id: int,
+    ciudad: str = "Santiago",
+    fecha_emision: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    tipo_c   = await db.get(TipoContrato, contrato.id_tipo_contrato) if contrato.id_tipo_contrato else None
+
+    from datetime import date as date_today
+    docx_bytes = generar_certificado_antiguedad_docx(
+        nombre          = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip(),
+        rut_empleado    = empleado.rut or "",
+        cargo           = (await db.get(Cargo, empleado.id_cargo)).nombre if empleado.id_cargo else "",
+        fecha_ingreso   = contrato.fecha_inicio,
+        tipo_contrato   = tipo_c.codigo if tipo_c else "INDEFINIDO",
+        empresa_nombre  = empresa.razon_social or empresa.nombre_fantasia or "",
+        empresa_rut     = empresa.rut or "",
+        ciudad          = ciudad,
+        fecha_emision   = fecha_emision or date_today.today(),
+        empresa         = empresa,
+    )
+    fname  = _fname("Certificado Antiguedad", empleado, fecha_emision or date.today())
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
 
 
 # ---- Pactos de horas extra ----
@@ -353,3 +615,364 @@ async def crear_pacto_horas_extra(id: int, data: PactoHorasExtraCreate, db: Asyn
     await db.commit()
     await db.refresh(pacto)
     return pacto
+
+
+@router.get("/{id}/pactos-horas-extra/{pacto_id}/word")
+async def descargar_pacto_word(id: int, pacto_id: int, db: AsyncSession = Depends(get_db)):
+    contrato = await _get_contrato_or_404(id, db)
+    pacto    = await db.get(PactoHorasExtra, pacto_id)
+    if not pacto or pacto.id_contrato != id:
+        raise HTTPException(404, "Pacto no encontrado")
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    docx_bytes = generar_pacto_horas_extra_docx(
+        empresa      = empresa,
+        empleado     = empleado,
+        contrato     = contrato,
+        pacto        = pacto,
+        cargo_nombre = cargo.nombre if cargo else "",
+    )
+    fname  = _fname("Pacto Horas Extra", empleado, pacto.fecha_inicio)
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ---- Carta de Amonestación ----
+@router.get("/{id}/amonestacion/word")
+async def descargar_amonestacion_word(
+    id: int,
+    motivo: str = "",
+    descripcion: str = "",
+    fecha: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    from datetime import date as date_today
+    docx_bytes = generar_amonestacion_docx(
+        empresa      = empresa,
+        empleado     = empleado,
+        motivo       = motivo,
+        descripcion  = descripcion,
+        fecha        = fecha or date_today.today(),
+        cargo_nombre = cargo.nombre if cargo else "",
+    )
+    fname = _fname("Carta Amonestacion", empleado, fecha or date.today())
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ---- Carta de Despido ----
+@router.get("/{id}/carta-despido/word")
+async def descargar_carta_despido_word(
+    id: int,
+    causal_codigo: str,
+    fecha_termino: date,
+    aviso_con_30_dias: bool = False,
+    incluye_gratificacion: bool = False,
+    remun_pendiente_procede: bool = True,
+    colacion_mensual: int = 0,
+    movilizacion_mensual: int = 0,
+    dias_vacaciones_tomados: float = 0,
+    descripcion_adicional: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
+
+    from math import floor
+    from decimal import Decimal
+
+    sueldo = Decimal(str(contrato.sueldo_bruto or 0))
+    colacion = Decimal(str(colacion_mensual))
+    movilizacion = Decimal(str(movilizacion_mensual))
+
+    # Días trabajados del mes en que se terminó
+    dias_mes = fecha_termino.day
+    monto_dias = int(sueldo / 30 * dias_mes) if remun_pendiente_procede else 0
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes) if remun_pendiente_procede else 0
+
+    # Gratificación mensual
+    if incluye_gratificacion:
+        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+        periodo_actual = fecha_termino.strftime("%Y-%m")
+        try:
+            await asegurar_indicadores(db, periodo_actual)
+            val = await obtener_valor_periodo(db, periodo_actual)
+            tope_mensual = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+            sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
+        except Exception:
+            tope_mensual = Decimal("213354")
+            sueldo_minimo = Decimal("553553")
+        sueldo = max(sueldo, sueldo_minimo)
+        gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
+    else:
+        # Aplicar piso de sueldo mínimo aunque no haya gratificación
+        from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+        periodo_actual = fecha_termino.strftime("%Y-%m")
+        try:
+            await asegurar_indicadores(db, periodo_actual)
+            val = await obtener_valor_periodo(db, periodo_actual)
+            sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
+        except Exception:
+            sueldo_minimo = Decimal("553553")
+        sueldo = max(sueldo, sueldo_minimo)
+        gratif_mensual = Decimal("0")
+
+    gratif_dia = int(gratif_mensual / 30 * dias_mes) if remun_pendiente_procede else 0
+
+    # Imponible días = sueldo proporcional + gratif proporcional (combinados, igual que frontend)
+    monto_dias_imponible = monto_dias + gratif_dia
+
+    # Descuentos legales sobre imponible días
+    TASA_SALUD = 0.07   # Art. 85 Ley 18.469 — tasa legal fija
+    TASA_AFC   = 0.006  # Ley 19.728 Art. 5 — contrato indefinido trabajador
+    from app.models.rrhh import AFP as AFPModel
+    afp_obj = await db.get(AFPModel, empleado.id_afp) if empleado.id_afp else None
+    tasa_afp = float(afp_obj.tasa) if afp_obj else 0.1144
+    desc_afp   = int(monto_dias_imponible * tasa_afp)
+    desc_salud = int(monto_dias_imponible * TASA_SALUD)
+    desc_afc   = int(monto_dias_imponible * TASA_AFC)
+
+    # Base para indemnizaciones = sueldo + gratif + colación + movilización
+    base_indem = sueldo + gratif_mensual + colacion + movilizacion
+
+    # Años de servicio
+    fi = contrato.fecha_inicio
+    if fi:
+        dias_totales = (fecha_termino - fi).days
+        anos = dias_totales / 365.25
+        anos_completos = floor(anos)
+        if (anos - anos_completos) >= 0.5:
+            anos_completos += 1
+        anos_completos = min(anos_completos, 11)
+    else:
+        dias_totales = 0
+        anos_completos = 0
+
+    # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
+    dias_ganados_hab = 0.0; dias_pendientes_hab = 0.0; dias_calendario_vac = Decimal("0")
+    if fi:
+        from app.utils.feriados import calcular_dias_calendario
+        from datetime import timedelta
+        dias_trabajados_total = (fecha_termino - fi).days
+        from decimal import ROUND_HALF_UP
+        dias_ganados_hab  = float(Decimal(str(dias_trabajados_total / 30 * 1.25)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        dias_pendientes_hab = float(max(Decimal("0"), Decimal(str(dias_ganados_hab - dias_vacaciones_tomados)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
+        fecha_post_despido = fecha_termino + timedelta(days=1)
+        dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
+        valor_dia_vac = sueldo / Decimal("30")
+        vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
+    else:
+        vac_prop = 0
+
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    _, _, tiene_indem, tiene_aviso = causal_info
+    indem_anos = int(base_indem * anos_completos) if tiene_indem else 0
+    aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
+
+    # Indemnización por tiempo servido — Art. 163 bis CT
+    # Solo Art. 159 N°5 (conclusión obra). No aplica en causales de abandono/ausencias.
+    if causal_codigo == "159_5" and fi:
+        meses = dias_totales / 30.4375
+        meses_enteros = floor(meses)
+        fraccion = meses - meses_enteros
+        meses_con_fraccion = meses_enteros + (1 if fraccion * 30.4375 > 15 else 0)
+        indem_tiempo_servido = int(base_indem / 30 * 2.5 * meses_con_fraccion)
+    else:
+        indem_tiempo_servido = 0
+
+    docx_bytes = generar_carta_despido_docx(
+        empresa                    = empresa,
+        empleado                   = empleado,
+        contrato                   = contrato,
+        causal_codigo              = causal_codigo,
+        fecha_termino              = fecha_termino,
+        cargo_nombre               = cargo.nombre if cargo else "",
+        dias_trabajados_mes        = dias_mes,
+        monto_dias_trabajados      = monto_dias_imponible,
+        vacaciones_proporcionales  = vac_prop,
+        indemnizacion_anos         = indem_anos,
+        aviso_previo               = aviso_calculado,
+        indem_tiempo_servido       = indem_tiempo_servido,
+        gratificacion              = gratif_dia,
+        rem_pendiente              = rem_pendiente,
+        anos_servicio              = anos_completos,
+        descripcion_adicional      = descripcion_adicional,
+        desc_afp                   = desc_afp,
+        desc_salud                 = desc_salud,
+        desc_afc                   = desc_afc,
+        tasa_afp                   = tasa_afp,
+        dias_ganados_vac           = dias_ganados_hab if fi else 0,
+        dias_tomados_vac           = float(dias_vacaciones_tomados),
+        dias_pendientes_vac        = dias_pendientes_hab if fi else 0,
+        dias_calendario_vac        = float(dias_calendario_vac) if fi else 0,
+        dias_inhabiles_vac         = float(dias_calendario_vac - Decimal(str(dias_pendientes_hab))) if fi else 0,
+    )
+    fname = _fname("Carta Despido", empleado, fecha_termino)
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+# ---- Finiquito ----
+@router.get("/{id}/finiquito/word")
+async def descargar_finiquito_word(
+    id: int,
+    causal_codigo: str,
+    fecha_termino: date,
+    aviso_con_30_dias: bool = False,
+    incluye_gratificacion: bool = False,
+    remun_pendiente_procede: bool = True,
+    colacion_mensual: int = 0,
+    movilizacion_mensual: int = 0,
+    dias_vacaciones_tomados: float = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Genera el Finiquito de Contrato de Trabajo (documento legal con cláusulas,
+    ministro de fe y firmas). Reutiliza la misma lógica de cálculo que la
+    Carta de Despido para garantizar montos idénticos.
+    """
+    from math import floor
+    from decimal import Decimal
+    import io as _io
+
+    contrato = await _get_contrato_or_404(id, db)
+    empleado = await db.get(Empleado, contrato.id_empleado)
+    empresa  = await db.get(Empresa, empleado.id_empresa) if empleado else None
+    cargo    = await db.get(Cargo, empleado.id_cargo) if (empleado and empleado.id_cargo) else None
+
+    if not empresa or not empleado:
+        raise HTTPException(status_code=400, detail="Contrato sin empresa o empleado")
+
+    sueldo       = Decimal(str(contrato.sueldo_bruto or 0))
+    colacion     = Decimal(str(colacion_mensual))
+    movilizacion = Decimal(str(movilizacion_mensual))
+
+    # Aplicar piso sueldo mínimo legal
+    from app.services.indicadores import asegurar_indicadores, obtener_valor_periodo
+    periodo_actual = fecha_termino.strftime("%Y-%m")
+    try:
+        await asegurar_indicadores(db, periodo_actual)
+        val = await obtener_valor_periodo(db, periodo_actual)
+        sueldo_minimo = Decimal(str(val.sueldo_minimo)) if val else Decimal("553553")
+        tope_mensual  = Decimal(str(val.tope_gratificacion)) if val else Decimal("213354")
+    except Exception:
+        sueldo_minimo = Decimal("553553")
+        tope_mensual  = Decimal("213354")
+    sueldo = max(sueldo, sueldo_minimo)
+
+    dias_mes = fecha_termino.day
+    monto_dias    = int(sueldo / 30 * dias_mes) if remun_pendiente_procede else 0
+    rem_pendiente = int((colacion + movilizacion) / 30 * dias_mes) if remun_pendiente_procede else 0
+
+    if incluye_gratificacion:
+        gratif_mensual = min(sueldo * Decimal("0.25"), tope_mensual)
+    else:
+        gratif_mensual = Decimal("0")
+
+    gratif_dia          = int(gratif_mensual / 30 * dias_mes) if remun_pendiente_procede else 0
+    monto_dias_imponible = monto_dias + gratif_dia
+
+    TASA_SALUD = 0.07
+    TASA_AFC   = 0.006
+    from app.models.rrhh import AFP as AFPModel
+    afp_obj  = await db.get(AFPModel, empleado.id_afp) if empleado.id_afp else None
+    tasa_afp = float(afp_obj.tasa) if afp_obj else 0.1144
+    desc_afp   = int(monto_dias_imponible * tasa_afp)
+    desc_salud = int(monto_dias_imponible * TASA_SALUD)
+    desc_afc   = int(monto_dias_imponible * TASA_AFC)
+    neto_dias  = monto_dias_imponible - desc_afp - desc_salud - desc_afc
+
+    base_indem = sueldo + gratif_mensual + colacion + movilizacion
+    fi = contrato.fecha_inicio
+    if fi:
+        dias_totales  = (fecha_termino - fi).days
+        anos          = dias_totales / 365.25
+        anos_completos = floor(anos)
+        if (anos - anos_completos) >= 0.5:
+            anos_completos += 1
+        anos_completos = min(anos_completos, 11)
+    else:
+        dias_totales   = 0
+        anos_completos = 0
+
+    # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
+    if fi:
+        from app.utils.feriados import calcular_dias_calendario
+        from datetime import timedelta
+        dias_trabajados_total = (fecha_termino - fi).days
+        from decimal import ROUND_HALF_UP
+        dias_ganados_hab  = float(Decimal(str(dias_trabajados_total / 30 * 1.25)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        dias_pendientes_hab = float(max(Decimal("0"), Decimal(str(dias_ganados_hab - dias_vacaciones_tomados)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
+        fecha_post_despido = fecha_termino + timedelta(days=1)
+        dias_calendario_vac, _ = calcular_dias_calendario(fecha_post_despido, Decimal(str(dias_pendientes_hab)))
+        valor_dia_vac = sueldo / Decimal("30")
+        vac_prop = int((valor_dia_vac * dias_calendario_vac).quantize(Decimal("1")))
+    else:
+        vac_prop = 0
+
+    causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
+    _, _, tiene_indem, tiene_aviso = causal_info
+    indem_anos     = int(base_indem * anos_completos) if tiene_indem else 0
+    aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
+
+    if causal_codigo == "159_5" and fi:
+        from math import floor as _floor
+        dias_tot = (fecha_termino - fi).days
+        meses_raw = dias_tot / 30.4375
+        meses_ent = _floor(meses_raw)
+        meses_con_frac = meses_ent + (1 if (meses_raw - meses_ent) * 30.4375 > 15 else 0)
+        indem_tiempo_servido = int(base_indem / 30 * Decimal("2.5") * meses_con_frac)
+    else:
+        indem_tiempo_servido = 0
+
+    docx_bytes = generar_finiquito_docx(
+        empresa              = empresa,
+        empleado             = empleado,
+        contrato             = contrato,
+        causal_codigo        = causal_codigo,
+        fecha_termino        = fecha_termino,
+        cargo_nombre         = cargo.nombre if cargo else "",
+        ciudad               = empresa.ciudad or "Santiago",
+        monto_dias_trabajados = monto_dias_imponible,
+        neto_dias            = neto_dias,
+        rem_pendiente        = rem_pendiente,
+        vacaciones_proporcionales = vac_prop,
+        indemnizacion_anos   = indem_anos,
+        aviso_previo         = aviso_calculado,
+        indem_tiempo_servido = indem_tiempo_servido,
+        anos_servicio        = anos_completos,
+        gratificacion        = gratif_dia,
+        dias_trabajados_mes  = dias_mes,
+        desc_afp             = desc_afp,
+        desc_salud           = desc_salud,
+        desc_afc             = desc_afc,
+        tasa_afp             = tasa_afp,
+        dias_ganados_vac     = dias_ganados_hab if fi else 0,
+        dias_tomados_vac     = float(dias_vacaciones_tomados),
+        dias_pendientes_vac  = dias_pendientes_hab if fi else 0,
+        dias_calendario_vac  = float(dias_calendario_vac) if fi else 0,
+        dias_inhabiles_vac   = float(dias_calendario_vac - Decimal(str(dias_pendientes_hab))) if fi else 0,
+    )
+    fname = _fname("Finiquito", empleado, fecha_termino)
+    return StreamingResponse(
+        _io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )

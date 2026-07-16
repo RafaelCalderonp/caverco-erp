@@ -148,6 +148,7 @@ class Empleado(Base):
 
     departamento     = relationship("Departamento", back_populates="empleados")
     cargo             = relationship("Cargo", back_populates="empleados")
+    centro_costo      = relationship("CentroCosto")
     contratos         = relationship("Contrato", back_populates="empleado")
     licencias         = relationship("Licencia", back_populates="empleado", foreign_keys="Licencia.id_empleado")
     afp_rel           = relationship("AFP")
@@ -172,6 +173,8 @@ class Contrato(Base):
     id_motivo_termino     = Column(Integer, ForeignKey("erp.motivos_termino.id"))
     aviso_previo_fecha    = Column(Date)
     sueldo_bruto          = Column(Numeric(12, 2), nullable=False)
+    colacion              = Column(Numeric(12, 2), nullable=False, default=0)
+    movilizacion          = Column(Numeric(12, 2), nullable=False, default=0)
     horas_semanales       = Column(SmallInteger, default=42)
     jornada               = Column(String(30), default="Completa")
     horario_detalle       = Column(Text)
@@ -282,6 +285,7 @@ class EntregaEpp(Base):
     folio             = Column(String(30))
     fecha_entrega     = Column(Date, nullable=False)
     items             = Column(JSONB)
+    entregado_por     = Column(String(200), default="Salvador Calderón")
     observaciones     = Column(Text)
     created_at        = Column(TIMESTAMPTZ, server_default=func.now())
 
@@ -479,3 +483,20 @@ class TramoImpuestoUnico(Base):
     hasta        = Column(Numeric(14,2))  # NULL = sin límite
     factor       = Column(Numeric(5,4), nullable=False)
     monto_rebaja = Column(Numeric(14,2), nullable=False)
+
+
+class RegistroAsistencia(Base):
+    __tablename__ = "registro_asistencia"
+    __table_args__ = (
+        UniqueConstraint("periodo", "id_empleado", "dia", name="uq_asistencia_periodo_emp_dia"),
+        {"schema": "erp"},
+    )
+
+    id          = Column(Integer, primary_key=True)
+    periodo     = Column(String(7), nullable=False)   # YYYY-MM
+    id_empleado = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
+    dia         = Column(SmallInteger, nullable=False)  # 1–31
+    # VERDE=presente, ROJO=sábado/domingo/feriado presente, AUSENTE=falta
+    estado      = Column(String(10), nullable=False, default="VERDE")
+
+    empleado    = relationship("Empleado")

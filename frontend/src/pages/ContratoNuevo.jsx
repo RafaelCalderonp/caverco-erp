@@ -11,6 +11,10 @@ const STEPS = [
   { num: 3, label: 'Previsión Social',     icon: '🏦' },
 ]
 
+export const HORARIO_DETALLE_DEFAULT =
+  'Lunes a Martes 08:00 a 13:00 horas. y de 14:00 a 18:00 horas.\n' +
+  'Miércoles a Viernes: 08:00 a 13:00 horas y de 14:00 a 17:00 horas.'
+
 const EMPTY = {
   // Paso 1: trabajador
   rut: '', nombres: '', apellido_paterno: '', apellido_materno: '',
@@ -20,7 +24,7 @@ const EMPTY = {
   // Paso 2: contrato
   id_tipo_contrato: '', id_obra: '', id_centro_costo: '', id_cargo: '',
   numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '', plazo_dias: '30',
-  sueldo_bruto: '553553', horas_semanales: 42, jornada: 'Completa', horario_detalle: '',
+  sueldo_bruto: '553553', colacion: '100000', movilizacion: '100000', horas_semanales: 42, jornada: 'Completa', horario_detalle: HORARIO_DETALLE_DEFAULT,
   // Paso 3: previsión
   id_afp: '', id_isapre: '', valor_isapre_uf: '', n_cargas: 0,
   banco: '', tipo_cuenta: '', numero_cuenta: '',
@@ -95,7 +99,14 @@ export default function ContratoNuevo() {
     return e
   }
 
+  const esPorObra = tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA'
+  // Bloquea avanzar DE step 1 si no hay cargos, o DE step 2 si POR_OBRA sin obras
+  const bloqueadoPorCargos = cargos.length === 0 && step <= 2
+  const bloqueadoPorObras  = step === 2 && esPorObra && obras.length === 0
+
   const next = () => {
+    if (step === 1 && cargos.length === 0) return
+    if (step === 2 && esPorObra && obras.length === 0) return
     const e = validate(step)
     if (Object.keys(e).length) { setErrors(e); return }
     setErrors({}); setStep(s => s + 1)
@@ -123,6 +134,8 @@ export default function ContratoNuevo() {
         numero_contrato: form.numero_contrato || null,
         fecha_termino_pactada: form.fecha_termino_pactada || null,
         sueldo_bruto: Number(form.sueldo_bruto),
+        colacion: Number(form.colacion) || 0,
+        movilizacion: Number(form.movilizacion) || 0,
         horas_semanales: Number(form.horas_semanales),
         horario_detalle: form.horario_detalle || null,
         id_afp: form.id_afp ? Number(form.id_afp) : null,
@@ -201,6 +214,11 @@ export default function ContratoNuevo() {
         {step === 1 && (
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h3>
+            {cargos.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fee2e2',color:'#b91c1c',fontWeight:500}}>
+                ⚠️ Esta empresa no tiene cargos registrados. Ve a <strong>Catálogos → Cargos</strong> para crear al menos uno antes de generar contratos.
+              </div>
+            )}
             <div className="form-grid">
               <Campo label="RUT" required>{inp('rut','text','Ej: 12.345.678-9', formatearRut)}</Campo>
               <Campo label="Nombres" required>{inp('nombres','text','Nombres completos')}</Campo>
@@ -220,9 +238,6 @@ export default function ContratoNuevo() {
               <Campo label="Dirección" span2>{inp('direccion','text','Calle, número, departamento')}</Campo>
               <Campo label="Región">{sel('region', REGIONES)}</Campo>
               <Campo label="Comuna">{sel('comuna', COMUNAS_POR_REGION[form.region] || [])}</Campo>
-              <Campo label="Departamento">
-                {sel('id_departamento', departamentos.map(d=>({value:d.id,label:`${d.codigo} — ${d.nombre}`})))}
-              </Campo>
             </div>
           </>
         )}
@@ -231,9 +246,30 @@ export default function ContratoNuevo() {
         {step === 2 && (
           <>
             <h3 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>📄 Datos del Contrato</h3>
+            {cargos.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fee2e2',color:'#b91c1c',fontWeight:500}}>
+                ⚠️ Esta empresa no tiene cargos registrados. Ve a <strong>Catálogos → Cargos</strong> para crear al menos uno antes de generar contratos.
+              </div>
+            )}
+            {cargos.length > 0 && tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA' && obras.length === 0 && (
+              <div style={{padding:'12px 16px',borderRadius:6,marginBottom:16,background:'#fff7ed',color:'#c2410c',fontWeight:500}}>
+                ⚠️ Para un contrato por Obra o Faena debes crear al menos una obra en <strong>Catálogos → Obras</strong>.
+              </div>
+            )}
             <div className="form-grid">
               <Campo label="Tipo de Contrato" required>
-                {sel('id_tipo_contrato', tiposContrato.map(t => ({ value: t.id, label: t.nombre })))}
+                <select className="select" value={form.id_tipo_contrato}
+                  onChange={e => set('id_tipo_contrato', e.target.value)}
+                  style={errors.id_tipo_contrato ? {borderColor:'var(--danger)'} : {}}>
+                  <option value="">Seleccionar…</option>
+                  {tiposContrato.map(t => (
+                    <option key={t.id} value={t.id}
+                      disabled={t.codigo === 'POR_OBRA' && obras.length === 0}>
+                      {t.nombre}{t.codigo === 'POR_OBRA' && obras.length === 0 ? ' (sin obras registradas)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {err('id_tipo_contrato')}
               </Campo>
               <Campo label="Fecha del Contrato" required>{inp('fecha_contrato', 'date')}</Campo>
               <Campo label="Fecha de Inicio" required>{inp('fecha_inicio', 'date')}</Campo>
@@ -258,6 +294,8 @@ export default function ContratoNuevo() {
               )}
               <Campo label="Fecha Término Pactada">{inp('fecha_termino_pactada', 'date')}</Campo>
               <Campo label="Sueldo Bruto (CLP)" required>{inp('sueldo_bruto', 'number', 'Ej: 900000')}</Campo>
+              <Campo label="Colación (CLP)">{inp('colacion', 'number', 'Ej: 100000')}</Campo>
+              <Campo label="Movilización (CLP)">{inp('movilizacion', 'number', 'Ej: 100000')}</Campo>
               <Campo label="Horas Semanales">
                 {sel('horas_semanales', [
                   { value: 42, label: '42 horas (jornada completa)' },
@@ -351,7 +389,8 @@ export default function ContratoNuevo() {
           <div style={{fontSize:12,color:'var(--gray-500)'}}>Paso {step} de {STEPS.length}</div>
           <div>
             {step < STEPS.length
-              ? <button className="btn btn-primary" onClick={next}>Siguiente →</button>
+              ? <button className="btn btn-primary" onClick={next}
+                  disabled={bloqueadoPorCargos || bloqueadoPorObras}>Siguiente →</button>
               : <button className="btn btn-primary" onClick={submit} disabled={saving}>
                   {saving ? 'Guardando…' : '✅ Generar Contrato'}
                 </button>

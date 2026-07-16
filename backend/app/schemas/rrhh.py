@@ -153,6 +153,7 @@ class EmpleadoBase(BaseModel):
     email_corporativo: Optional[str] = None
     id_departamento: Optional[int] = None
     id_cargo: Optional[int] = None
+    id_centro_costo: Optional[int] = None
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
     id_afp: Optional[int] = None
@@ -171,11 +172,20 @@ class EmpleadoUpdate(BaseModel):
     nombres: Optional[str] = None
     apellido_paterno: Optional[str] = None
     apellido_materno: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    genero: Optional[str] = None
+    estado_civil: Optional[str] = None
+    nacionalidad: Optional[str] = None
+    direccion: Optional[str] = None
+    comuna: Optional[str] = None
+    ciudad: Optional[str] = None
     region: Optional[str] = None
     telefono: Optional[str] = None
+    email_personal: Optional[str] = None
     email_corporativo: Optional[str] = None
     id_departamento: Optional[int] = None
     id_cargo: Optional[int] = None
+    id_centro_costo: Optional[int] = None
     sueldo_base: Optional[Decimal] = None
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
@@ -196,6 +206,7 @@ class EmpleadoOut(EmpleadoBase):
     created_at: datetime
     departamento: Optional[DepartamentoOut] = None
     cargo: Optional[CargoOut] = None
+    centro_costo: Optional[CentroCostoOut] = None
     model_config = {"from_attributes": True}
 
 class EmpleadoListOut(BaseModel):
@@ -226,21 +237,28 @@ class ContratoCreate(BaseModel):
     fecha_inicio: date
     fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int = 42
     jornada: str = "Completa"
     horario_detalle: Optional[str] = None
     id_contrato_origen: Optional[int] = None
 
 class ContratoUpdate(BaseModel):
+    id_tipo_contrato: Optional[int] = None
     id_obra: Optional[int] = None
     id_centro_costo: Optional[int] = None
     id_cargo: Optional[int] = None
     numero_contrato: Optional[str] = None
+    fecha_contrato: Optional[date] = None
+    fecha_inicio: Optional[date] = None
     fecha_termino_pactada: Optional[date] = None
     fecha_termino_real: Optional[date] = None
     id_motivo_termino: Optional[int] = None
     aviso_previo_fecha: Optional[date] = None
     sueldo_bruto: Optional[Decimal] = None
+    colacion: Optional[Decimal] = None
+    movilizacion: Optional[Decimal] = None
     horas_semanales: Optional[int] = None
     jornada: Optional[str] = None
     horario_detalle: Optional[str] = None
@@ -252,6 +270,13 @@ class EmpleadoMiniOut(BaseModel):
     nombres: str
     apellido_paterno: str
     apellido_materno: Optional[str] = None
+    rut: Optional[str] = None
+    cargo_nombre: Optional[str] = None
+    id_empresa: Optional[int] = None
+    id_afp: Optional[int] = None
+    telefono: Optional[str] = None
+    email_corporativo: Optional[str] = None
+    email_personal: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -271,6 +296,8 @@ class ContratoOut(BaseModel):
     id_motivo_termino: Optional[int] = None
     aviso_previo_fecha: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int
     jornada: str
     horario_detalle: Optional[str] = None
@@ -324,6 +351,8 @@ class ContratoConTrabajadorCreate(BaseModel):
     fecha_inicio: date
     fecha_termino_pactada: Optional[date] = None
     sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
     horas_semanales: int = 42
     jornada: str = "Completa"
     horario_detalle: Optional[str] = None
@@ -398,6 +427,7 @@ class EntregaEppCreate(BaseModel):
     folio: Optional[str] = None
     fecha_entrega: date
     items: Optional[list] = None
+    entregado_por: Optional[str] = "Salvador Calderón"
     observaciones: Optional[str] = None
 
 class EntregaEppOut(EntregaEppCreate):

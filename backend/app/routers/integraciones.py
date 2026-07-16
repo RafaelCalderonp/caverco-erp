@@ -1,9 +1,10 @@
 """
 Caverco ERP — Router Integraciones
-Credenciales externas por empresa (Previred / Mi DT - Clave Única), guardadas
-cifradas solo como referencia para el usuario. La aplicación no realiza login
-automático con estos datos: el usuario sigue subiendo los archivos
-manualmente en los portales oficiales.
+Credenciales externas por empresa, guardadas cifradas (Fernet).
+- PREVIRED / CLAVE_UNICA: solo como referencia para el usuario, la aplicación
+  no realiza login automático con estos datos.
+- SII: usada por el módulo Contabilidad para el login automático contra el
+  Registro de Compras y Ventas (scraping propio, ver app/services/sii_rcv.py).
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,7 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-TIPOS_VALIDOS = ("PREVIRED", "CLAVE_UNICA")
+TIPOS_VALIDOS = ("PREVIRED", "CLAVE_UNICA", "SII")
 
 
 class CredencialIn(BaseModel):

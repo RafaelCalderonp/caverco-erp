@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { empresasApi } from '../services/api'
+import { empresasApi, credencialesApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
+import { useAuth } from '../context/AuthContext'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 
 const VACIO = {
@@ -10,6 +11,8 @@ const VACIO = {
 }
 
 export default function Empresas() {
+  const { usuario } = useAuth()
+  const esSuperAdmin = usuario?.rol === 'SUPERADMIN'
   const { recargarEmpresas } = useEmpresa()
   const [empresas, setEmpresas] = useState([])
   const [editando, setEditando] = useState(null) // null = lista, 'nueva' o id
@@ -17,12 +20,51 @@ export default function Empresas() {
   const [msg, setMsg] = useState(null)
   const [guardando, setGuardando] = useState(false)
 
+  const [credSii, setCredSii] = useState(null)
+  const [credForm, setCredForm] = useState({ usuario: '', password: '' })
+  const [credMsg, setCredMsg] = useState(null)
+
   const cargar = () => empresasApi.list().then(r => setEmpresas(r.data)).catch(() => {})
   useEffect(() => { cargar() }, [])
 
-  const abrirNueva = () => { setForm(VACIO); setMsg(null); setEditando('nueva') }
-  const abrirEditar = (emp) => { setForm({ ...VACIO, ...emp, region: emp.region || 'Metropolitana' }); setMsg(null); setEditando(emp.id) }
+  const cargarCredSii = (idEmpresa) => {
+    if (!esSuperAdmin || typeof idEmpresa !== 'number') return setCredSii(null)
+    credencialesApi.list(idEmpresa).then(r => {
+      setCredSii(r.data.find(c => c.tipo === 'SII') || null)
+    }).catch(() => {})
+  }
+
+  const abrirNueva = () => { setForm(VACIO); setMsg(null); setCredSii(null); setCredForm({ usuario: '', password: '' }); setCredMsg(null); setEditando('nueva') }
+  const abrirEditar = (emp) => {
+    setForm({ ...VACIO, ...emp, region: emp.region || 'Metropolitana' })
+    setMsg(null); setCredForm({ usuario: '', password: '' }); setCredMsg(null)
+    setEditando(emp.id)
+    cargarCredSii(emp.id)
+  }
   const cerrar = () => setEditando(null)
+
+  const guardarCredSii = async () => {
+    if (!credForm.usuario || !credForm.password) {
+      return setCredMsg('Completa RUT y clave tributaria')
+    }
+    try {
+      await credencialesApi.guardar(editando, 'SII', credForm)
+      setCredForm({ usuario: '', password: '' })
+      setCredMsg('✅ Guardado (cifrado)')
+      cargarCredSii(editando)
+    } catch {
+      setCredMsg('Error al guardar')
+    }
+  }
+
+  const eliminarCredSii = async () => {
+    try {
+      await credencialesApi.eliminar(editando, 'SII')
+      cargarCredSii(editando)
+    } catch {
+      setCredMsg('Error al eliminar')
+    }
+  }
 
   const setCampo = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -155,6 +197,43 @@ export default function Empresas() {
             <button className="btn btn-outline" type="button" onClick={cerrar}>Cancelar</button>
           </div>
         </form>
+
+        {esSuperAdmin && editando !== 'nueva' && (
+          <div className="card" style={{maxWidth:560, marginTop:16}}>
+            <h3 style={{fontWeight:600, marginBottom:4}}>Credencial SII</h3>
+            <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>
+              RUT y clave tributaria usados por el módulo Contabilidad para iniciar sesión
+              automáticamente en el SII e importar el Registro de Compras y Ventas. Visible solo
+              para SUPERADMIN.
+            </p>
+
+            {credSii && (
+              <div style={{background:'var(--gray-50)', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:13}}>
+                <div>RUT: <strong>{credSii.usuario}</strong></div>
+                <div>Clave: <strong>{credSii.password_mask}</strong></div>
+                <button className="btn btn-outline btn-sm" style={{marginTop:8}} onClick={eliminarCredSii}>
+                  Eliminar
+                </button>
+              </div>
+            )}
+
+            {credMsg && <div style={{fontSize:12, marginBottom:8, color: credMsg.startsWith('✅') ? 'var(--success)' : 'var(--danger)'}}>{credMsg}</div>}
+
+            <div className="form-group">
+              <label className="form-label">RUT empresa</label>
+              <input className="input" value={credForm.usuario}
+                onChange={e => setCredForm(f => ({ ...f, usuario: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Clave tributaria</label>
+              <input className="input" type="password" value={credForm.password}
+                onChange={e => setCredForm(f => ({ ...f, password: e.target.value }))} />
+            </div>
+            <button className="btn btn-primary" onClick={guardarCredSii}>
+              {credSii ? 'Actualizar' : 'Guardar'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }

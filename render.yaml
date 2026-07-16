@@ -24,6 +24,8 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: BROWSERLESS_API_KEY
+        sync: false
 
 databases:
   - name: caverco-erp-db

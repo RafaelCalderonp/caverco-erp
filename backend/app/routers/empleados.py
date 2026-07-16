@@ -6,7 +6,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
-    Empleado, Departamento, Cargo, Contrato, AnexoContrato, ContratoDocumento,
+    Empleado, Departamento, Cargo, CentroCosto, Contrato, AnexoContrato, ContratoDocumento,
     ContratoRequisitoObra, EntregaEpp, PactoHorasExtra, Licencia, Liquidacion, Usuario,
 )
 from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
@@ -60,6 +60,7 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Empleado)
         .options(selectinload(Empleado.departamento), selectinload(Empleado.cargo),
+                 selectinload(Empleado.centro_costo),
                  selectinload(Empleado.contratos), selectinload(Empleado.licencias))
         .where(Empleado.id == id)
     )
@@ -69,7 +70,8 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
     return emp
 
 async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
-    checks = [(Departamento, data.get("id_departamento"), "El departamento"), (Cargo, data.get("id_cargo"), "El cargo")]
+    checks = [(Departamento, data.get("id_departamento"), "El departamento"), (Cargo, data.get("id_cargo"), "El cargo"),
+              (CentroCosto, data.get("id_centro_costo"), "El centro de costo")]
     for modelo, valor, etiqueta in checks:
         if valor is None:
             continue
@@ -85,7 +87,7 @@ async def crear_empleado(data: EmpleadoCreate, db: AsyncSession = Depends(get_db
     emp = Empleado(**payload)
     db.add(emp)
     await db.flush()
-    await db.refresh(emp, ["departamento", "cargo"])
+    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
     return emp
 
 @router.patch("/{id}", response_model=EmpleadoOut)
@@ -95,16 +97,17 @@ async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = 
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     cambios = data.model_dump(exclude_none=True)
-    if {"id_departamento", "id_cargo"} & cambios.keys():
+    if {"id_departamento", "id_cargo", "id_centro_costo"} & cambios.keys():
         await _validar_consistencia_empresa({
             "id_empresa": emp.id_empresa,
             "id_departamento": cambios.get("id_departamento", emp.id_departamento),
             "id_cargo": cambios.get("id_cargo", emp.id_cargo),
+            "id_centro_costo": cambios.get("id_centro_costo", emp.id_centro_costo),
         }, db)
     for k, v in cambios.items():
         setattr(emp, k, v)
     await db.flush()
-    await db.refresh(emp, ["departamento", "cargo"])
+    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
     return emp
 
 @router.delete("/{id}", status_code=204)
@@ -184,8 +187,9 @@ async def exportar_datos_personales(id: int, db: AsyncSession = Depends(get_db))
         "fecha_ingreso": emp.fecha_ingreso, "fecha_egreso": emp.fecha_egreso,
         "sueldo_base": emp.sueldo_base, "activo": emp.activo,
         "contratos": [
-            {"id": c.id, "estado": c.estado, "fecha_inicio": c.fecha_inicio,
-             "fecha_termino_real": c.fecha_termino_real, "sueldo_bruto": c.sueldo_bruto}
+            {"id": c.id, "numero_contrato": c.numero_contrato, "estado": c.estado,
+             "fecha_inicio": c.fecha_inicio, "fecha_termino_real": c.fecha_termino_real,
+             "sueldo_bruto": c.sueldo_bruto, "colacion": c.colacion, "movilizacion": c.movilizacion}
             for c in emp.contratos
         ],
         "licencias": [

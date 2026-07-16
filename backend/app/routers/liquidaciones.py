@@ -11,16 +11,18 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
+import calendar
 import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, TipoContrato, RegistroAsistencia
+from app.utils.feriados import es_habil
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
 )
-from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo
+from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo, refrescar_indicadores
 from app.services.previred_export import generar_csv_previred
 from app.services.libro_remuneraciones import generar_csv_libro_remuneraciones, nombre_archivo
 
@@ -148,17 +150,66 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
     await asegurar_indicadores(db, periodo)
     val    = await obtener_valor_periodo(db, periodo)
     tramos = await obtener_tramos_periodo(db, periodo)
+    afps_res = await db.execute(select(AFP).where(AFP.activa == True).order_by(AFP.nombre))
+    afps = afps_res.scalars().all()
+    tc_res = await db.execute(select(TipoContrato).order_by(TipoContrato.nombre))
+    tipos_contrato = tc_res.scalars().all()
+    uta = float(val.valor_utm) * 12
     return {
         "periodo": periodo,
         "fuente": val.fuente,
         "cerrado": val.cerrado,
         "indicadores": {
-            "uf": float(val.valor_uf), "utm": float(val.valor_utm),
+            "uf": float(val.valor_uf), "utm": float(val.valor_utm), "uta": round(uta),
             "sueldo_minimo": float(val.sueldo_minimo), "tope_gratif": float(val.tope_gratificacion),
             "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
             "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
             "seguro_social": float(val.seguro_social),
         },
+        "afp": [
+            {"nombre": a.nombre, "tasa": float(a.tasa)}
+            for a in afps
+        ],
+        "afc": [
+            {"nombre": tc.nombre, "codigo": tc.codigo,
+             "empleador": float(tc.afc_empleador or 0), "trabajador": float(tc.afc_trabajador or 0)}
+            for tc in tipos_contrato if tc.afc_empleador is not None
+        ],
+        "tramos_impuesto_unico": [
+            {"desde": float(t.desde), "hasta": float(t.hasta) if t.hasta is not None else None,
+             "factor": float(t.factor), "monto_rebaja": float(t.monto_rebaja)}
+            for t in tramos
+        ],
+    }
+
+
+@router.post("/indicadores/{periodo}/refrescar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def refrescar_indicadores_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
+    """Fuerza re-fetch desde Gael Cloud y actualiza el registro en BD (sin tocar períodos cerrados)."""
+    val = await obtener_valor_periodo(db, periodo)
+    if val and val.cerrado:
+        raise HTTPException(400, "El período está cerrado; no se pueden actualizar los indicadores.")
+    await refrescar_indicadores(db, periodo)
+    val    = await obtener_valor_periodo(db, periodo)
+    tramos = await obtener_tramos_periodo(db, periodo)
+    afps_res = await db.execute(select(AFP).where(AFP.activa == True).order_by(AFP.nombre))
+    afps = afps_res.scalars().all()
+    tc_res = await db.execute(select(TipoContrato).order_by(TipoContrato.nombre))
+    tipos_contrato = tc_res.scalars().all()
+    uta = float(val.valor_utm) * 12
+    return {
+        "periodo": periodo, "fuente": val.fuente, "cerrado": val.cerrado,
+        "indicadores": {
+            "uf": float(val.valor_uf), "utm": float(val.valor_utm), "uta": round(uta),
+            "sueldo_minimo": float(val.sueldo_minimo), "tope_gratif": float(val.tope_gratificacion),
+            "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
+            "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
+            "seguro_social": float(val.seguro_social),
+        },
+        "afp": [{"nombre": a.nombre, "tasa": float(a.tasa)} for a in afps],
+        "afc": [{"nombre": tc.nombre, "codigo": tc.codigo,
+                 "empleador": float(tc.afc_empleador or 0), "trabajador": float(tc.afc_trabajador or 0)}
+                for tc in tipos_contrato if tc.afc_empleador is not None],
         "tramos_impuesto_unico": [
             {"desde": float(t.desde), "hasta": float(t.hasta) if t.hasta is not None else None,
              "factor": float(t.factor), "monto_rebaja": float(t.monto_rebaja)}
@@ -451,3 +502,135 @@ async def reabrir_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, f"Período {periodo} no encontrado")
     val.cerrado = False
     return {"periodo": periodo, "cerrado": False}
+
+
+# ── Registro de Asistencia ────────────────────────────────────────────────
+
+class AsistenciaCeldaIn(BaseModel):
+    id_empleado: int
+    dia: int
+    estado: str   # VERDE | ROJO | AUSENTE
+
+@router.get("/asistencia/{periodo}")
+async def get_asistencia(
+    periodo: str,
+    centro_costo_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el registro de asistencia del período para los empleados del centro de costo.
+    Si no existen registros, los inicializa automáticamente (verde=hábil, rojo=fin de semana/feriado).
+    """
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    dias_en_mes = calendar.monthrange(year, month)[1]
+
+    # Empleados del centro de costo (activos con contrato vigente)
+    q = select(Empleado).where(Empleado.activo == True)
+    if centro_costo_id:
+        q = q.where(Empleado.id_centro_costo == centro_costo_id)
+    q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)
+    emps = (await db.execute(q)).scalars().all()
+
+    if not emps:
+        return {"dias": dias_en_mes, "empleados": [], "tipo_dia": []}
+
+    emp_ids = [e.id for e in emps]
+
+    # Registros existentes
+    rows = (await db.execute(
+        select(RegistroAsistencia)
+        .where(RegistroAsistencia.periodo == periodo)
+        .where(RegistroAsistencia.id_empleado.in_(emp_ids))
+    )).scalars().all()
+
+    existentes = {(r.id_empleado, r.dia): r.estado for r in rows}
+
+    # Si faltan registros, inicializar
+    nuevos = []
+    for emp in emps:
+        for d in range(1, dias_en_mes + 1):
+            if (emp.id, d) not in existentes:
+                dt = date(year, month, d)
+                estado = "VERDE" if es_habil(dt) else "ROJO"
+                reg = RegistroAsistencia(periodo=periodo, id_empleado=emp.id, dia=d, estado=estado)
+                db.add(reg)
+                nuevos.append(reg)
+                existentes[(emp.id, d)] = estado
+    if nuevos:
+        await db.flush()
+
+    # Tipo de día para colorear columnas (independiente de empleado)
+    tipo_dia = []
+    for d in range(1, dias_en_mes + 1):
+        dt = date(year, month, d)
+        tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
+
+    # Contrato vigente por empleado (para colación/movilización)
+    contratos_q = await db.execute(
+        select(Contrato)
+        .where(Contrato.id_empleado.in_(emp_ids))
+        .where(Contrato.estado == "vigente")
+        .order_by(Contrato.fecha_inicio.desc())
+    )
+    contratos_all = contratos_q.scalars().all()
+    contrato_por_emp = {}
+    for c in contratos_all:
+        if c.id_empleado not in contrato_por_emp:
+            contrato_por_emp[c.id_empleado] = c
+
+    return {
+        "dias": dias_en_mes,
+        "tipo_dia": tipo_dia,
+        "empleados": [
+            {
+                "id": e.id,
+                "nombre": f"{e.nombres} {e.apellido_paterno}",
+                "sueldo_base":   float(contrato_por_emp[e.id].sueldo_base   or 0) if e.id in contrato_por_emp else 0,
+                "colacion":      float(contrato_por_emp[e.id].colacion      or 0) if e.id in contrato_por_emp else 0,
+                "movilizacion":  float(contrato_por_emp[e.id].movilizacion  or 0) if e.id in contrato_por_emp else 0,
+                "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
+            }
+            for e in emps
+        ]
+    }
+
+
+@router.patch("/asistencia/{periodo}/celda", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def patch_asistencia_celda(periodo: str, body: AsistenciaCeldaIn, db: AsyncSession = Depends(get_db)):
+    """Actualiza el estado de una celda de asistencia."""
+    if body.estado not in ("VERDE", "ROJO", "AUSENTE"):
+        raise HTTPException(400, "estado debe ser VERDE, ROJO o AUSENTE")
+    row = (await db.execute(
+        select(RegistroAsistencia)
+        .where(RegistroAsistencia.periodo == periodo)
+        .where(RegistroAsistencia.id_empleado == body.id_empleado)
+        .where(RegistroAsistencia.dia == body.dia)
+    )).scalar_one_or_none()
+    if row:
+        row.estado = body.estado
+    else:
+        db.add(RegistroAsistencia(periodo=periodo, id_empleado=body.id_empleado, dia=body.dia, estado=body.estado))
+    return {"ok": True}
+
+
+class AsistenciaGuardarIn(BaseModel):
+    celdas: list[AsistenciaCeldaIn]
+
+@router.post("/asistencia/{periodo}/guardar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def guardar_asistencia_lote(periodo: str, body: AsistenciaGuardarIn, db: AsyncSession = Depends(get_db)):
+    """Guarda múltiples celdas de asistencia en una sola transacción."""
+    for celda in body.celdas:
+        if celda.estado not in ("VERDE", "ROJO", "AUSENTE"):
+            continue
+        row = (await db.execute(
+            select(RegistroAsistencia)
+            .where(RegistroAsistencia.periodo == periodo)
+            .where(RegistroAsistencia.id_empleado == celda.id_empleado)
+            .where(RegistroAsistencia.dia == celda.dia)
+        )).scalar_one_or_none()
+        if row:
+            row.estado = celda.estado
+        else:
+            db.add(RegistroAsistencia(periodo=periodo, id_empleado=celda.id_empleado, dia=celda.dia, estado=celda.estado))
+    await db.flush()
+    return {"ok": True, "guardados": len(body.celdas)}
