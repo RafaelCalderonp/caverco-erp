@@ -14,6 +14,20 @@ export default function LiquidacionDetalle() {
     liquidacionesApi.get(id).then(r => setLiq(r.data)).catch(() => {})
   }, [id])
 
+  const descargarWord = async () => {
+    try {
+      const r = await liquidacionesApi.descargarWord(id)
+      const disposition = r.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `liquidacion_${id}.docx`
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a = document.createElement('a')
+      a.href = url; a.download = nombre
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch { setMsg('Error al generar el Word') }
+  }
+
   const pagar = async () => {
     try {
       const r = await liquidacionesApi.marcarPagada(id)
@@ -34,6 +48,7 @@ export default function LiquidacionDetalle() {
           <span className={`badge ${estadoBadge(liq.estado)}`}>{liq.estado}</span>
         </div>
         <div className="flex gap-2">
+          <button className="btn btn-outline" onClick={descargarWord}>⬇️ Descargar Word</button>
           <Link to={`/liquidaciones/${id}/boleta`} className="btn btn-outline">🖨️ Ver Boleta</Link>
           {liq.estado === 'EMITIDA' && (
             <button className="btn btn-primary" onClick={pagar}>Marcar como Pagada</button>
