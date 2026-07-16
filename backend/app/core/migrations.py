@@ -10,7 +10,8 @@ from pathlib import Path
 
 logger = logging.getLogger("uvicorn.error")
 
-MIGRATIONS_DIR = Path(__file__).parent.parent.parent.parent / "database"
+_base = Path(__file__).parent.parent.parent.parent
+MIGRATIONS_DIR = _base / "database" if (_base / "database").exists() else Path(__file__).parent.parent.parent / "database"
 
 ENSURE_LOG_TABLE = """
 CREATE SCHEMA IF NOT EXISTS erp;

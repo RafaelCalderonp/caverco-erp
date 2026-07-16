@@ -33,19 +33,23 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
   asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading }) {
 
   const [localData, setLocalData] = useState(null)
-  const [savedData, setSavedData] = useState(null)   // snapshot para cancelar
+  const [savedData, setSavedData] = useState(null)
   const [editMode, setEditMode]   = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
+  const [asistError, setAsistError] = useState(null)
 
   const cargar = async (ccId) => {
-    setAsistLoading(true); setEditMode(false)
+    setAsistLoading(true); setEditMode(false); setAsistError(null)
     try {
       const r = await liquidacionesApi.getAsistencia(periodo, ccId || undefined)
       setAsistData(r.data)
       const copia = r.data.empleados.map(e => ({ ...e, asistencia: [...e.asistencia] }))
       setLocalData(copia); setSavedData(copia)
-    } catch { setAsistData(null); setLocalData(null) }
+    } catch(e) {
+      setAsistData(null); setLocalData(null)
+      setAsistError(e?.response?.data?.detail || e?.message || 'Error al cargar asistencia')
+    }
     finally { setAsistLoading(false) }
   }
 
@@ -124,7 +128,8 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
           </div>}
           <div style={{overflowX:'auto'}}>
             {asistLoading && <p style={{padding:16,color:'var(--gray-500)'}}>Cargando…</p>}
-            {!asistLoading && localData?.length === 0 && <p style={{padding:16,color:'var(--gray-500)'}}>No hay trabajadores para este filtro.</p>}
+            {!asistLoading && asistError && <p style={{padding:16,color:'#b91c1c',fontWeight:500}}>⚠️ {asistError}</p>}
+            {!asistLoading && !asistError && localData?.length === 0 && <p style={{padding:16,color:'var(--gray-500)'}}>No hay trabajadores para este filtro.</p>}
             {!asistLoading && localData?.length > 0 && asistData && (
               <table style={{borderCollapse:'collapse',minWidth:'100%',fontSize:11}}>
                 <thead>
