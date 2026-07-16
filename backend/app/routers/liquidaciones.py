@@ -585,9 +585,9 @@ async def get_asistencia(
             {
                 "id": e.id,
                 "nombre": f"{e.nombres} {e.apellido_paterno}",
-                "sueldo_base":   float(contrato_por_emp[e.id].sueldo_base)   if e.id in contrato_por_emp else 0,
-                "colacion":      float(contrato_por_emp[e.id].colacion)      if e.id in contrato_por_emp else 0,
-                "movilizacion":  float(contrato_por_emp[e.id].movilizacion)  if e.id in contrato_por_emp else 0,
+                "sueldo_base":   float(contrato_por_emp[e.id].sueldo_base   or 0) if e.id in contrato_por_emp else 0,
+                "colacion":      float(contrato_por_emp[e.id].colacion      or 0) if e.id in contrato_por_emp else 0,
+                "movilizacion":  float(contrato_por_emp[e.id].movilizacion  or 0) if e.id in contrato_por_emp else 0,
                 "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
             }
             for e in emps
