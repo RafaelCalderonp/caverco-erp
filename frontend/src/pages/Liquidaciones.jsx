@@ -248,7 +248,6 @@ export default function Liquidaciones() {
                           ))}
                         </tbody>
                       </table>
-                      <p style={{fontSize:11,color:'var(--gray-500)',marginTop:4}}>SIS ({pct(indicadores.sis)}) se suma al costo total del empleador pero no a la tabla.</p>
                     </div>
                   )}
                   {afcData.length > 0 && (
