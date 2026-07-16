@@ -183,12 +183,12 @@ export default function Liquidaciones() {
         const thL = txt => <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
         const td = (v,bold) => <td style={{textAlign:'right',fontWeight:bold?600:400,paddingTop:3}}>{v}</td>
         const tdL = (v,bold) => <td style={{paddingTop:3,fontWeight:bold?600:400}}>{v}</td>
-        const headerRowStyle = {display:'flex',gap:20,alignItems:'center',flexWrap:'wrap',padding:'8px 16px',background:'var(--primary-bg)',fontSize:13}
+        const headerRowStyle = {display:'flex',gap:20,alignItems:'center',flexWrap:'wrap',padding:'8px 16px',background:'#f8fafc',fontSize:13}
         const Chip = ({label, value}) => (
           <span style={{color:'var(--gray-600)'}}>{label} <strong style={{color:'var(--text)'}}>{value}</strong></span>
         )
         return (
-          <div style={{border:'1px solid #bfdbfe',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:13}}>
+          <div style={{border:'1px solid #cbd5e1',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:13}}>
 
             {/* Fila 1: título + selector + UF UTM UTA Sueldo Mín Tope Gratif SIS + fuente + toggle */}
             <div style={{...headerRowStyle,cursor:'pointer',justifyContent:'space-between'}}
@@ -197,12 +197,12 @@ export default function Liquidaciones() {
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
                   <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
-                    style={{fontSize:13,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
+                    style={{fontSize:13,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
                     {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                   <button title="Actualizar desde Gael Cloud" disabled={refrescando}
                     onClick={async e => { e.stopPropagation(); setRefrescando(true); try { const r = await liquidacionesApi.refrescarIndicadores(periodoIndicadores); setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente); setAfpData(r.data.afp||[]); setAfcData(r.data.afc||[]); setTramosIU(r.data.tramos_impuesto_unico||[]) } catch{} finally { setRefrescando(false) } }}
-                    style={{fontSize:12,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 8px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
+                    style={{fontSize:12,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 8px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
                     {refrescando ? '…' : '🔄'}
                   </button>
                 </div>
@@ -233,25 +233,25 @@ export default function Liquidaciones() {
               const tblHeader = (title, cols) => (
                 <thead>
                   <tr><th colSpan={cols} style={{background:'var(--primary)',color:'#fff',textAlign:'center',fontWeight:700,fontSize:12,padding:'7px 10px',letterSpacing:'0.05em'}}>{title}</th></tr>
-                  <tr style={{background:'var(--primary-bg)'}}>
+                  <tr style={{background:'#f8fafc'}}>
                     {/* columnas inyectadas por cada tabla */}
                   </tr>
                 </thead>
               )
-              const tblStyle = {width:'100%',fontSize:12,borderCollapse:'collapse',border:'1px solid #bfdbfe',borderRadius:6,overflow:'hidden'}
-              const thS = (txt, right) => <th style={{padding:'5px 10px',textAlign:right?'right':'left',color:'var(--gray-600)',fontWeight:600,fontSize:11,background:'var(--primary-bg)',borderBottom:'1px solid #bfdbfe'}}>{txt}</th>
+              const tblStyle = {width:'100%',fontSize:12,borderCollapse:'collapse',border:'1px solid #cbd5e1',borderRadius:6,overflow:'hidden'}
+              const thS = (txt, right) => <th style={{padding:'5px 10px',textAlign:right?'right':'left',color:'var(--gray-600)',fontWeight:600,fontSize:11,background:'#f8fafc',borderBottom:'1px solid #cbd5e1'}}>{txt}</th>
               const tdS = (v, right, bold) => <td style={{padding:'5px 10px',textAlign:right?'right':'left',fontWeight:bold?600:400,borderTop:'1px solid #e0e7ff'}}>{v}</td>
               const TableTitle = ({title}) => (
-                <tr><td colSpan={99} style={{background:'var(--primary)',color:'#fff',textAlign:'center',fontWeight:700,fontSize:12,padding:'7px 10px',letterSpacing:'0.05em',textTransform:'uppercase'}}>{title}</td></tr>
+                <tr><td colSpan={99} style={{background:'#475569',color:'#fff',textAlign:'center',fontWeight:700,fontSize:12,padding:'7px 10px',letterSpacing:'0.05em',textTransform:'uppercase'}}>{title}</td></tr>
               )
               return (
                 <div style={{background:'var(--bg)',padding:'16px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                   {afpData.length > 0 && (
-                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe'}}>
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #cbd5e1'}}>
                       <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
                         <thead>
                           <TableTitle title="Tasas AFP — Trabajadores Dependientes" />
-                          <tr style={{background:'var(--primary-bg)'}}>
+                          <tr style={{background:'#f8fafc'}}>
                             {thS('AFP')} {thS('Trabajador',true)} {thS('Aporte Emp.',true)} {thS('Total',true)}
                           </tr>
                         </thead>
@@ -269,11 +269,11 @@ export default function Liquidaciones() {
                     </div>
                   )}
                   {afcData.length > 0 && (
-                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe'}}>
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #cbd5e1'}}>
                       <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
                         <thead>
                           <TableTitle title="Seguro de Cesantía (AFC)" />
-                          <tr style={{background:'var(--primary-bg)'}}>
+                          <tr style={{background:'#f8fafc'}}>
                             {thS('Tipo Contrato')} {thS('Empleador',true)} {thS('Trabajador',true)}
                           </tr>
                         </thead>
@@ -290,11 +290,11 @@ export default function Liquidaciones() {
                     </div>
                   )}
                   {tramosIU.length > 0 && (
-                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe',gridColumn:'1 / -1'}}>
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #cbd5e1',gridColumn:'1 / -1'}}>
                       <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
                         <thead>
                           <TableTitle title="Tramos Impuesto Único — Renta Líquida Imponible mensual" />
-                          <tr style={{background:'var(--primary-bg)'}}>
+                          <tr style={{background:'#f8fafc'}}>
                             {thS('Tramo')} {thS('Desde (CLP)',true)} {thS('Hasta (CLP)',true)} {thS('Factor',true)} {thS('Rebaja (CLP)',true)}
                           </tr>
                         </thead>
