@@ -75,6 +75,41 @@ async def asegurar_indicadores(db: AsyncSession, periodo: str) -> None:
         log.warning("Tramos impuesto único %s no existían — copiados de %s", periodo, origen)
 
 
+async def refrescar_indicadores(db: AsyncSession, periodo: str) -> None:
+    """Re-fetch desde Gael Cloud y sobreescribe el registro en BD para el período."""
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    svc = get_previred_service()
+    svc.limpiar_cache()
+    raw = await svc.obtener_indicadores(year, month)
+    fuente = raw.get("_fuente", "FALLBACK")
+
+    existing = await obtener_valor_periodo(db, periodo)
+    if existing:
+        existing.valor_uf           = raw["uf"]
+        existing.valor_utm          = raw["utm"]
+        existing.sueldo_minimo      = raw["sueldo_minimo"]
+        existing.tope_gratificacion = raw["tope_gratif"]
+        existing.renta_tope_afp     = raw["renta_tope_afp"]
+        existing.renta_tope_afc     = raw["renta_tope_afc"]
+        existing.sis                = raw["sis"]
+        existing.aporte_empleador_afp = raw.get("aporte_empleador_afp", Decimal("0.001"))
+        existing.seguro_social      = raw.get("seguro_social", Decimal("0.009"))
+        existing.fuente             = fuente
+    else:
+        db.add(ValorUfUtm(
+            periodo=periodo,
+            valor_uf=raw["uf"], valor_utm=raw["utm"],
+            sueldo_minimo=raw["sueldo_minimo"], tope_gratificacion=raw["tope_gratif"],
+            renta_tope_afp=raw["renta_tope_afp"], renta_tope_afc=raw["renta_tope_afc"],
+            sis=raw["sis"],
+            aporte_empleador_afp=raw.get("aporte_empleador_afp", Decimal("0.001")),
+            seguro_social=raw.get("seguro_social", Decimal("0.009")),
+            fuente=fuente,
+        ))
+    await db.flush()
+    log.info("Indicadores %s refrescados desde %s", periodo, fuente)
+
+
 async def construir_indicadores(db: AsyncSession, emp: Empleado, periodo: str) -> IndicadoresPrevired:
     """Construye los indicadores del período combinando BD versionada (UF/UTM/tramos/topes)
     con las tasas propias del empleado, ya gobernadas por las tablas erp.afp / erp.tipo_contrato."""

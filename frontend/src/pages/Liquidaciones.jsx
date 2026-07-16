@@ -30,6 +30,7 @@ export default function Liquidaciones() {
   const [afcData, setAfcData] = useState([])
   const [tramosIU, setTramosIU] = useState([])
   const [indicOpen, setIndicOpen] = useState(false)
+  const [refrescando, setRefrescando] = useState(false)
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
@@ -174,61 +175,62 @@ export default function Liquidaciones() {
       </p>
 
       {/* ── Indicadores Previsionales (colapsable) ── */}
-      {indicadores && (
-        <div style={{border:'1px solid #bfdbfe',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:13}}>
-          {/* Header siempre visible */}
-          <div style={{background:'var(--primary-bg)',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={e => { if (e.target.tagName !== 'SELECT') setIndicOpen(o => !o) }}>
-            <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
-                <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
-                  style={{fontSize:13,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
-                  {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+      {indicadores && (() => {
+        const clp = n => `$${Number(n||0).toLocaleString('es-CL')}`
+        const pct = (n,d=2) => `${((n||0)*100).toFixed(d)}%`
+        const th = txt => <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
+        const thL = txt => <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
+        const td = (v,bold) => <td style={{textAlign:'right',fontWeight:bold?600:400,paddingTop:3}}>{v}</td>
+        const tdL = (v,bold) => <td style={{paddingTop:3,fontWeight:bold?600:400}}>{v}</td>
+        const headerRowStyle = {display:'flex',gap:20,alignItems:'center',flexWrap:'wrap',padding:'8px 16px',background:'var(--primary-bg)',fontSize:13}
+        const Chip = ({label, value}) => (
+          <span style={{color:'var(--gray-600)'}}>{label} <strong style={{color:'var(--text)'}}>{value}</strong></span>
+        )
+        return (
+          <div style={{border:'1px solid #bfdbfe',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:13}}>
+
+            {/* Fila 1: título + selector + UF UTM UTA Sueldo Mín Tope Gratif SIS + fuente + toggle */}
+            <div style={{...headerRowStyle,cursor:'pointer',justifyContent:'space-between'}}
+              onClick={e => { if (e.target.tagName !== 'SELECT') setIndicOpen(o => !o) }}>
+              <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
+                  <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
+                    style={{fontSize:13,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
+                    {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <button title="Actualizar desde Gael Cloud" disabled={refrescando}
+                    onClick={async e => { e.stopPropagation(); setRefrescando(true); try { const r = await liquidacionesApi.refrescarIndicadores(periodoIndicadores); setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente); setAfpData(r.data.afp||[]); setAfcData(r.data.afc||[]); setTramosIU(r.data.tramos_impuesto_unico||[]) } catch{} finally { setRefrescando(false) } }}
+                    style={{fontSize:12,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 8px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
+                    {refrescando ? '…' : '🔄'}
+                  </button>
+                </div>
+                <Chip label="UF" value={`$${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}`} />
+                <Chip label="UTM" value={clp(indicadores.utm)} />
+                <Chip label="UTA" value={clp(indicadores.uta)} />
+                <Chip label="Sueldo Mín." value={clp(indicadores.sueldo_minimo)} />
+                <Chip label="Tope Gratif." value={clp(indicadores.tope_gratif)} />
+                <Chip label="SIS" value={pct(indicadores.sis)} />
               </div>
-              <span>UF <strong>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</strong></span>
-              <span>UTM <strong>${Number(indicadores.utm||0).toLocaleString('es-CL')}</strong></span>
-              <span>Sueldo Mín. <strong>${Number(indicadores.sueldo_minimo||0).toLocaleString('es-CL')}</strong></span>
-              <span>Tope Gratif. <strong>${Number(indicadores.tope_gratif||0).toLocaleString('es-CL')}</strong></span>
-              <span>SIS <strong>{((indicadores.sis||0)*100).toFixed(2)}%</strong></span>
+              <span style={{fontSize:11,color:'var(--gray-500)',whiteSpace:'nowrap',marginLeft:12}}>
+                {fuenteIndicadores === 'API_GATEWAY' ? '🟢 Gael Cloud' : fuenteIndicadores === 'MANUAL' ? '🔵 Manual' : '🟡 Respaldo'}
+                {' '}{indicOpen ? '▲' : '▼'}
+              </span>
             </div>
-            <span style={{fontSize:11,color:'var(--gray-500)',whiteSpace:'nowrap',marginLeft:12}}>
-              {fuenteIndicadores === 'API_GATEWAY' ? '🟢 Gael Cloud' : fuenteIndicadores === 'MANUAL' ? '🔵 Manual' : '🟡 Respaldo'}
-              {' '}{indicOpen ? '▲' : '▼'}
-            </span>
-          </div>
 
-          {/* Contenido expandido */}
-          {indicOpen && (() => {
-            const clp = n => `$${Number(n||0).toLocaleString('es-CL')}`
-            const pct = (n,d=2) => `${((n||0)*100).toFixed(d)}%`
-            const th = txt => <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
-            const thL = txt => <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
-            const td = (v,bold) => <td style={{textAlign:'right',fontWeight:bold?600:400,paddingTop:3}}>{v}</td>
-            const tdL = (v,bold) => <td style={{paddingTop:3,fontWeight:bold?600:400}}>{v}</td>
-            const headerRow = items => (
-              <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap',padding:'8px 16px',background:'var(--primary-bg)',borderTop:'1px solid #bfdbfe',fontSize:13}}>
-                {items.map(([lbl,val]) => (
-                  <span key={lbl} style={{color:'var(--gray-500)'}}>{lbl} <strong style={{color:'var(--text)'}}>{val}</strong></span>
-                ))}
-              </div>
-            )
-            return (
+            {/* Fila 2: topes y aportes — siempre visible, mismo estilo */}
+            <div style={{...headerRowStyle,borderTop:'1px solid #bfdbfe',cursor:'pointer'}}
+              onClick={() => setIndicOpen(o => !o)}>
+              <Chip label="Tope Imponible AFP (90 UF)" value={clp(indicadores.renta_tope_afp)} />
+              <Chip label="Tope Imponible AFC (135.2 UF)" value={clp(indicadores.renta_tope_afc)} />
+              <Chip label="Aporte Empleador AFP" value={pct(indicadores.aporte_empleador_afp)} />
+              <Chip label="Seguro Social" value={pct(indicadores.seguro_social,1)} />
+            </div>
+
+            {/* Contenido expandido: solo AFP, AFC, Tramos IU */}
+            {indicOpen && (
               <div style={{background:'var(--bg)'}}>
-
-                {/* Fila 2: datos complementarios, mismo estilo que el header */}
-                {headerRow([
-                  ['UTA (12×UTM)', clp(indicadores.uta)],
-                  ['Tope Imponible AFP (90 UF)', clp(indicadores.renta_tope_afp)],
-                  ['Tope Imponible AFC (135.2 UF)', clp(indicadores.renta_tope_afc)],
-                  ['Tope Gratif. (4.75 × S.Mín/12)', clp(indicadores.tope_gratif)],
-                  ['Aporte Empleador AFP', pct(indicadores.aporte_empleador_afp)],
-                  ['Seguro Social', pct(indicadores.seguro_social,1)],
-                ])}
-
-                {/* AFP + AFC lado a lado */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:16,padding:'16px'}}>
-
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,padding:'16px'}}>
                   {afpData.length > 0 && (
                     <div>
                       <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tasas AFP — dependientes</div>
@@ -248,7 +250,6 @@ export default function Liquidaciones() {
                       <p style={{fontSize:11,color:'var(--gray-500)',marginTop:4}}>SIS ({pct(indicadores.sis)}) se suma al costo total del empleador pero no a la tabla.</p>
                     </div>
                   )}
-
                   {afcData.length > 0 && (
                     <div>
                       <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Seguro de Cesantía (AFC)</div>
@@ -267,8 +268,6 @@ export default function Liquidaciones() {
                     </div>
                   )}
                 </div>
-
-                {/* Tramos IU */}
                 {tramosIU.length > 0 && (
                   <div style={{padding:'0 16px 16px'}}>
                     <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único (en UTM)</div>
@@ -288,12 +287,11 @@ export default function Liquidaciones() {
                     </table>
                   </div>
                 )}
-
               </div>
-            )
-          })()}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Lista período ── */}
       {tab === 'lista' && (

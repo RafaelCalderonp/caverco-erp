@@ -105,6 +105,7 @@ export const liquidacionesApi = {
   get:             (id)           => api.get(`/liquidaciones/${id}`),
   marcarPagada:    (id)           => api.patch(`/liquidaciones/${id}/pagar`),
   indicadores:     (periodo)      => api.get(`/liquidaciones/indicadores/${periodo}`),
+  refrescarIndicadores: (periodo) => api.post(`/liquidaciones/indicadores/${periodo}/refrescar`),
   exportarPrevired:            (periodo, idEmpresa) =>
     api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
   exportarLibroRemuneraciones: (periodo, idEmpresa) =>
