@@ -21,12 +21,44 @@ CREATE TABLE IF NOT EXISTS erp.migrations_log (
 );
 """
 
+# Migraciones inline: tablas nuevas que pueden no estar en el directorio /database/
+# cuando el deploy solo incluye el subdirectorio backend/ (ej. Render con rootDir: backend)
+INLINE_MIGRATIONS = [
+    ("32_registro_asistencia.sql", """
+CREATE TABLE IF NOT EXISTS erp.registro_asistencia (
+    id          SERIAL PRIMARY KEY,
+    periodo     VARCHAR(7)  NOT NULL,
+    id_empleado INTEGER     NOT NULL REFERENCES erp.empleados(id) ON DELETE CASCADE,
+    dia         SMALLINT    NOT NULL CHECK (dia BETWEEN 1 AND 31),
+    estado      VARCHAR(10) NOT NULL DEFAULT 'VERDE'
+        CHECK (estado IN ('VERDE','ROJO','AUSENTE')),
+    CONSTRAINT uq_asistencia_periodo_emp_dia UNIQUE (periodo, id_empleado, dia)
+);
+CREATE INDEX IF NOT EXISTS idx_asistencia_periodo_emp
+    ON erp.registro_asistencia (periodo, id_empleado);
+"""),
+]
+
 
 async def run_pending_migrations(conn) -> None:
     """Recibe una conexión asyncpg cruda y aplica migraciones pendientes."""
     await conn.execute(ENSURE_LOG_TABLE)
 
     aplicadas = {r["nombre"] for r in await conn.fetch("SELECT nombre FROM erp.migrations_log ORDER BY nombre")}
+
+    # Migraciones inline (no dependen de archivos en disco)
+    for nombre, sql in INLINE_MIGRATIONS:
+        if nombre in aplicadas:
+            continue
+        try:
+            await conn.execute(sql)
+            await conn.execute(
+                "INSERT INTO erp.migrations_log(nombre) VALUES($1) ON CONFLICT DO NOTHING",
+                nombre,
+            )
+            logger.info("Migración inline aplicada: %s", nombre)
+        except Exception as exc:
+            logger.warning("Migración inline %s falló (puede ser inocua): %s", nombre, exc)
 
     # Solo ejecutar migraciones desde el 27 en adelante.
     # Las anteriores (schema, datos semilla, limpieza) ya están en producción
