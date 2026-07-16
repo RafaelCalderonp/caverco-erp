@@ -229,21 +229,39 @@ export default function Liquidaciones() {
             </div>
 
             {/* Contenido expandido: solo AFP, AFC, Tramos IU */}
-            {indicOpen && (
-              <div style={{background:'var(--bg)'}}>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,padding:'16px'}}>
+            {indicOpen && (() => {
+              const tblHeader = (title, cols) => (
+                <thead>
+                  <tr><th colSpan={cols} style={{background:'var(--primary)',color:'#fff',textAlign:'center',fontWeight:700,fontSize:12,padding:'7px 10px',letterSpacing:'0.05em'}}>{title}</th></tr>
+                  <tr style={{background:'var(--primary-bg)'}}>
+                    {/* columnas inyectadas por cada tabla */}
+                  </tr>
+                </thead>
+              )
+              const tblStyle = {width:'100%',fontSize:12,borderCollapse:'collapse',border:'1px solid #bfdbfe',borderRadius:6,overflow:'hidden'}
+              const thS = (txt, right) => <th style={{padding:'5px 10px',textAlign:right?'right':'left',color:'var(--gray-600)',fontWeight:600,fontSize:11,background:'var(--primary-bg)',borderBottom:'1px solid #bfdbfe'}}>{txt}</th>
+              const tdS = (v, right, bold) => <td style={{padding:'5px 10px',textAlign:right?'right':'left',fontWeight:bold?600:400,borderTop:'1px solid #e0e7ff'}}>{v}</td>
+              const TableTitle = ({title}) => (
+                <tr><td colSpan={99} style={{background:'var(--primary)',color:'#fff',textAlign:'center',fontWeight:700,fontSize:12,padding:'7px 10px',letterSpacing:'0.05em',textTransform:'uppercase'}}>{title}</td></tr>
+              )
+              return (
+                <div style={{background:'var(--bg)',padding:'16px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                   {afpData.length > 0 && (
-                    <div>
-                      <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tasas AFP — dependientes</div>
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe'}}>
                       <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                        <thead><tr>{thL('AFP')}{th('Trabajador')}{th('Aporte Emp.')}{th('Total')}</tr></thead>
+                        <thead>
+                          <TableTitle title="Tasas AFP — Trabajadores Dependientes" />
+                          <tr style={{background:'var(--primary-bg)'}}>
+                            {thS('AFP')} {thS('Trabajador',true)} {thS('Aporte Emp.',true)} {thS('Total',true)}
+                          </tr>
+                        </thead>
                         <tbody>
                           {afpData.map(a => (
-                            <tr key={a.nombre} style={{borderTop:'1px solid var(--gray-100)'}}>
-                              {tdL(a.nombre, true)}
-                              {td(pct(a.tasa))}
-                              {td(pct(indicadores.aporte_empleador_afp))}
-                              {td(pct(a.tasa + indicadores.aporte_empleador_afp), true)}
+                            <tr key={a.nombre}>
+                              {tdS(a.nombre,false,true)}
+                              {tdS(pct(a.tasa),true)}
+                              {tdS(pct(indicadores.aporte_empleador_afp),true)}
+                              {tdS(pct(a.tasa + indicadores.aporte_empleador_afp),true,true)}
                             </tr>
                           ))}
                         </tbody>
@@ -251,16 +269,43 @@ export default function Liquidaciones() {
                     </div>
                   )}
                   {afcData.length > 0 && (
-                    <div>
-                      <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Seguro de Cesantía (AFC)</div>
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe'}}>
                       <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                        <thead><tr>{thL('Tipo Contrato')}{th('Empleador')}{th('Trabajador')}</tr></thead>
+                        <thead>
+                          <TableTitle title="Seguro de Cesantía (AFC)" />
+                          <tr style={{background:'var(--primary-bg)'}}>
+                            {thS('Tipo Contrato')} {thS('Empleador',true)} {thS('Trabajador',true)}
+                          </tr>
+                        </thead>
                         <tbody>
                           {afcData.map(tc => (
-                            <tr key={tc.codigo} style={{borderTop:'1px solid var(--gray-100)'}}>
-                              {tdL(tc.nombre)}
-                              {td(pct(tc.empleador,1))}
-                              {td(tc.trabajador > 0 ? pct(tc.trabajador,1) : '—')}
+                            <tr key={tc.codigo}>
+                              {tdS(tc.nombre,false,true)}
+                              {tdS(pct(tc.empleador,1),true)}
+                              {tdS(tc.trabajador > 0 ? pct(tc.trabajador,1) : '—',true)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {tramosIU.length > 0 && (
+                    <div style={{overflow:'hidden',borderRadius:6,border:'1px solid #bfdbfe',gridColumn:'1 / -1'}}>
+                      <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+                        <thead>
+                          <TableTitle title="Tramos Impuesto Único — Renta Líquida Imponible mensual" />
+                          <tr style={{background:'var(--primary-bg)'}}>
+                            {thS('Tramo')} {thS('Desde (CLP)',true)} {thS('Hasta (CLP)',true)} {thS('Factor',true)} {thS('Rebaja (CLP)',true)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tramosIU.map((t,i) => (
+                            <tr key={i}>
+                              {tdS(i+1,false,true)}
+                              {tdS(fmt2(t.desde),true)}
+                              {tdS(t.hasta != null ? fmt2(t.hasta) : 'y más',true)}
+                              {tdS(`${(t.factor*100 % 1 === 0 ? (t.factor*100).toFixed(0) : (t.factor*100).toFixed(1))}%`,true)}
+                              {tdS(fmt2(t.monto_rebaja),true)}
                             </tr>
                           ))}
                         </tbody>
@@ -268,27 +313,8 @@ export default function Liquidaciones() {
                     </div>
                   )}
                 </div>
-                {tramosIU.length > 0 && (
-                  <div style={{padding:'0 16px 16px'}}>
-                    <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único — Renta Líquida Imponible mensual</div>
-                    <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                      <thead><tr>{thL('Tramo')}{th('Desde (CLP)')}{th('Hasta (CLP)')}{th('Factor')}{th('Rebaja (CLP)')}</tr></thead>
-                      <tbody>
-                        {tramosIU.map((t,i) => (
-                          <tr key={i} style={{borderTop:'1px solid var(--gray-100)'}}>
-                            {tdL(i+1)}
-                            {td(fmt2(t.desde))}
-                            {td(t.hasta != null ? fmt2(t.hasta) : 'y más')}
-                            {td(`${(t.factor*100 % 1 === 0 ? (t.factor*100).toFixed(0) : (t.factor*100).toFixed(1))}%`)}
-                            {td(fmt2(t.monto_rebaja))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
+              )
+            })()}
           </div>
         )
       })()}
