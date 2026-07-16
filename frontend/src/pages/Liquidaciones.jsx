@@ -23,6 +23,7 @@ export default function Liquidaciones() {
   const [lista, setLista]     = useState([])
   const [loading, setLoading] = useState(false)
   const [empleados, setEmpleados] = useState([])
+  const [periodoIndicadores, setPeriodoIndicadores] = useState(PERIODOS[0])
   const [indicadores, setIndicadores] = useState(null)
   const [fuenteIndicadores, setFuenteIndicadores] = useState(null)
   const [afpData, setAfpData] = useState([])
@@ -57,16 +58,21 @@ export default function Liquidaciones() {
   }, [periodo, tab])
 
   useEffect(() => {
-    liquidacionesApi.indicadores(periodo)
+    liquidacionesApi.indicadores(periodoIndicadores)
       .then(r => {
         setIndicadores(r.data.indicadores)
         setFuenteIndicadores(r.data.fuente)
         setAfpData(r.data.afp || [])
         setAfcData(r.data.afc || [])
         setTramosIU(r.data.tramos_impuesto_unico || [])
-        setPeriodoCerrado(!!r.data.cerrado)
       })
-      .catch(() => { setIndicadores(null); setFuenteIndicadores(null); setPeriodoCerrado(false) })
+      .catch(() => { setIndicadores(null); setFuenteIndicadores(null) })
+  }, [periodoIndicadores])
+
+  useEffect(() => {
+    liquidacionesApi.indicadores(periodo)
+      .then(r => setPeriodoCerrado(!!r.data.cerrado))
+      .catch(() => setPeriodoCerrado(false))
   }, [periodo])
 
   const toggleCierre = async () => {
@@ -171,9 +177,15 @@ export default function Liquidaciones() {
       {indicadores && (
         <div style={{border:'1px solid #bfdbfe',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:13}}>
           {/* Header siempre visible */}
-          <button onClick={() => setIndicOpen(o => !o)} style={{width:'100%',background:'var(--primary-bg)',border:'none',padding:'10px 16px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',textAlign:'left'}}>
-            <div style={{display:'flex',gap:24,alignItems:'center',flexWrap:'wrap'}}>
-              <strong style={{fontSize:13}}>📊 Indicadores Previsionales — {periodo}</strong>
+          <div style={{background:'var(--primary-bg)',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={e => { if (e.target.tagName !== 'SELECT') setIndicOpen(o => !o) }}>
+            <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
+                <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
+                  style={{fontSize:13,border:'1px solid #bfdbfe',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
+                  {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
               <span>UF <strong>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</strong></span>
               <span>UTM <strong>${Number(indicadores.utm||0).toLocaleString('es-CL')}</strong></span>
               <span>Sueldo Mín. <strong>${Number(indicadores.sueldo_minimo||0).toLocaleString('es-CL')}</strong></span>
@@ -184,7 +196,7 @@ export default function Liquidaciones() {
               {fuenteIndicadores === 'API_GATEWAY' ? '🟢 Gael Cloud' : fuenteIndicadores === 'MANUAL' ? '🔵 Manual' : '🟡 Respaldo'}
               {' '}{indicOpen ? '▲' : '▼'}
             </span>
-          </button>
+          </div>
 
           {/* Contenido expandido */}
           {indicOpen && (() => {
@@ -204,7 +216,7 @@ export default function Liquidaciones() {
                     ['UTM', clp(indicadores.utm)],
                     ['UTA (12×UTM)', clp(indicadores.uta)],
                     ['Sueldo Mínimo', clp(indicadores.sueldo_minimo)],
-                    ['Tope Gratif. (4.75 UTM)', clp(indicadores.tope_gratif)],
+                    ['Tope Gratif. (4.75 × S.Mín/12)', clp(indicadores.tope_gratif)],
                     ['Tope Imponible AFP (90 UF)', clp(indicadores.renta_tope_afp)],
                     ['Tope Imponible AFC (135.2 UF)', clp(indicadores.renta_tope_afc)],
                     ['SIS', pct(indicadores.sis)],

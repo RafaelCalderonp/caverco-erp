@@ -130,7 +130,7 @@ class PreviredService:
         tope_afp = _dec(ind.get("RTIAfpPesos"), "3581157")
         tope_afc = _dec(ind.get("RTISegCesPesos"), "5379693")
         sueldo_min = _dec(ind.get("RMITrabDepeInd"), "539000")
-        tope_gratif = (utm * Decimal("4.75")).quantize(Decimal("1"))
+        tope_gratif = (sueldo_min * Decimal("4.75") / Decimal("12")).quantize(Decimal("1"))
         seg_social = _dec(ind.get("ExpVida"), "0.9") / 100
 
         return {
