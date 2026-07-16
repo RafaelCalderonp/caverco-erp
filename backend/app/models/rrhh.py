@@ -1,5 +1,5 @@
 from decimal import Decimal
-from sqlalchemy import Column, Integer, String, Boolean, Date, Numeric, SmallInteger, Text, ForeignKey, CHAR, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, Date, Numeric, SmallInteger, Text, ForeignKey, CHAR, UniqueConstraint, Computed
 from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 
 TIMESTAMPTZ = TIMESTAMP(timezone=True)
@@ -380,7 +380,7 @@ class Liquidacion(Base):
     horas_extra_50       = Column(Numeric(12,2), nullable=False, default=0)
     horas_extra_100      = Column(Numeric(12,2), nullable=False, default=0)
     aguinaldo            = Column(Numeric(12,2), nullable=False, default=0)
-    total_imponible      = Column(Numeric(12,2))
+    total_imponible      = Column(Numeric(12,2), Computed("sueldo_base + gratificacion + horas_extra_50 + horas_extra_100 + aguinaldo", persisted=True))
     colacion             = Column(Numeric(12,2), nullable=False, default=0)
     movilizacion         = Column(Numeric(12,2), nullable=False, default=0)
     viaticos             = Column(Numeric(12,2), nullable=False, default=0)

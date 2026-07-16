@@ -314,7 +314,7 @@ async def calcular_finiquito_preview(req: FiniquitoRequest, db: AsyncSession = D
     }
 
 
-@router.post("/emitir", status_code=201, dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+@router.post("/emitir", status_code=201, response_model=LiquidacionOut, dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = Depends(get_db)):
     """
     Calcula y persiste la liquidación con estado EMITIDA.
