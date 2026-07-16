@@ -565,6 +565,19 @@ async def get_asistencia(
         dt = date(year, month, d)
         tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
 
+    # Contrato vigente por empleado (para colación/movilización)
+    contratos_q = await db.execute(
+        select(Contrato)
+        .where(Contrato.id_empleado.in_(emp_ids))
+        .where(Contrato.estado == "vigente")
+        .order_by(Contrato.fecha_inicio.desc())
+    )
+    contratos_all = contratos_q.scalars().all()
+    contrato_por_emp = {}
+    for c in contratos_all:
+        if c.id_empleado not in contrato_por_emp:
+            contrato_por_emp[c.id_empleado] = c
+
     return {
         "dias": dias_en_mes,
         "tipo_dia": tipo_dia,
@@ -572,6 +585,8 @@ async def get_asistencia(
             {
                 "id": e.id,
                 "nombre": f"{e.nombres} {e.apellido_paterno}",
+                "colacion":      float(contrato_por_emp[e.id].colacion)      if e.id in contrato_por_emp else 0,
+                "movilizacion":  float(contrato_por_emp[e.id].movilizacion)  if e.id in contrato_por_emp else 0,
                 "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
             }
             for e in emps
@@ -595,3 +610,26 @@ async def patch_asistencia_celda(periodo: str, body: AsistenciaCeldaIn, db: Asyn
     else:
         db.add(RegistroAsistencia(periodo=periodo, id_empleado=body.id_empleado, dia=body.dia, estado=body.estado))
     return {"ok": True}
+
+
+class AsistenciaGuardarIn(BaseModel):
+    celdas: list[AsistenciaCeldaIn]
+
+@router.post("/asistencia/{periodo}/guardar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def guardar_asistencia_lote(periodo: str, body: AsistenciaGuardarIn, db: AsyncSession = Depends(get_db)):
+    """Guarda múltiples celdas de asistencia en una sola transacción."""
+    for celda in body.celdas:
+        if celda.estado not in ("VERDE", "ROJO", "AUSENTE"):
+            continue
+        row = (await db.execute(
+            select(RegistroAsistencia)
+            .where(RegistroAsistencia.periodo == periodo)
+            .where(RegistroAsistencia.id_empleado == celda.id_empleado)
+            .where(RegistroAsistencia.dia == celda.dia)
+        )).scalar_one_or_none()
+        if row:
+            row.estado = celda.estado
+        else:
+            db.add(RegistroAsistencia(periodo=periodo, id_empleado=celda.id_empleado, dia=celda.dia, estado=celda.estado))
+    await db.flush()
+    return {"ok": True, "guardados": len(body.celdas)}
