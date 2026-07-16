@@ -30,67 +30,76 @@ const TICK = {
 const MES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCostoId,
-  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading, pendingRef }) {
+  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading }) {
 
-  const [localData, setLocalData] = useState(null)  // copia mutable de asistData.empleados
+  const [localData, setLocalData] = useState(null)
+  const [savedData, setSavedData] = useState(null)   // snapshot para cancelar
+  const [editMode, setEditMode]   = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [guardadoOk, setGuardadoOk] = useState(false)
 
   const cargar = async (ccId) => {
-    setAsistLoading(true)
+    setAsistLoading(true); setEditMode(false)
     try {
       const r = await liquidacionesApi.getAsistencia(periodo, ccId || undefined)
       setAsistData(r.data)
-      setLocalData(r.data.empleados.map(e => ({ ...e, asistencia: [...e.asistencia] })))
+      const copia = r.data.empleados.map(e => ({ ...e, asistencia: [...e.asistencia] }))
+      setLocalData(copia); setSavedData(copia)
     } catch { setAsistData(null); setLocalData(null) }
     finally { setAsistLoading(false) }
   }
 
-  // Recargar al cambiar período o centro de costo (solo si panel abierto)
-  useEffect(() => {
-    if (asistOpen) cargar(centroCostoId)
-  }, [periodo, centroCostoId, asistOpen])
+  useEffect(() => { if (asistOpen) cargar(centroCostoId) }, [periodo, centroCostoId, asistOpen])
 
-  const toggleCelda = async (empIdx, diaIdx) => {
-    if (!localData) return
-    const emp = localData[empIdx]
-    const estadoActual = emp.asistencia[diaIdx]
-    const nuevoEstado = CICLO[estadoActual]
-
-    // Actualización optimista
+  const toggleCelda = (empIdx, diaIdx) => {
+    if (!editMode || !localData) return
     setLocalData(prev => prev.map((e, i) => i === empIdx
-      ? { ...e, asistencia: e.asistencia.map((s, j) => j === diaIdx ? nuevoEstado : s) }
+      ? { ...e, asistencia: e.asistencia.map((s, j) => j === diaIdx ? CICLO[s] : s) }
       : e
     ))
+  }
 
-    // Persistir en backend (debounced por clave)
-    const key = `${emp.id}-${diaIdx + 1}`
-    clearTimeout(pendingRef.current[key])
-    pendingRef.current[key] = setTimeout(async () => {
-      try {
-        await liquidacionesApi.patchAsistencia(periodo, emp.id, diaIdx + 1, nuevoEstado)
-      } catch {
-        // revertir si falla
-        setLocalData(prev => prev.map((e, i) => i === empIdx
-          ? { ...e, asistencia: e.asistencia.map((s, j) => j === diaIdx ? estadoActual : s) }
-          : e
-        ))
-      }
-    }, 400)
+  const cancelar = () => {
+    setLocalData(savedData.map(e => ({ ...e, asistencia: [...e.asistencia] })))
+    setEditMode(false)
+  }
+
+  const guardar = async () => {
+    if (!localData) return
+    setGuardando(true)
+    const celdas = []
+    localData.forEach(emp => {
+      emp.asistencia.forEach((estado, i) => {
+        const prev = savedData.find(e => e.id === emp.id)
+        if (!prev || prev.asistencia[i] !== estado)
+          celdas.push({ id_empleado: emp.id, dia: i + 1, estado })
+      })
+    })
+    try {
+      if (celdas.length) await liquidacionesApi.guardarAsistencia(periodo, celdas)
+      setSavedData(localData.map(e => ({ ...e, asistencia: [...e.asistencia] })))
+      setEditMode(false); setGuardadoOk(true)
+      setTimeout(() => setGuardadoOk(false), 2000)
+    } catch { alert('Error al guardar') }
+    finally { setGuardando(false) }
   }
 
   const [year, month] = periodo.split('-').map(Number)
-  const mesNombre = MES_CORTO[month - 1]
 
-  const headerStyle = {
-    background: '#475569', color: '#fff', padding: '10px 16px',
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    cursor: 'pointer', fontSize: 13
-  }
+  const hdrBtn = (label, onClick, danger) => (
+    <button onClick={e => { e.stopPropagation(); onClick() }}
+      style={{fontSize:11,padding:'3px 10px',borderRadius:4,border:'1px solid',cursor:'pointer',
+        background: danger ? '#fee2e2' : '#fff', color: danger ? '#dc2626' : '#1e293b',
+        borderColor: danger ? '#fca5a5' : '#94a3b8'}}>
+      {label}
+    </button>
+  )
 
   return (
     <div style={{border:'1px solid #cbd5e1',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:12}}>
-      {/* Header colapsable */}
-      <div style={headerStyle} onClick={e => { if (e.target.tagName !== 'SELECT') { const next = !asistOpen; setAsistOpen(next); if (next && !localData) cargar(centroCostoId) } }}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <div style={{background:'#475569',color:'#fff',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',fontSize:13}}
+        onClick={e => { if (['SELECT','BUTTON'].includes(e.target.tagName)) return; const next = !asistOpen; setAsistOpen(next); if (next && !localData) cargar(centroCostoId) }}>
+        <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
           <strong style={{fontSize:13}}>📋 Registro de Asistencia</strong>
           <select value={centroCostoId} onClick={e => e.stopPropagation()}
             onChange={e => { e.stopPropagation(); setCentroCostoId(e.target.value) }}
@@ -98,77 +107,69 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
             <option value="">— Todos los trabajadores —</option>
             {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
+          {asistOpen && !editMode && hdrBtn('✏️ Editar', () => setEditMode(true))}
+          {asistOpen && editMode && <>
+            {hdrBtn(guardando ? 'Guardando…' : '💾 Guardar', guardar)}
+            {hdrBtn('✖ Cancelar', cancelar, true)}
+          </>}
+          {guardadoOk && <span style={{fontSize:11,color:'#86efac'}}>✔ Guardado</span>}
         </div>
         <span style={{fontSize:11,color:'#e2e8f0'}}>{asistOpen ? '▲' : '▼'}</span>
       </div>
 
       {asistOpen && (
-        <div style={{background:'var(--bg)',overflowX:'auto'}}>
-          {asistLoading && <p style={{padding:16,color:'var(--gray-500)'}}>Cargando…</p>}
-          {!asistLoading && localData && localData.length === 0 && (
-            <p style={{padding:16,color:'var(--gray-500)'}}>No hay trabajadores para este filtro.</p>
-          )}
-          {!asistLoading && localData && localData.length > 0 && asistData && (
-            <table style={{borderCollapse:'collapse',minWidth:'100%',fontSize:11}}>
-              <thead>
-                <tr>
-                  <th style={{position:'sticky',left:0,zIndex:2,background:'#f8fafc',padding:'6px 12px',textAlign:'left',borderBottom:'1px solid #e2e8f0',minWidth:160,fontWeight:600,fontSize:12}}>
-                    Trabajador
-                  </th>
-                  {Array.from({length: asistData.dias}, (_,i) => {
-                    const d = new Date(year, month-1, i+1)
-                    const inhabil = asistData.tipo_dia[i] === 'INHABIL'
-                    return (
-                      <th key={i} style={{
-                        padding:'4px 3px', textAlign:'center', minWidth:32,
-                        background: inhabil ? '#fef2f2' : '#f8fafc',
-                        borderBottom:'1px solid #e2e8f0',
+        <div style={{background:'var(--bg)'}}>
+          {editMode && <div style={{padding:'6px 12px',background:'#fefce8',borderBottom:'1px solid #fde68a',fontSize:11,color:'#92400e'}}>
+            ✏️ Modo edición activo — haz clic en las celdas para cambiar el estado, luego guarda.
+          </div>}
+          <div style={{overflowX:'auto'}}>
+            {asistLoading && <p style={{padding:16,color:'var(--gray-500)'}}>Cargando…</p>}
+            {!asistLoading && localData?.length === 0 && <p style={{padding:16,color:'var(--gray-500)'}}>No hay trabajadores para este filtro.</p>}
+            {!asistLoading && localData?.length > 0 && asistData && (
+              <table style={{borderCollapse:'collapse',minWidth:'100%',fontSize:11}}>
+                <thead>
+                  <tr>
+                    <th style={{position:'sticky',left:0,zIndex:2,background:'#f8fafc',padding:'6px 12px',textAlign:'left',borderBottom:'1px solid #e2e8f0',minWidth:170,fontWeight:600,fontSize:12}}>Trabajador</th>
+                    {Array.from({length: asistData.dias}, (_,i) => {
+                      const d = new Date(year, month-1, i+1)
+                      const inhabil = asistData.tipo_dia[i] === 'INHABIL'
+                      return <th key={i} style={{padding:'4px 3px',textAlign:'center',minWidth:32,
+                        background: inhabil ? '#fef2f2' : '#f8fafc',borderBottom:'1px solid #e2e8f0',
                         borderLeft: d.getDay()===1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
-                        color: inhabil ? '#dc2626' : '#475569', fontWeight:600
-                      }}>
+                        color: inhabil ? '#dc2626' : '#475569',fontWeight:600}}>
                         <div>{String(i+1).padStart(2,'0')}</div>
                         <div style={{fontSize:9,fontWeight:400}}>{['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]}</div>
                       </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {localData.map((emp, empIdx) => (
-                  <tr key={emp.id} style={{borderBottom:'1px solid #f1f5f9'}}>
-                    <td style={{position:'sticky',left:0,zIndex:1,background:'var(--bg)',padding:'4px 12px',fontWeight:500,whiteSpace:'nowrap',borderRight:'1px solid #e2e8f0'}}>
-                      {emp.nombre}
-                    </td>
-                    {emp.asistencia.map((estado, diaIdx) => {
-                      const s = TICK[estado] || TICK.VERDE
-                      return (
-                        <td key={diaIdx}
-                          onClick={() => toggleCelda(empIdx, diaIdx)}
-                          style={{
-                            textAlign:'center', cursor:'pointer', padding:'3px 2px',
-                            borderLeft:'1px solid #f1f5f9',
-                            background: asistData.tipo_dia[diaIdx]==='INHABIL' ? '#fff8f8' : 'transparent'
-                          }}>
-                          <span style={{
-                            display:'inline-flex',alignItems:'center',justifyContent:'center',
-                            width:22,height:22,borderRadius:4,
-                            background:s.bg,color:s.color,fontSize:12,fontWeight:700,
-                            border:`1px solid ${s.color}40`
-                          }}>{s.icon}</span>
-                        </td>
-                      )
                     })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {/* Leyenda */}
+                </thead>
+                <tbody>
+                  {localData.map((emp, empIdx) => (
+                    <tr key={emp.id} style={{borderBottom:'1px solid #f1f5f9'}}>
+                      <td style={{position:'sticky',left:0,zIndex:1,background:'var(--bg)',padding:'4px 12px',fontWeight:500,whiteSpace:'nowrap',borderRight:'1px solid #e2e8f0'}}>{emp.nombre}</td>
+                      {emp.asistencia.map((estado, diaIdx) => {
+                        const s = TICK[estado] || TICK.VERDE
+                        const changed = savedData && savedData[empIdx]?.asistencia[diaIdx] !== estado
+                        return <td key={diaIdx} onClick={() => toggleCelda(empIdx, diaIdx)}
+                          style={{textAlign:'center',cursor: editMode ? 'pointer' : 'default',padding:'3px 2px',
+                            borderLeft:'1px solid #f1f5f9',
+                            background: asistData.tipo_dia[diaIdx]==='INHABIL' ? '#fff8f8' : 'transparent'}}>
+                          <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',
+                            width:22,height:22,borderRadius:4,background:s.bg,color:s.color,fontSize:12,fontWeight:700,
+                            border:`${changed?2:1}px solid ${changed?s.color:s.color+'40'}`
+                          }}>{s.icon}</span>
+                        </td>
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
           <div style={{display:'flex',gap:16,padding:'8px 12px',fontSize:11,color:'var(--gray-500)',borderTop:'1px solid #f1f5f9'}}>
-            <span><span style={{color:'#16a34a',fontWeight:700}}>✔</span> Presente (día hábil)</span>
-            <span><span style={{color:'#dc2626',fontWeight:700}}>✔</span> Presente (feriado/fin de semana)</span>
+            <span><span style={{color:'#16a34a',fontWeight:700}}>✔</span> Presente hábil</span>
+            <span><span style={{color:'#dc2626',fontWeight:700}}>✔</span> Presente feriado/fin de semana</span>
             <span><span style={{color:'#dc2626',fontWeight:700}}>✖</span> Ausente</span>
-            <span style={{marginLeft:'auto'}}>Clic para cambiar estado</span>
           </div>
         </div>
       )}
@@ -201,16 +202,14 @@ export default function Liquidaciones() {
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
-  // Formulario calcular
-  const [form, setForm] = useState({
-    id_empleado: '', dias_trabajados: 30,
-    horas_extra_50: 0, horas_extra_100: 0, aguinaldo: 0,
-    colacion: 0, movilizacion: 0, viaticos: 0,
-    anticipo: 0, prestamo: 0, observacion: ''
-  })
-  const [preview, setPreview]   = useState(null)
-  const [emitiendo, setEmitiendo] = useState(false)
-  const [msg, setMsg]           = useState('')
+  // Calcular tab — CC flow
+  const [calcCC, setCalcCC]         = useState('')
+  const [calcData, setCalcData]     = useState(null)
+  const [calcLoading, setCalcLoading] = useState(false)
+  const [empleadoForms, setEmpleadoForms] = useState({})
+  const [calcPreviews, setCalcPreviews]   = useState({})
+  const [calcMsg, setCalcMsg]       = useState('')
+  const [emitiendo, setEmitiendo]   = useState({})
 
   useEffect(() => {
     empleadosApi.list({ activo: true, limit: 200 }).then(r => setEmpleados(r.data)).catch(() => {})
@@ -259,7 +258,86 @@ export default function Liquidaciones() {
     } finally { setCambiandoCierre(false) }
   }
 
-  const set = (k, v) => setForm(f => ({...f, [k]: v}))
+  const cargarCalcData = async () => {
+    if (!calcCC) return
+    setCalcLoading(true); setCalcMsg(''); setCalcData(null); setCalcPreviews({})
+    try {
+      const r = await liquidacionesApi.getAsistencia(periodo, calcCC)
+      setCalcData(r.data)
+      const forms = {}
+      r.data.empleados.forEach(emp => {
+        const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE').length
+        forms[emp.id] = {
+          expanded: false,
+          dias_trabajados: 30 - ausenteCount,
+          colacion: emp.colacion || 0,
+          movilizacion: emp.movilizacion || 0,
+          he_days: {},
+          aguinaldo: 0, viaticos: 0, anticipo: 0, prestamo: 0, observacion: ''
+        }
+      })
+      setEmpleadoForms(forms)
+    } catch { setCalcMsg('Error al cargar empleados del CC') }
+    finally { setCalcLoading(false) }
+  }
+
+  const setEF = (empId, patch) =>
+    setEmpleadoForms(f => ({...f, [empId]: {...f[empId], ...patch}}))
+
+  const setHeDia = (empId, dia, patch) =>
+    setEmpleadoForms(f => {
+      const ef = f[empId]
+      return {...f, [empId]: {...ef, he_days: {...ef.he_days, [dia]: {...(ef.he_days[dia]||{h50:0,h100:0}), ...patch}}}}
+    })
+
+  const calcularEmp = async (empId) => {
+    const ef = empleadoForms[empId]; if (!ef) return
+    const totalHe50  = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h50)||0), 0)
+    const totalHe100 = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h100)||0), 0)
+    setCalcMsg('')
+    try {
+      const r = await liquidacionesApi.calcular({
+        periodo, id_empleado: empId,
+        dias_trabajados: ef.dias_trabajados,
+        horas_extra_50: totalHe50,
+        horas_extra_100: totalHe100,
+        aguinaldo: ef.aguinaldo,
+        colacion: ef.colacion,
+        movilizacion: ef.movilizacion,
+        viaticos: ef.viaticos,
+        anticipo: ef.anticipo,
+        prestamo: ef.prestamo,
+        observacion: ef.observacion,
+      })
+      setCalcPreviews(p => ({...p, [empId]: r.data}))
+    } catch(e) { setCalcMsg(e.response?.data?.detail || 'Error al calcular') }
+  }
+
+  const emitirEmp = async (empId) => {
+    const ef = empleadoForms[empId]; if (!ef) return
+    const totalHe50  = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h50)||0), 0)
+    const totalHe100 = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h100)||0), 0)
+    setEmitiendo(e => ({...e, [empId]: true})); setCalcMsg('')
+    try {
+      await liquidacionesApi.emitir({
+        periodo, id_empleado: empId,
+        dias_trabajados: ef.dias_trabajados,
+        horas_extra_50: totalHe50,
+        horas_extra_100: totalHe100,
+        aguinaldo: ef.aguinaldo,
+        colacion: ef.colacion,
+        movilizacion: ef.movilizacion,
+        viaticos: ef.viaticos,
+        anticipo: ef.anticipo,
+        prestamo: ef.prestamo,
+        observacion: ef.observacion,
+      })
+      setCalcPreviews(p => ({...p, [empId]: null}))
+      setEF(empId, {expanded: false})
+      setCalcMsg(`✅ Liquidación de ${calcData.empleados.find(e=>e.id===empId)?.nombre} emitida`)
+    } catch(e) { setCalcMsg(e.response?.data?.detail || 'Error al emitir') }
+    finally { setEmitiendo(e => ({...e, [empId]: false})) }
+  }
 
   const descargar = async (fn, nombreDefault) => {
     try {
@@ -517,7 +595,7 @@ export default function Liquidaciones() {
                 {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>Cargando…</td></tr>}
                 {!loading && lista.length === 0 && (
                   <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>
-                    Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>setTab('calcular')}>Crear primera</button>
+                    Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>setTab('calcular')}>Crear liquidaciones</button>
                   </td></tr>
                 )}
                 {lista.map(l => (
@@ -540,115 +618,181 @@ export default function Liquidaciones() {
         </div>
       )}
 
-      {/* ── Formulario calcular ── */}
+      {/* ── Crear liquidaciones por CC ── */}
       {tab === 'calcular' && (
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-          <div className="card">
-            <h3 style={{marginBottom:16,fontWeight:600}}>Datos del Mes</h3>
-            {msg && <div style={{padding:'10px 14px',borderRadius:6,marginBottom:12,
-              background: msg.startsWith('✅')?'#dcfce7':'#fee2e2',
-              color: msg.startsWith('✅')?'#15803d':'#b91c1c'}}>{msg}</div>}
-
-            <div className="form-group">
-              <label className="form-label">Empleado</label>
-              <select className="select" value={form.id_empleado} onChange={e=>set('id_empleado',e.target.value)}>
-                <option value="">Seleccionar…</option>
-                {empleados.map(e=>(
-                  <option key={e.id} value={e.id}>{e.nombres} {e.apellido_paterno} — {e.rut}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-grid">
-              {[
-                ['dias_trabajados','Días Trabajados','number'],
-                ['horas_extra_50','Horas Extra 50% (CLP)','number'],
-                ['horas_extra_100','Horas Extra 100% (CLP)','number'],
-                ['aguinaldo','Aguinaldo','number'],
-                ['colacion','Colación','number'],
-                ['movilizacion','Movilización','number'],
-                ['viaticos','Viáticos','number'],
-                ['anticipo','Anticipo','number'],
-                ['prestamo','Préstamo','number'],
-              ].map(([k,label,type])=>(
-                <div key={k} className="form-group">
-                  <label className="form-label">{label}</label>
-                  <input className="input" type={type} value={form[k]}
-                    onChange={e=>set(k, type==='number'?Number(e.target.value):e.target.value)} />
-                </div>
-              ))}
-              <div className="form-group span2">
-                <label className="form-label">Observación</label>
-                <input className="input" value={form.observacion} onChange={e=>set('observacion',e.target.value)} />
-              </div>
-            </div>
-
-            <button className="btn btn-primary" onClick={calcular}>Calcular</button>
+        <div>
+          {/* Selector CC */}
+          <div className="card" style={{marginBottom:16,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',padding:'14px 16px'}}>
+            <strong style={{fontSize:14}}>Centro de Costo</strong>
+            <select className="select" style={{width:'auto',minWidth:200}} value={calcCC}
+              onChange={e => { setCalcCC(e.target.value); setCalcData(null) }}>
+              <option value="">— Seleccionar CC —</option>
+              {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+            <button className="btn btn-primary" disabled={!calcCC || calcLoading} onClick={cargarCalcData}>
+              {calcLoading ? 'Cargando…' : '📋 Crear Liquidaciones del CC'}
+            </button>
           </div>
 
-          {/* Preview resultado */}
-          {preview && (
-            <div className="card">
-              <h3 style={{marginBottom:4,fontWeight:600}}>
-                {preview.empleado.nombre}
-              </h3>
-              <p style={{fontSize:12,color:'var(--gray-500)',marginBottom:16}}>
-                {preview.empleado.rut} · Período {preview.periodo}
-              </p>
-
-              <Section title="Haberes Imponibles">
-                <Row label="Sueldo Base"       v={preview.haberes.sueldo_base} />
-                <Row label="Gratificación"     v={preview.haberes.gratificacion} />
-                {preview.haberes.horas_extra_50>0  && <Row label="HH.EE 50%"  v={preview.haberes.horas_extra_50} />}
-                {preview.haberes.horas_extra_100>0 && <Row label="HH.EE 100%" v={preview.haberes.horas_extra_100} />}
-                {preview.haberes.aguinaldo>0        && <Row label="Aguinaldo"  v={preview.haberes.aguinaldo} />}
-                <Row label="Total Imponible" v={preview.haberes.total_imponible} bold />
-              </Section>
-
-              <Section title="Haberes No Imponibles">
-                {preview.haberes.colacion>0      && <Row label="Colación"     v={preview.haberes.colacion} />}
-                {preview.haberes.movilizacion>0  && <Row label="Movilización" v={preview.haberes.movilizacion} />}
-                {preview.haberes.viaticos>0      && <Row label="Viáticos"     v={preview.haberes.viaticos} />}
-                <Row label="Total Haberes" v={preview.haberes.total_haberes} bold />
-              </Section>
-
-              <Section title="Descuentos Legales" red>
-                <Row label={`AFP (${(preview.indicadores.tasa_afp*100).toFixed(2)}%)`} v={preview.descuentos_legales.afp} red />
-                <Row label="Salud (7%)"                  v={preview.descuentos_legales.salud} red />
-                {preview.descuentos_legales.adicional_salud>0 && <Row label="Adic. Salud Isapre" v={preview.descuentos_legales.adicional_salud} red />}
-                {preview.descuentos_legales.seguro_cesantia>0 && <Row label="AFC Trabajador"     v={preview.descuentos_legales.seguro_cesantia} red />}
-                <Row label="Base Tributaria"             v={preview.descuentos_legales.base_tributaria} />
-                <Row label="Impuesto Único"              v={preview.descuentos_legales.impuesto_unico} red />
-                <Row label="Total Descuentos"            v={preview.descuentos_legales.total} bold red />
-              </Section>
-
-              {(preview.otros_descuentos.total>0) && (
-                <Section title="Otros Descuentos">
-                  {preview.otros_descuentos.anticipo>0 && <Row label="Anticipo" v={preview.otros_descuentos.anticipo} red />}
-                  {preview.otros_descuentos.prestamo>0 && <Row label="Préstamo" v={preview.otros_descuentos.prestamo} red />}
-                  <Row label="Total" v={preview.otros_descuentos.total} bold red />
-                </Section>
-              )}
-
-              <div style={{background:'var(--primary)',color:'#fff',borderRadius:'var(--radius)',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:8}}>
-                <span style={{fontWeight:600}}>LÍQUIDO A PAGAR</span>
-                <span style={{fontSize:20,fontWeight:700}}>{fmt(preview.resultado.liquido_a_pagar)}</span>
-              </div>
-
-              <Section title="Aportes Patronales (cargo empresa)">
-                <Row label="AFC Empleador (3%)"      v={preview.costos_empleador.afc_empleador} />
-                <Row label="SIS (2.49%)"              v={preview.costos_empleador.sis} />
-                <Row label="Aporte AFP (0.1%)"        v={preview.costos_empleador.aporte_empleador_afp} />
-                <Row label="Seguro Social (0.9%)"     v={preview.costos_empleador.seguro_social} />
-                <Row label="Total Costo Patronal"     v={preview.costos_empleador.total} bold />
-              </Section>
-
-              <button className="btn btn-primary" style={{marginTop:16,width:'100%'}}
-                onClick={emitir} disabled={emitiendo}>
-                {emitiendo ? 'Emitiendo…' : '✅ Emitir Liquidación'}
-              </button>
-            </div>
+          {calcMsg && (
+            <div style={{padding:'10px 14px',borderRadius:6,marginBottom:12,
+              background: calcMsg.startsWith('✅') ? '#dcfce7' : '#fee2e2',
+              color:      calcMsg.startsWith('✅') ? '#15803d' : '#b91c1c'}}>{calcMsg}</div>
           )}
+
+          {calcData && calcData.empleados.length === 0 && (
+            <p style={{color:'var(--gray-500)',padding:8}}>No hay trabajadores activos en este CC para {periodo}.</p>
+          )}
+
+          {calcData && calcData.empleados.map(emp => {
+            const ef = empleadoForms[emp.id]
+            if (!ef) return null
+            const rojoDias = emp.asistencia.map((s,i) => s === 'ROJO' ? i+1 : null).filter(Boolean)
+            const rojoFaltanHE = rojoDias.some(d => {
+              const hd = ef.he_days[d] || {h50:0,h100:0}
+              return (Number(hd.h50)||0) === 0 && (Number(hd.h100)||0) === 0
+            })
+            const prev = calcPreviews[emp.id]
+            const emitOk = !!prev
+
+            return (
+              <div key={emp.id} style={{border:'1px solid #cbd5e1',borderRadius:8,marginBottom:12,overflow:'hidden'}}>
+                {/* Card header */}
+                <div style={{background:'#f8fafc',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}
+                  onClick={() => setEF(emp.id, {expanded: !ef.expanded})}>
+                  <div style={{display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+                    <strong style={{fontSize:14}}>{emp.nombre}</strong>
+                    <span style={{fontSize:12,color:'var(--gray-500)'}}>Días trabajados: <strong>{ef.dias_trabajados}</strong></span>
+                    {rojoDias.length > 0 && (
+                      <span style={{fontSize:12,color:'#dc2626'}}>
+                        ⚠️ {rojoDias.length} día{rojoDias.length>1?'s':''} festivo{rojoDias.length>1?'s':''} trabajado{rojoDias.length>1?'s':''}
+                        {rojoFaltanHE ? ' — falta ingresar HH.EE' : ''}
+                      </span>
+                    )}
+                    {emitOk && <span style={{fontSize:12,color:'#16a34a'}}>✔ Calculado: {fmt(prev.resultado.liquido_a_pagar)}</span>}
+                  </div>
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>{ef.expanded ? '▲' : '▼'}</span>
+                </div>
+
+                {ef.expanded && (
+                  <div style={{padding:16,display:'grid',gridTemplateColumns: prev ? '1fr 1fr' : '1fr',gap:20}}>
+                    {/* Formulario */}
+                    <div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                        {[
+                          ['dias_trabajados','Días Trabajados'],
+                          ['colacion','Colación'],
+                          ['movilizacion','Movilización'],
+                          ['aguinaldo','Aguinaldo'],
+                          ['viaticos','Viáticos'],
+                          ['anticipo','Anticipo'],
+                          ['prestamo','Préstamo'],
+                        ].map(([k,label]) => (
+                          <div key={k} className="form-group">
+                            <label className="form-label">{label}</label>
+                            <input className="input" type="number" value={ef[k]}
+                              onChange={e => setEF(emp.id, {[k]: Number(e.target.value)})} />
+                          </div>
+                        ))}
+                        <div className="form-group" style={{gridColumn:'1/-1'}}>
+                          <label className="form-label">Observación</label>
+                          <input className="input" value={ef.observacion}
+                            onChange={e => setEF(emp.id, {observacion: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {rojoDias.length > 0 && (
+                        <div style={{border:'1px solid #fca5a5',borderRadius:6,padding:12,background:'#fff8f8',marginBottom:12}}>
+                          <div style={{fontWeight:600,fontSize:12,color:'#dc2626',marginBottom:8}}>
+                            ⚠️ Días festivos/fines de semana trabajados — ingresa las horas extra
+                          </div>
+                          {rojoDias.map(dia => {
+                            const d = new Date(Number(periodo.split('-')[0]), Number(periodo.split('-')[1])-1, dia)
+                            const hd = ef.he_days[dia] || {h50:0, h100:0}
+                            return (
+                              <div key={dia} style={{display:'flex',gap:8,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
+                                <span style={{fontSize:12,minWidth:70,fontWeight:500}}>
+                                  {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()]} {dia}
+                                </span>
+                                <label style={{fontSize:11,color:'var(--gray-500)'}}>HH.EE 50% (CLP):</label>
+                                <input type="number" style={{width:90,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
+                                  value={hd.h50} onChange={e => setHeDia(emp.id, dia, {h50: Number(e.target.value)})} />
+                                <label style={{fontSize:11,color:'var(--gray-500)'}}>HH.EE 100% (CLP):</label>
+                                <input type="number" style={{width:90,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
+                                  value={hd.h100} onChange={e => setHeDia(emp.id, dia, {h100: Number(e.target.value)})} />
+                              </div>
+                            )
+                          })}
+                          <div style={{fontSize:11,color:'var(--gray-500)',marginTop:4}}>
+                            Total HH.EE 50%: {fmt(Object.values(ef.he_days).reduce((s,d)=>s+(Number(d.h50)||0),0))} ·
+                            Total HH.EE 100%: {fmt(Object.values(ef.he_days).reduce((s,d)=>s+(Number(d.h100)||0),0))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{display:'flex',gap:8}}>
+                        <button className="btn btn-primary" onClick={() => calcularEmp(emp.id)}>Calcular</button>
+                        {emitOk && (
+                          <button className="btn btn-primary" style={{background:'#16a34a',borderColor:'#16a34a'}}
+                            onClick={() => emitirEmp(emp.id)} disabled={!!emitiendo[emp.id]}>
+                            {emitiendo[emp.id] ? 'Emitiendo…' : '✅ Emitir Liquidación'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Preview resultado */}
+                    {prev && (
+                      <div>
+                        <p style={{fontSize:12,color:'var(--gray-500)',marginBottom:12}}>{prev.empleado.rut} · Período {prev.periodo}</p>
+                        <Section title="Haberes Imponibles">
+                          <Row label="Sueldo Base"   v={prev.haberes.sueldo_base} />
+                          <Row label="Gratificación" v={prev.haberes.gratificacion} />
+                          {prev.haberes.horas_extra_50>0  && <Row label="HH.EE 50%"  v={prev.haberes.horas_extra_50} />}
+                          {prev.haberes.horas_extra_100>0 && <Row label="HH.EE 100%" v={prev.haberes.horas_extra_100} />}
+                          {prev.haberes.aguinaldo>0       && <Row label="Aguinaldo"  v={prev.haberes.aguinaldo} />}
+                          <Row label="Total Imponible" v={prev.haberes.total_imponible} bold />
+                        </Section>
+                        <Section title="Haberes No Imponibles">
+                          {prev.haberes.colacion>0     && <Row label="Colación"     v={prev.haberes.colacion} />}
+                          {prev.haberes.movilizacion>0 && <Row label="Movilización" v={prev.haberes.movilizacion} />}
+                          {prev.haberes.viaticos>0     && <Row label="Viáticos"     v={prev.haberes.viaticos} />}
+                          <Row label="Total Haberes" v={prev.haberes.total_haberes} bold />
+                        </Section>
+                        <Section title="Descuentos Legales" red>
+                          <Row label={`AFP (${(prev.indicadores.tasa_afp*100).toFixed(2)}%)`} v={prev.descuentos_legales.afp} red />
+                          <Row label="Salud (7%)"       v={prev.descuentos_legales.salud} red />
+                          {prev.descuentos_legales.adicional_salud>0 && <Row label="Adic. Salud Isapre" v={prev.descuentos_legales.adicional_salud} red />}
+                          {prev.descuentos_legales.seguro_cesantia>0 && <Row label="AFC Trabajador"     v={prev.descuentos_legales.seguro_cesantia} red />}
+                          <Row label="Base Tributaria"  v={prev.descuentos_legales.base_tributaria} />
+                          <Row label="Impuesto Único"   v={prev.descuentos_legales.impuesto_unico} red />
+                          <Row label="Total Descuentos" v={prev.descuentos_legales.total} bold red />
+                        </Section>
+                        {prev.otros_descuentos.total>0 && (
+                          <Section title="Otros Descuentos">
+                            {prev.otros_descuentos.anticipo>0 && <Row label="Anticipo" v={prev.otros_descuentos.anticipo} red />}
+                            {prev.otros_descuentos.prestamo>0 && <Row label="Préstamo" v={prev.otros_descuentos.prestamo} red />}
+                            <Row label="Total" v={prev.otros_descuentos.total} bold red />
+                          </Section>
+                        )}
+                        <div style={{background:'var(--primary)',color:'#fff',borderRadius:'var(--radius)',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:8}}>
+                          <span style={{fontWeight:600}}>LÍQUIDO A PAGAR</span>
+                          <span style={{fontSize:20,fontWeight:700}}>{fmt(prev.resultado.liquido_a_pagar)}</span>
+                        </div>
+                        <Section title="Aportes Patronales">
+                          <Row label="AFC Empleador"    v={prev.costos_empleador.afc_empleador} />
+                          <Row label="SIS"              v={prev.costos_empleador.sis} />
+                          <Row label="Aporte AFP"       v={prev.costos_empleador.aporte_empleador_afp} />
+                          <Row label="Seguro Social"    v={prev.costos_empleador.seguro_social} />
+                          <Row label="Total Patronal"   v={prev.costos_empleador.total} bold />
+                        </Section>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
