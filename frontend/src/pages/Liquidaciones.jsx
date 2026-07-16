@@ -13,6 +13,7 @@ const PERIODOS = (() => {
 })()
 
 const fmt = n => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—'
+const fmt2 = n => { const [int, dec] = Number(n).toFixed(2).split('.'); return `$${int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${dec}` }
 const estadoBadge = e => ({
   BORRADOR: 'badge-gray', EMITIDA: 'badge-blue', PAGADA: 'badge-green'
 }[e] || 'badge-gray')
@@ -277,10 +278,10 @@ export default function Liquidaciones() {
                         {tramosIU.map((t,i) => (
                           <tr key={i} style={{borderTop:'1px solid var(--gray-100)'}}>
                             {tdL(i+1)}
-                            {td(`$${Number(t.desde).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}`)}
-                            {td(t.hasta != null ? `$${Number(t.hasta).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}` : 'y más')}
+                            {td(fmt2(t.desde))}
+                            {td(t.hasta != null ? fmt2(t.hasta) : 'y más')}
                             {td(`${(t.factor*100 % 1 === 0 ? (t.factor*100).toFixed(0) : (t.factor*100).toFixed(1))}%`)}
-                            {td(`$${Number(t.monto_rebaja).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}`)}
+                            {td(fmt2(t.monto_rebaja))}
                           </tr>
                         ))}
                       </tbody>
