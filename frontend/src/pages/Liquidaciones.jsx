@@ -280,10 +280,12 @@ export default function Liquidaciones() {
           dias_trabajados: dias,
           colacion_base: emp.colacion || 0,
           movilizacion_base: emp.movilizacion || 0,
+          viaticos_base: 200000,
           colacion:     Math.round((emp.colacion    || 0) / 30 * dias),
           movilizacion: Math.round((emp.movilizacion|| 0) / 30 * dias),
+          viaticos:     Math.round(200000 / 30 * dias),
           he_days: {},
-          aguinaldo: 0, viaticos: 0, anticipo: 0, prestamo: 0, observacion: ''
+          aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: ''
         }
       })
       setEmpleadoForms(forms)
@@ -714,12 +716,14 @@ export default function Liquidaciones() {
                                 dias_trabajados: dias,
                                 colacion:     Math.round(ef.colacion_base     / 30 * dias),
                                 movilizacion: Math.round(ef.movilizacion_base / 30 * dias),
+                                viaticos:     Math.round(ef.viaticos_base     / 30 * dias),
                               })
                             }} />
                         </div>
                         {[
                           ['colacion',    'Colación',    ef.colacion_base],
                           ['movilizacion','Movilización',ef.movilizacion_base],
+                          ['viaticos',   'Viáticos',    ef.viaticos_base],
                         ].map(([k,label,base]) => (
                           <div key={k} className="form-group">
                             <label className="form-label">
@@ -732,7 +736,6 @@ export default function Liquidaciones() {
                         ))}
                         {[
                           ['aguinaldo','Aguinaldo'],
-                          ['viaticos','Viáticos'],
                           ['anticipo','Anticipo'],
                           ['prestamo','Préstamo'],
                         ].map(([k,label]) => (
