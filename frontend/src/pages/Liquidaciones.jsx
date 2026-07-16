@@ -267,11 +267,14 @@ export default function Liquidaciones() {
       const forms = {}
       r.data.empleados.forEach(emp => {
         const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE').length
+        const dias = 30 - ausenteCount
         forms[emp.id] = {
           expanded: false,
-          dias_trabajados: 30 - ausenteCount,
-          colacion: emp.colacion || 0,
-          movilizacion: emp.movilizacion || 0,
+          dias_trabajados: dias,
+          colacion_base: emp.colacion || 0,
+          movilizacion_base: emp.movilizacion || 0,
+          colacion:     Math.round((emp.colacion    || 0) / 30 * dias),
+          movilizacion: Math.round((emp.movilizacion|| 0) / 30 * dias),
           he_days: {},
           aguinaldo: 0, viaticos: 0, anticipo: 0, prestamo: 0, observacion: ''
         }
@@ -686,10 +689,32 @@ export default function Liquidaciones() {
                     {/* Formulario */}
                     <div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                        <div className="form-group">
+                          <label className="form-label">Días Trabajados</label>
+                          <input className="input" type="number" value={ef.dias_trabajados}
+                            onChange={e => {
+                              const dias = Number(e.target.value)
+                              setEF(emp.id, {
+                                dias_trabajados: dias,
+                                colacion:     Math.round(ef.colacion_base     / 30 * dias),
+                                movilizacion: Math.round(ef.movilizacion_base / 30 * dias),
+                              })
+                            }} />
+                        </div>
                         {[
-                          ['dias_trabajados','Días Trabajados'],
-                          ['colacion','Colación'],
-                          ['movilizacion','Movilización'],
+                          ['colacion',    'Colación',    ef.colacion_base],
+                          ['movilizacion','Movilización',ef.movilizacion_base],
+                        ].map(([k,label,base]) => (
+                          <div key={k} className="form-group">
+                            <label className="form-label">
+                              {label}
+                              {base > 0 && <span style={{fontSize:10,color:'var(--gray-400)',marginLeft:4}}>({fmt(base)}/30×{ef.dias_trabajados})</span>}
+                            </label>
+                            <input className="input" type="number" value={ef[k]}
+                              onChange={e => setEF(emp.id, {[k]: Number(e.target.value)})} />
+                          </div>
+                        ))}
+                        {[
                           ['aguinaldo','Aguinaldo'],
                           ['viaticos','Viáticos'],
                           ['anticipo','Anticipo'],
