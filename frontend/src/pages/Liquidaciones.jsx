@@ -270,17 +270,17 @@ export default function Liquidaciones() {
                 </div>
                 {tramosIU.length > 0 && (
                   <div style={{padding:'0 16px 16px'}}>
-                    <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único (en UTM)</div>
+                    <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único — Renta Líquida Imponible mensual</div>
                     <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                      <thead><tr>{thL('Tramo')}{th('Desde (UTM)')}{th('Hasta (UTM)')}{th('Factor')}{th('Rebaja (UTM)')}</tr></thead>
+                      <thead><tr>{thL('Tramo')}{th('Desde (CLP)')}{th('Hasta (CLP)')}{th('Factor')}{th('Rebaja (CLP)')}</tr></thead>
                       <tbody>
                         {tramosIU.map((t,i) => (
                           <tr key={i} style={{borderTop:'1px solid var(--gray-100)'}}>
                             {tdL(i+1)}
-                            {td(t.desde.toLocaleString('es-CL',{minimumFractionDigits:2}))}
-                            {td(t.hasta != null ? t.hasta.toLocaleString('es-CL',{minimumFractionDigits:2}) : 'y más')}
-                            {td(`${(t.factor*100).toFixed(0)}%`)}
-                            {td(t.monto_rebaja.toLocaleString('es-CL',{minimumFractionDigits:4}))}
+                            {td(`$${Math.round(t.desde).toLocaleString('es-CL')}`)}
+                            {td(t.hasta != null ? `$${Math.round(t.hasta).toLocaleString('es-CL')}` : 'y más')}
+                            {td(`${(t.factor*100 % 1 === 0 ? (t.factor*100).toFixed(0) : (t.factor*100).toFixed(1))}%`)}
+                            {td(`$${Number(t.monto_rebaja).toLocaleString('es-CL',{minimumFractionDigits:2})}`)}
                           </tr>
                         ))}
                       </tbody>

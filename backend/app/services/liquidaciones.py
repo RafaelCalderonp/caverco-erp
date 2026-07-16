@@ -6,18 +6,46 @@ from decimal import Decimal, ROUND_HALF_UP
 from dataclasses import dataclass, field
 from typing import Optional
 
-# Tramos Impuesto Único Mayo 2026 — se actualizan anualmente
-# Formato: (desde, hasta_o_None, factor, rebaja)
-TRAMOS_IU_2026 = [
-    (Decimal("0"),           Decimal("702067"),    Decimal("0"),     Decimal("0")),
-    (Decimal("702067.01"),   Decimal("1560150"),   Decimal("0.04"),  Decimal("28082.70")),
-    (Decimal("1560150.01"),  Decimal("2600250"),   Decimal("0.08"),  Decimal("90488.70")),
-    (Decimal("2600250.01"),  Decimal("3640350"),   Decimal("0.135"), Decimal("233502.45")),
-    (Decimal("3640350.01"),  Decimal("4680450"),   Decimal("0.23"),  Decimal("579335.70")),
-    (Decimal("4680450.01"),  Decimal("6240600"),   Decimal("0.304"), Decimal("925689.00")),
-    (Decimal("6240600.01"),  Decimal("16121550"),  Decimal("0.35"),  Decimal("1212756.60")),
-    (Decimal("16121550.01"), None,                 Decimal("0.40"),  Decimal("2018834.10")),
+# Factor topes canónicos Impuesto Único — fijos por ley, se actualizan anualmente
+# (factor_topes_utm, tasa) — None en factor_topes = sin límite superior
+FACTORES_TOPES_IU = [
+    (Decimal("13.5"),  Decimal("0")),
+    (Decimal("30"),    Decimal("0.04")),
+    (Decimal("50"),    Decimal("0.08")),
+    (Decimal("70"),    Decimal("0.135")),
+    (Decimal("90"),    Decimal("0.23")),
+    (Decimal("120"),   Decimal("0.304")),
+    (Decimal("310"),   Decimal("0.35")),
+    (None,             Decimal("0.40")),
 ]
+
+
+def calcular_tramos_desde_utm(utm: Decimal) -> list:
+    """Construye tramos IU en CLP a partir del UTM del período.
+    Hasta_n = round(factor_topes_n × UTM).
+    Rebaja acumulada: rebaja_n = rebaja_(n-1) + hasta_(n-1) × (factor_n - factor_(n-1))
+    garantiza continuidad en los límites de tramo."""
+    tramos = []
+    desde = Decimal("0")
+    rebaja = Decimal("0")
+    hasta_prev = Decimal("0")
+    factor_prev = Decimal("0")
+
+    for i, (ft, factor) in enumerate(FACTORES_TOPES_IU):
+        hasta = (ft * utm).quantize(Decimal("1"), rounding=ROUND_HALF_UP) if ft is not None else None
+        if i > 0:
+            rebaja = rebaja + hasta_prev * (factor - factor_prev)
+        tramos.append((desde, hasta, factor, rebaja.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
+        if hasta is not None:
+            desde = hasta + Decimal("0.01")
+            hasta_prev = hasta
+        factor_prev = factor
+
+    return tramos
+
+
+# Fallback estático (se usa solo si UTM no está disponible)
+TRAMOS_IU_2026 = calcular_tramos_desde_utm(Decimal("46129"))
 
 def _r(v: Decimal) -> Decimal:
     return v.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
