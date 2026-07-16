@@ -290,10 +290,17 @@ export default function Liquidaciones() {
       return {...f, [empId]: {...ef, he_days: {...ef.he_days, [dia]: {...(ef.he_days[dia]||{h50:0,h100:0}), ...patch}}}}
     })
 
+  const heClp = (empId, ef) => {
+    const emp = calcData?.empleados.find(e => e.id === empId)
+    const vh = (emp?.sueldo_base || 0) / 30 / 8
+    const he50  = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h50 )||0) * vh * 1.5), 0)
+    const he100 = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h100)||0) * vh * 2.0), 0)
+    return { he50, he100 }
+  }
+
   const calcularEmp = async (empId) => {
     const ef = empleadoForms[empId]; if (!ef) return
-    const totalHe50  = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h50)||0), 0)
-    const totalHe100 = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h100)||0), 0)
+    const { he50: totalHe50, he100: totalHe100 } = heClp(empId, ef)
     setCalcMsg('')
     try {
       const r = await liquidacionesApi.calcular({
@@ -315,8 +322,7 @@ export default function Liquidaciones() {
 
   const emitirEmp = async (empId) => {
     const ef = empleadoForms[empId]; if (!ef) return
-    const totalHe50  = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h50)||0), 0)
-    const totalHe100 = Object.values(ef.he_days).reduce((s,d) => s + (Number(d.h100)||0), 0)
+    const { he50: totalHe50, he100: totalHe100 } = heClp(empId, ef)
     setEmitiendo(e => ({...e, [empId]: true})); setCalcMsg('')
     try {
       await liquidacionesApi.emitir({
@@ -701,34 +707,51 @@ export default function Liquidaciones() {
                         </div>
                       </div>
 
-                      {rojoDias.length > 0 && (
-                        <div style={{border:'1px solid #fca5a5',borderRadius:6,padding:12,background:'#fff8f8',marginBottom:12}}>
-                          <div style={{fontWeight:600,fontSize:12,color:'#dc2626',marginBottom:8}}>
-                            ⚠️ Días festivos/fines de semana trabajados — ingresa las horas extra
+                      {rojoDias.length > 0 && (() => {
+                        const valorHora = emp.sueldo_base / 30 / 8
+                        const totalClp50  = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h50 )||0) * valorHora * 1.5), 0)
+                        const totalClp100 = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h100)||0) * valorHora * 2.0), 0)
+                        return (
+                          <div style={{border:'1px solid #fca5a5',borderRadius:6,padding:12,background:'#fff8f8',marginBottom:12}}>
+                            <div style={{fontWeight:600,fontSize:12,color:'#dc2626',marginBottom:4}}>
+                              ⚠️ Días festivos/fines de semana trabajados — ingresa las horas extra
+                            </div>
+                            <div style={{fontSize:11,color:'var(--gray-500)',marginBottom:8}}>
+                              Valor hora: {fmt(Math.round(valorHora))} · Valor hora 50%: {fmt(Math.round(valorHora*1.5))} · Valor hora 100%: {fmt(Math.round(valorHora*2))}
+                            </div>
+                            {rojoDias.map(dia => {
+                              const d = new Date(Number(periodo.split('-')[0]), Number(periodo.split('-')[1])-1, dia)
+                              const hd = ef.he_days[dia] || {h50:0, h100:0}
+                              const clp50  = Math.round((Number(hd.h50 )||0) * valorHora * 1.5)
+                              const clp100 = Math.round((Number(hd.h100)||0) * valorHora * 2.0)
+                              return (
+                                <div key={dia} style={{display:'grid',gridTemplateColumns:'80px 1fr 1fr',gap:8,alignItems:'center',marginBottom:6}}>
+                                  <span style={{fontSize:12,fontWeight:500}}>
+                                    {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()]} {dia}
+                                  </span>
+                                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                                    <label style={{fontSize:11,color:'var(--gray-500)',whiteSpace:'nowrap'}}>HH.EE 50%</label>
+                                    <input type="number" min="0" step="0.5"
+                                      style={{width:56,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
+                                      value={hd.h50} onChange={e => setHeDia(emp.id, dia, {h50: e.target.value})} />
+                                    <span style={{fontSize:11,color:'#dc2626',whiteSpace:'nowrap'}}>{clp50>0 ? fmt(clp50) : ''}</span>
+                                  </div>
+                                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                                    <label style={{fontSize:11,color:'var(--gray-500)',whiteSpace:'nowrap'}}>HH.EE 100%</label>
+                                    <input type="number" min="0" step="0.5"
+                                      style={{width:56,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
+                                      value={hd.h100} onChange={e => setHeDia(emp.id, dia, {h100: e.target.value})} />
+                                    <span style={{fontSize:11,color:'#dc2626',whiteSpace:'nowrap'}}>{clp100>0 ? fmt(clp100) : ''}</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            <div style={{fontSize:11,color:'#b91c1c',marginTop:6,fontWeight:500}}>
+                              Total HH.EE 50%: {fmt(totalClp50)} · Total HH.EE 100%: {fmt(totalClp100)}
+                            </div>
                           </div>
-                          {rojoDias.map(dia => {
-                            const d = new Date(Number(periodo.split('-')[0]), Number(periodo.split('-')[1])-1, dia)
-                            const hd = ef.he_days[dia] || {h50:0, h100:0}
-                            return (
-                              <div key={dia} style={{display:'flex',gap:8,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
-                                <span style={{fontSize:12,minWidth:70,fontWeight:500}}>
-                                  {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()]} {dia}
-                                </span>
-                                <label style={{fontSize:11,color:'var(--gray-500)'}}>HH.EE 50% (CLP):</label>
-                                <input type="number" style={{width:90,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
-                                  value={hd.h50} onChange={e => setHeDia(emp.id, dia, {h50: Number(e.target.value)})} />
-                                <label style={{fontSize:11,color:'var(--gray-500)'}}>HH.EE 100% (CLP):</label>
-                                <input type="number" style={{width:90,padding:'3px 6px',border:'1px solid #fca5a5',borderRadius:4,fontSize:12}}
-                                  value={hd.h100} onChange={e => setHeDia(emp.id, dia, {h100: Number(e.target.value)})} />
-                              </div>
-                            )
-                          })}
-                          <div style={{fontSize:11,color:'var(--gray-500)',marginTop:4}}>
-                            Total HH.EE 50%: {fmt(Object.values(ef.he_days).reduce((s,d)=>s+(Number(d.h50)||0),0))} ·
-                            Total HH.EE 100%: {fmt(Object.values(ef.he_days).reduce((s,d)=>s+(Number(d.h100)||0),0))}
-                          </div>
-                        </div>
-                      )}
+                        )
+                      })()}
 
                       <div style={{display:'flex',gap:8}}>
                         <button className="btn btn-primary" onClick={() => calcularEmp(emp.id)}>Calcular</button>
