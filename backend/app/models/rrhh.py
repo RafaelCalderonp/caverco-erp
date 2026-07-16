@@ -483,3 +483,20 @@ class TramoImpuestoUnico(Base):
     hasta        = Column(Numeric(14,2))  # NULL = sin límite
     factor       = Column(Numeric(5,4), nullable=False)
     monto_rebaja = Column(Numeric(14,2), nullable=False)
+
+
+class RegistroAsistencia(Base):
+    __tablename__ = "registro_asistencia"
+    __table_args__ = (
+        UniqueConstraint("periodo", "id_empleado", "dia", name="uq_asistencia_periodo_emp_dia"),
+        {"schema": "erp"},
+    )
+
+    id          = Column(Integer, primary_key=True)
+    periodo     = Column(String(7), nullable=False)   # YYYY-MM
+    id_empleado = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
+    dia         = Column(SmallInteger, nullable=False)  # 1–31
+    # VERDE=presente, ROJO=sábado/domingo/feriado presente, AUSENTE=falta
+    estado      = Column(String(10), nullable=False, default="VERDE")
+
+    empleado    = relationship("Empleado")

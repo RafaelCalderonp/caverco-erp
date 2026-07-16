@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { liquidacionesApi, empleadosApi } from '../services/api'
+import { liquidacionesApi, empleadosApi, catalogosApi } from '../services/api'
 
 const PERIODOS = (() => {
   const arr = []
@@ -18,6 +18,164 @@ const estadoBadge = e => ({
   BORRADOR: 'badge-gray', EMITIDA: 'badge-blue', PAGADA: 'badge-green'
 }[e] || 'badge-gray')
 
+// Ciclo de estados al hacer clic: VERDE → ROJO → AUSENTE → VERDE
+const CICLO = { VERDE: 'ROJO', ROJO: 'AUSENTE', AUSENTE: 'VERDE' }
+const TICK = {
+  VERDE:   { icon: '✔', color: '#16a34a', bg: '#dcfce7' },
+  ROJO:    { icon: '✔', color: '#dc2626', bg: '#fee2e2' },
+  AUSENTE: { icon: '✖', color: '#dc2626', bg: '#fee2e2' },
+}
+
+// Nombres de mes abreviados en español
+const MES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCostoId,
+  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading, pendingRef }) {
+
+  const [localData, setLocalData] = useState(null)  // copia mutable de asistData.empleados
+
+  const cargar = async (ccId) => {
+    setAsistLoading(true)
+    try {
+      const r = await liquidacionesApi.getAsistencia(periodo, ccId || undefined)
+      setAsistData(r.data)
+      setLocalData(r.data.empleados.map(e => ({ ...e, asistencia: [...e.asistencia] })))
+    } catch { setAsistData(null); setLocalData(null) }
+    finally { setAsistLoading(false) }
+  }
+
+  // Recargar al cambiar período o centro de costo (solo si panel abierto)
+  useEffect(() => {
+    if (asistOpen) cargar(centroCostoId)
+  }, [periodo, centroCostoId, asistOpen])
+
+  const toggleCelda = async (empIdx, diaIdx) => {
+    if (!localData) return
+    const emp = localData[empIdx]
+    const estadoActual = emp.asistencia[diaIdx]
+    const nuevoEstado = CICLO[estadoActual]
+
+    // Actualización optimista
+    setLocalData(prev => prev.map((e, i) => i === empIdx
+      ? { ...e, asistencia: e.asistencia.map((s, j) => j === diaIdx ? nuevoEstado : s) }
+      : e
+    ))
+
+    // Persistir en backend (debounced por clave)
+    const key = `${emp.id}-${diaIdx + 1}`
+    clearTimeout(pendingRef.current[key])
+    pendingRef.current[key] = setTimeout(async () => {
+      try {
+        await liquidacionesApi.patchAsistencia(periodo, emp.id, diaIdx + 1, nuevoEstado)
+      } catch {
+        // revertir si falla
+        setLocalData(prev => prev.map((e, i) => i === empIdx
+          ? { ...e, asistencia: e.asistencia.map((s, j) => j === diaIdx ? estadoActual : s) }
+          : e
+        ))
+      }
+    }, 400)
+  }
+
+  const [year, month] = periodo.split('-').map(Number)
+  const mesNombre = MES_CORTO[month - 1]
+
+  const headerStyle = {
+    background: '#475569', color: '#fff', padding: '10px 16px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    cursor: 'pointer', fontSize: 13
+  }
+
+  return (
+    <div style={{border:'1px solid #cbd5e1',borderRadius:'var(--radius)',marginBottom:16,overflow:'hidden',fontSize:12}}>
+      {/* Header colapsable */}
+      <div style={headerStyle} onClick={e => { if (e.target.tagName !== 'SELECT') { const next = !asistOpen; setAsistOpen(next); if (next && !localData) cargar(centroCostoId) } }}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <strong style={{fontSize:13}}>📋 Registro de Asistencia</strong>
+          <select value={centroCostoId} onClick={e => e.stopPropagation()}
+            onChange={e => { e.stopPropagation(); setCentroCostoId(e.target.value) }}
+            style={{fontSize:12,border:'1px solid #94a3b8',borderRadius:4,padding:'2px 8px',background:'#fff',color:'#1e293b',cursor:'pointer'}}>
+            <option value="">— Todos los trabajadores —</option>
+            {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+        </div>
+        <span style={{fontSize:11,color:'#e2e8f0'}}>{asistOpen ? '▲' : '▼'}</span>
+      </div>
+
+      {asistOpen && (
+        <div style={{background:'var(--bg)',overflowX:'auto'}}>
+          {asistLoading && <p style={{padding:16,color:'var(--gray-500)'}}>Cargando…</p>}
+          {!asistLoading && localData && localData.length === 0 && (
+            <p style={{padding:16,color:'var(--gray-500)'}}>No hay trabajadores para este filtro.</p>
+          )}
+          {!asistLoading && localData && localData.length > 0 && asistData && (
+            <table style={{borderCollapse:'collapse',minWidth:'100%',fontSize:11}}>
+              <thead>
+                <tr>
+                  <th style={{position:'sticky',left:0,zIndex:2,background:'#f8fafc',padding:'6px 12px',textAlign:'left',borderBottom:'1px solid #e2e8f0',minWidth:160,fontWeight:600,fontSize:12}}>
+                    Trabajador
+                  </th>
+                  {Array.from({length: asistData.dias}, (_,i) => {
+                    const d = new Date(year, month-1, i+1)
+                    const inhabil = asistData.tipo_dia[i] === 'INHABIL'
+                    return (
+                      <th key={i} style={{
+                        padding:'4px 3px', textAlign:'center', minWidth:32,
+                        background: inhabil ? '#fef2f2' : '#f8fafc',
+                        borderBottom:'1px solid #e2e8f0',
+                        borderLeft: d.getDay()===1 ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                        color: inhabil ? '#dc2626' : '#475569', fontWeight:600
+                      }}>
+                        <div>{String(i+1).padStart(2,'0')}</div>
+                        <div style={{fontSize:9,fontWeight:400}}>{['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]}</div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {localData.map((emp, empIdx) => (
+                  <tr key={emp.id} style={{borderBottom:'1px solid #f1f5f9'}}>
+                    <td style={{position:'sticky',left:0,zIndex:1,background:'var(--bg)',padding:'4px 12px',fontWeight:500,whiteSpace:'nowrap',borderRight:'1px solid #e2e8f0'}}>
+                      {emp.nombre}
+                    </td>
+                    {emp.asistencia.map((estado, diaIdx) => {
+                      const s = TICK[estado] || TICK.VERDE
+                      return (
+                        <td key={diaIdx}
+                          onClick={() => toggleCelda(empIdx, diaIdx)}
+                          style={{
+                            textAlign:'center', cursor:'pointer', padding:'3px 2px',
+                            borderLeft:'1px solid #f1f5f9',
+                            background: asistData.tipo_dia[diaIdx]==='INHABIL' ? '#fff8f8' : 'transparent'
+                          }}>
+                          <span style={{
+                            display:'inline-flex',alignItems:'center',justifyContent:'center',
+                            width:22,height:22,borderRadius:4,
+                            background:s.bg,color:s.color,fontSize:12,fontWeight:700,
+                            border:`1px solid ${s.color}40`
+                          }}>{s.icon}</span>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {/* Leyenda */}
+          <div style={{display:'flex',gap:16,padding:'8px 12px',fontSize:11,color:'var(--gray-500)',borderTop:'1px solid #f1f5f9'}}>
+            <span><span style={{color:'#16a34a',fontWeight:700}}>✔</span> Presente (día hábil)</span>
+            <span><span style={{color:'#dc2626',fontWeight:700}}>✔</span> Presente (feriado/fin de semana)</span>
+            <span><span style={{color:'#dc2626',fontWeight:700}}>✖</span> Ausente</span>
+            <span style={{marginLeft:'auto'}}>Clic para cambiar estado</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Liquidaciones() {
   const [tab, setTab]         = useState('lista')        // 'lista' | 'calcular'
   const [periodo, setPeriodo] = useState(PERIODOS[0])
@@ -32,6 +190,14 @@ export default function Liquidaciones() {
   const [tramosIU, setTramosIU] = useState([])
   const [indicOpen, setIndicOpen] = useState(false)
   const [refrescando, setRefrescando] = useState(false)
+
+  // Registro de Asistencia
+  const [asistOpen, setAsistOpen] = useState(false)
+  const [centrosCosto, setCentrosCosto] = useState([])
+  const [centroCostoId, setCentroCostoId] = useState('')
+  const [asistData, setAsistData] = useState(null)   // { dias, tipo_dia, empleados }
+  const [asistLoading, setAsistLoading] = useState(false)
+  const pendingRef = useRef({})
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
@@ -48,6 +214,7 @@ export default function Liquidaciones() {
 
   useEffect(() => {
     empleadosApi.list({ activo: true, limit: 200 }).then(r => setEmpleados(r.data)).catch(() => {})
+    catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -318,6 +485,21 @@ export default function Liquidaciones() {
           </div>
         )
       })()}
+
+      {/* ── Registro de Asistencia ── */}
+      <RegistroAsistencia
+        periodo={periodo}
+        centrosCosto={centrosCosto}
+        centroCostoId={centroCostoId}
+        setCentroCostoId={setCentroCostoId}
+        asistOpen={asistOpen}
+        setAsistOpen={setAsistOpen}
+        asistData={asistData}
+        setAsistData={setAsistData}
+        asistLoading={asistLoading}
+        setAsistLoading={setAsistLoading}
+        pendingRef={pendingRef}
+      />
 
       {/* ── Lista período ── */}
       {tab === 'lista' && (

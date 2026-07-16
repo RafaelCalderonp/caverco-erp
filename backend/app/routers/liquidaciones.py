@@ -11,12 +11,14 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
+import calendar
 import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, TipoContrato
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, TipoContrato, RegistroAsistencia
+from app.utils.feriados import es_habil
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
 )
@@ -500,3 +502,96 @@ async def reabrir_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, f"Período {periodo} no encontrado")
     val.cerrado = False
     return {"periodo": periodo, "cerrado": False}
+
+
+# ── Registro de Asistencia ────────────────────────────────────────────────
+
+class AsistenciaCeldaIn(BaseModel):
+    id_empleado: int
+    dia: int
+    estado: str   # VERDE | ROJO | AUSENTE
+
+@router.get("/asistencia/{periodo}")
+async def get_asistencia(
+    periodo: str,
+    centro_costo_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el registro de asistencia del período para los empleados del centro de costo.
+    Si no existen registros, los inicializa automáticamente (verde=hábil, rojo=fin de semana/feriado).
+    """
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    dias_en_mes = calendar.monthrange(year, month)[1]
+
+    # Empleados del centro de costo (activos con contrato vigente)
+    q = select(Empleado).where(Empleado.activo == True)
+    if centro_costo_id:
+        q = q.where(Empleado.id_centro_costo == centro_costo_id)
+    q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)
+    emps = (await db.execute(q)).scalars().all()
+
+    if not emps:
+        return {"dias": dias_en_mes, "empleados": [], "tipo_dia": []}
+
+    emp_ids = [e.id for e in emps]
+
+    # Registros existentes
+    rows = (await db.execute(
+        select(RegistroAsistencia)
+        .where(RegistroAsistencia.periodo == periodo)
+        .where(RegistroAsistencia.id_empleado.in_(emp_ids))
+    )).scalars().all()
+
+    existentes = {(r.id_empleado, r.dia): r.estado for r in rows}
+
+    # Si faltan registros, inicializar
+    nuevos = []
+    for emp in emps:
+        for d in range(1, dias_en_mes + 1):
+            if (emp.id, d) not in existentes:
+                dt = date(year, month, d)
+                estado = "VERDE" if es_habil(dt) else "ROJO"
+                reg = RegistroAsistencia(periodo=periodo, id_empleado=emp.id, dia=d, estado=estado)
+                db.add(reg)
+                nuevos.append(reg)
+                existentes[(emp.id, d)] = estado
+    if nuevos:
+        await db.flush()
+
+    # Tipo de día para colorear columnas (independiente de empleado)
+    tipo_dia = []
+    for d in range(1, dias_en_mes + 1):
+        dt = date(year, month, d)
+        tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
+
+    return {
+        "dias": dias_en_mes,
+        "tipo_dia": tipo_dia,
+        "empleados": [
+            {
+                "id": e.id,
+                "nombre": f"{e.nombres} {e.apellido_paterno}",
+                "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
+            }
+            for e in emps
+        ]
+    }
+
+
+@router.patch("/asistencia/{periodo}/celda", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
+async def patch_asistencia_celda(periodo: str, body: AsistenciaCeldaIn, db: AsyncSession = Depends(get_db)):
+    """Actualiza el estado de una celda de asistencia."""
+    if body.estado not in ("VERDE", "ROJO", "AUSENTE"):
+        raise HTTPException(400, "estado debe ser VERDE, ROJO o AUSENTE")
+    row = (await db.execute(
+        select(RegistroAsistencia)
+        .where(RegistroAsistencia.periodo == periodo)
+        .where(RegistroAsistencia.id_empleado == body.id_empleado)
+        .where(RegistroAsistencia.dia == body.dia)
+    )).scalar_one_or_none()
+    if row:
+        row.estado = body.estado
+    else:
+        db.add(RegistroAsistencia(periodo=periodo, id_empleado=body.id_empleado, dia=body.dia, estado=body.estado))
+    return {"ok": True}
