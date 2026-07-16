@@ -187,127 +187,103 @@ export default function Liquidaciones() {
           </button>
 
           {/* Contenido expandido */}
-          {indicOpen && (
-            <div style={{padding:'16px',background:'var(--bg)',borderTop:'1px solid #bfdbfe',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:20}}>
+          {indicOpen && (() => {
+            const clp = n => `$${Number(n||0).toLocaleString('es-CL')}`
+            const pct = (n,d=2) => `${((n||0)*100).toFixed(d)}%`
+            const th = txt => <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
+            const thL = txt => <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
+            const td = (v,bold) => <td style={{textAlign:'right',fontWeight:bold?600:400,paddingTop:3}}>{v}</td>
+            const tdL = (v,bold) => <td style={{paddingTop:3,fontWeight:bold?600:400}}>{v}</td>
+            return (
+              <div style={{padding:'16px',background:'var(--bg)',borderTop:'1px solid #bfdbfe'}}>
 
-              {/* Valores UF / UTM */}
-              <div>
-                <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Valores UF / UTM / UTA</div>
-                <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                  <tbody>
-                    <tr><td style={{color:'var(--gray-500)'}}>UF</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>UTM</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.utm||0).toLocaleString('es-CL')}</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>UTA (12 × UTM)</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.uta||0).toLocaleString('es-CL')}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Rentas Tope / Mínimas */}
-              <div>
-                <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Rentas Imponibles</div>
-                <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                  <tbody>
-                    <tr><td style={{color:'var(--gray-500)'}}>Tope AFP (90 UF)</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.renta_tope_afp||0).toLocaleString('es-CL')}</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>Tope AFC (135.2 UF)</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.renta_tope_afc||0).toLocaleString('es-CL')}</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>Sueldo Mínimo</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.sueldo_minimo||0).toLocaleString('es-CL')}</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>Tope Gratificación (4.75 UTM)</td><td style={{textAlign:'right',fontWeight:600}}>${Number(indicadores.tope_gratif||0).toLocaleString('es-CL')}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Tasas AFP */}
-              {afpData.length > 0 && (
-                <div>
-                  <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Tasas AFP (dependientes)</div>
-                  <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                    <thead>
-                      <tr>
-                        <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:4}}>AFP</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Trabajador</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Empleador (SIS)</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {afpData.map(a => (
-                        <tr key={a.nombre}>
-                          <td style={{fontWeight:600}}>{a.nombre}</td>
-                          <td style={{textAlign:'right'}}>{(a.tasa*100).toFixed(2)}%</td>
-                          <td style={{textAlign:'right'}}>{(a.tasa_sis*100).toFixed(2)}%</td>
-                          <td style={{textAlign:'right',fontWeight:600}}>{((a.tasa+a.tasa_sis)*100).toFixed(2)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Fila 1: chips compactos */}
+                <div style={{display:'flex',flexWrap:'wrap',gap:'6px 20px',marginBottom:16,fontSize:12}}>
+                  {[
+                    ['UF', `$${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}`],
+                    ['UTM', clp(indicadores.utm)],
+                    ['UTA (12×UTM)', clp(indicadores.uta)],
+                    ['Sueldo Mínimo', clp(indicadores.sueldo_minimo)],
+                    ['Tope Gratif. (4.75 UTM)', clp(indicadores.tope_gratif)],
+                    ['Tope Imponible AFP (90 UF)', clp(indicadores.renta_tope_afp)],
+                    ['Tope Imponible AFC (135.2 UF)', clp(indicadores.renta_tope_afc)],
+                    ['SIS', pct(indicadores.sis)],
+                    ['Aporte Empleador AFP', pct(indicadores.aporte_empleador_afp)],
+                    ['Seguro Social', pct(indicadores.seguro_social,1)],
+                  ].map(([lbl,val]) => (
+                    <span key={lbl}>
+                      <span style={{color:'var(--gray-500)'}}>{lbl}: </span>
+                      <strong>{val}</strong>
+                    </span>
+                  ))}
                 </div>
-              )}
 
-              {/* Seguro Cesantía AFC */}
-              {afcData.length > 0 && (
-                <div>
-                  <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Seguro de Cesantía (AFC)</div>
-                  <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                    <thead>
-                      <tr>
-                        <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:4}}>Tipo Contrato</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Empleador</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Trabajador</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {afcData.map(tc => (
-                        <tr key={tc.codigo}>
-                          <td>{tc.nombre}</td>
-                          <td style={{textAlign:'right'}}>{(tc.empleador*100).toFixed(1)}%</td>
-                          <td style={{textAlign:'right'}}>{tc.trabajador > 0 ? `${(tc.trabajador*100).toFixed(1)}%` : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Fila 2: AFP + AFC lado a lado */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:16}}>
+
+                  {afpData.length > 0 && (
+                    <div>
+                      <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tasas AFP — dependientes</div>
+                      <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+                        <thead><tr>{thL('AFP')}{th('Trabajador')}{th('Aporte Emp.')}{th('Total')}</tr></thead>
+                        <tbody>
+                          {afpData.map(a => (
+                            <tr key={a.nombre} style={{borderTop:'1px solid var(--gray-100)'}}>
+                              {tdL(a.nombre, true)}
+                              {td(pct(a.tasa))}
+                              {td(pct(indicadores.aporte_empleador_afp))}
+                              {td(pct(a.tasa + indicadores.aporte_empleador_afp), true)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p style={{fontSize:11,color:'var(--gray-500)',marginTop:4}}>SIS ({pct(indicadores.sis)}) se suma al costo total del empleador pero no a la tabla.</p>
+                    </div>
+                  )}
+
+                  {afcData.length > 0 && (
+                    <div>
+                      <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Seguro de Cesantía (AFC)</div>
+                      <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+                        <thead><tr>{thL('Tipo Contrato')}{th('Empleador')}{th('Trabajador')}</tr></thead>
+                        <tbody>
+                          {afcData.map(tc => (
+                            <tr key={tc.codigo} style={{borderTop:'1px solid var(--gray-100)'}}>
+                              {tdL(tc.nombre)}
+                              {td(pct(tc.empleador,1))}
+                              {td(tc.trabajador > 0 ? pct(tc.trabajador,1) : '—')}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* SIS y Seg. Social */}
-              <div>
-                <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Otros Aportes Empleador</div>
-                <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                  <tbody>
-                    <tr><td style={{color:'var(--gray-500)'}}>SIS (Seguro Invalidez y Sobrevivencia)</td><td style={{textAlign:'right',fontWeight:600}}>{((indicadores.sis||0)*100).toFixed(2)}%</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>Aporte empleador AFP</td><td style={{textAlign:'right',fontWeight:600}}>{((indicadores.aporte_empleador_afp||0)*100).toFixed(2)}%</td></tr>
-                    <tr><td style={{color:'var(--gray-500)'}}>Seguro Social (Ley 16.744)</td><td style={{textAlign:'right',fontWeight:600}}>{((indicadores.seguro_social||0)*100).toFixed(1)}%</td></tr>
-                  </tbody>
-                </table>
+                {/* Fila 3: Tramos IU */}
+                {tramosIU.length > 0 && (
+                  <div>
+                    <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único (en UTM)</div>
+                    <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+                      <thead><tr>{thL('Tramo')}{th('Desde (UTM)')}{th('Hasta (UTM)')}{th('Factor')}{th('Rebaja (UTM)')}</tr></thead>
+                      <tbody>
+                        {tramosIU.map((t,i) => (
+                          <tr key={i} style={{borderTop:'1px solid var(--gray-100)'}}>
+                            {tdL(i+1)}
+                            {td(t.desde.toLocaleString('es-CL',{minimumFractionDigits:2}))}
+                            {td(t.hasta != null ? t.hasta.toLocaleString('es-CL',{minimumFractionDigits:2}) : 'y más')}
+                            {td(`${(t.factor*100).toFixed(0)}%`)}
+                            {td(t.monto_rebaja.toLocaleString('es-CL',{minimumFractionDigits:4}))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
               </div>
-
-              {/* Tramos Impuesto Único */}
-              {tramosIU.length > 0 && (
-                <div style={{gridColumn:'1 / -1'}}>
-                  <div style={{fontWeight:600,marginBottom:8,color:'var(--gray-700)'}}>Tramos Impuesto Único (en UTM)</div>
-                  <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
-                    <thead>
-                      <tr>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500,paddingBottom:4}}>Desde (UTM)</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Hasta (UTM)</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Factor</th>
-                        <th style={{textAlign:'right',color:'var(--gray-500)',fontWeight:500}}>Rebaja (UTM)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tramosIU.map((t,i) => (
-                        <tr key={i}>
-                          <td style={{textAlign:'right'}}>{t.desde.toLocaleString('es-CL',{minimumFractionDigits:2})}</td>
-                          <td style={{textAlign:'right'}}>{t.hasta != null ? t.hasta.toLocaleString('es-CL',{minimumFractionDigits:2}) : 'y más'}</td>
-                          <td style={{textAlign:'right'}}>{(t.factor*100).toFixed(0)}%</td>
-                          <td style={{textAlign:'right'}}>{t.monto_rebaja.toLocaleString('es-CL',{minimumFractionDigits:4})}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
 

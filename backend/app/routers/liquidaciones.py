@@ -165,7 +165,7 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
             "seguro_social": float(val.seguro_social),
         },
         "afp": [
-            {"nombre": a.nombre, "tasa": float(a.tasa), "tasa_sis": float(a.tasa_sis)}
+            {"nombre": a.nombre, "tasa": float(a.tasa)}
             for a in afps
         ],
         "afc": [
