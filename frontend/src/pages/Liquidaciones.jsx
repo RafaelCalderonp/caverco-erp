@@ -53,16 +53,13 @@ export default function Liquidaciones() {
   }, [periodo, tab])
 
   useEffect(() => {
-    if (tab !== 'calcular') return
     liquidacionesApi.indicadores(periodo)
-      .then(r => { setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente) })
-      .catch(() => { setIndicadores(null); setFuenteIndicadores(null) })
-  }, [periodo, tab])
-
-  useEffect(() => {
-    liquidacionesApi.indicadores(periodo)
-      .then(r => setPeriodoCerrado(!!r.data.cerrado))
-      .catch(() => setPeriodoCerrado(false))
+      .then(r => {
+        setIndicadores(r.data.indicadores)
+        setFuenteIndicadores(r.data.fuente)
+        setPeriodoCerrado(!!r.data.cerrado)
+      })
+      .catch(() => { setIndicadores(null); setFuenteIndicadores(null); setPeriodoCerrado(false) })
   }, [periodo])
 
   const toggleCierre = async () => {
@@ -163,14 +160,23 @@ export default function Liquidaciones() {
         previred.com y en el portal Mi DT — la app no inicia sesión por ti.
       </p>
 
-      {/* ── Indicadores Previred ── */}
-      {tab === 'calcular' && indicadores && (
+      {/* ── Indicadores Previsionales ── */}
+      {indicadores && (
         <div style={{background:'var(--primary-bg)',border:'1px solid #bfdbfe',borderRadius:'var(--radius)',padding:'12px 16px',marginBottom:16,fontSize:13}}>
-          <strong>Indicadores Previred {periodo}</strong> — Fuente: {fuenteIndicadores === 'API_GATEWAY' ? 'Gael Cloud (en línea)' : fuenteIndicadores === 'MANUAL' ? 'Manual' : 'Respaldo (sin conexión)'}
-          <span style={{marginLeft:16}}>UF: <strong>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</strong></span>
-          <span style={{marginLeft:12}}>UTM: <strong>${Number(indicadores.utm||0).toLocaleString('es-CL')}</strong></span>
-          <span style={{marginLeft:12}}>SIS: <strong>{((indicadores.sis||0)*100).toFixed(2)}%</strong></span>
-          <span style={{marginLeft:12}}>AFC Indef.: Emp <strong>{((indicadores.afc?.plazo_indefinido_empleador||0)*100).toFixed(1)}%</strong> / Trab <strong>{((indicadores.afc?.plazo_indefinido_trabajador||0)*100).toFixed(1)}%</strong></span>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <strong style={{fontSize:14}}>Indicadores Previsionales — {periodo}</strong>
+            <span style={{fontSize:11,color:'var(--gray-500)'}}>
+              Fuente: {fuenteIndicadores === 'API_GATEWAY' ? '🟢 Gael Cloud (en línea)' : fuenteIndicadores === 'MANUAL' ? '🔵 Manual' : '🟡 Respaldo (sin conexión)'}
+            </span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'8px 20px'}}>
+            <div><span style={{color:'var(--gray-500)'}}>UF</span><br/><strong>${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}</strong></div>
+            <div><span style={{color:'var(--gray-500)'}}>UTM</span><br/><strong>${Number(indicadores.utm||0).toLocaleString('es-CL')}</strong></div>
+            <div><span style={{color:'var(--gray-500)'}}>Sueldo Mínimo</span><br/><strong>${Number(indicadores.sueldo_minimo||0).toLocaleString('es-CL')}</strong></div>
+            <div><span style={{color:'var(--gray-500)'}}>Tope Gratificación</span><br/><strong>${Number(indicadores.tope_gratif||0).toLocaleString('es-CL')}</strong></div>
+            <div><span style={{color:'var(--gray-500)'}}>Tope Imponible AFP</span><br/><strong>${Number(indicadores.renta_tope_afp||0).toLocaleString('es-CL')}</strong></div>
+            <div><span style={{color:'var(--gray-500)'}}>SIS (empleador)</span><br/><strong>{((indicadores.sis||0)*100).toFixed(2)}%</strong></div>
+          </div>
         </div>
       )}
 
