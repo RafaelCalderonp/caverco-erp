@@ -653,7 +653,8 @@ export default function Liquidaciones() {
           {calcData && calcData.empleados.map(emp => {
             const ef = empleadoForms[emp.id]
             if (!ef) return null
-            const rojoDias = emp.asistencia.map((s,i) => s === 'ROJO' ? i+1 : null).filter(Boolean)
+            // Días INHÁBIL que el trabajador marcó como VERDE = trabajó en feriado/fin de semana → HH.EE
+            const rojoDias = emp.asistencia.map((s,i) => (calcData.tipo_dia[i] === 'INHABIL' && s === 'VERDE') ? i+1 : null).filter(Boolean)
             const rojoFaltanHE = rojoDias.some(d => {
               const hd = ef.he_days[d] || {h50:0,h100:0}
               return (Number(hd.h50)||0) === 0 && (Number(hd.h100)||0) === 0
