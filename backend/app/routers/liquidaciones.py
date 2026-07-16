@@ -16,7 +16,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, TipoContrato
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
 )
@@ -148,17 +148,31 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
     await asegurar_indicadores(db, periodo)
     val    = await obtener_valor_periodo(db, periodo)
     tramos = await obtener_tramos_periodo(db, periodo)
+    afps_res = await db.execute(select(AFP).where(AFP.activa == True).order_by(AFP.nombre))
+    afps = afps_res.scalars().all()
+    tc_res = await db.execute(select(TipoContrato).order_by(TipoContrato.nombre))
+    tipos_contrato = tc_res.scalars().all()
+    uta = float(val.valor_utm) * 12
     return {
         "periodo": periodo,
         "fuente": val.fuente,
         "cerrado": val.cerrado,
         "indicadores": {
-            "uf": float(val.valor_uf), "utm": float(val.valor_utm),
+            "uf": float(val.valor_uf), "utm": float(val.valor_utm), "uta": round(uta),
             "sueldo_minimo": float(val.sueldo_minimo), "tope_gratif": float(val.tope_gratificacion),
             "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
             "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
             "seguro_social": float(val.seguro_social),
         },
+        "afp": [
+            {"nombre": a.nombre, "tasa": float(a.tasa), "tasa_sis": float(a.tasa_sis)}
+            for a in afps
+        ],
+        "afc": [
+            {"nombre": tc.nombre, "codigo": tc.codigo,
+             "empleador": float(tc.afc_empleador or 0), "trabajador": float(tc.afc_trabajador or 0)}
+            for tc in tipos_contrato if tc.afc_empleador is not None
+        ],
         "tramos_impuesto_unico": [
             {"desde": float(t.desde), "hasta": float(t.hasta) if t.hasta is not None else None,
              "factor": float(t.factor), "monto_rebaja": float(t.monto_rebaja)}
