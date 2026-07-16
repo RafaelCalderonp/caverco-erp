@@ -206,32 +206,28 @@ export default function Liquidaciones() {
             const thL = txt => <th style={{textAlign:'left',color:'var(--gray-500)',fontWeight:500,paddingBottom:6,fontSize:11}}>{txt}</th>
             const td = (v,bold) => <td style={{textAlign:'right',fontWeight:bold?600:400,paddingTop:3}}>{v}</td>
             const tdL = (v,bold) => <td style={{paddingTop:3,fontWeight:bold?600:400}}>{v}</td>
+            const headerRow = items => (
+              <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap',padding:'8px 16px',background:'var(--primary-bg)',borderTop:'1px solid #bfdbfe',fontSize:13}}>
+                {items.map(([lbl,val]) => (
+                  <span key={lbl} style={{color:'var(--gray-500)'}}>{lbl} <strong style={{color:'var(--text)'}}>{val}</strong></span>
+                ))}
+              </div>
+            )
             return (
-              <div style={{padding:'16px',background:'var(--bg)',borderTop:'1px solid #bfdbfe'}}>
+              <div style={{background:'var(--bg)'}}>
 
-                {/* Fila 1: chips compactos */}
-                <div style={{display:'flex',flexWrap:'wrap',gap:'6px 20px',marginBottom:16,fontSize:12}}>
-                  {[
-                    ['UF', `$${Number(indicadores.uf||0).toLocaleString('es-CL',{minimumFractionDigits:2})}`],
-                    ['UTM', clp(indicadores.utm)],
-                    ['UTA (12×UTM)', clp(indicadores.uta)],
-                    ['Sueldo Mínimo', clp(indicadores.sueldo_minimo)],
-                    ['Tope Gratif. (4.75 × S.Mín/12)', clp(indicadores.tope_gratif)],
-                    ['Tope Imponible AFP (90 UF)', clp(indicadores.renta_tope_afp)],
-                    ['Tope Imponible AFC (135.2 UF)', clp(indicadores.renta_tope_afc)],
-                    ['SIS', pct(indicadores.sis)],
-                    ['Aporte Empleador AFP', pct(indicadores.aporte_empleador_afp)],
-                    ['Seguro Social', pct(indicadores.seguro_social,1)],
-                  ].map(([lbl,val]) => (
-                    <span key={lbl}>
-                      <span style={{color:'var(--gray-500)'}}>{lbl}: </span>
-                      <strong>{val}</strong>
-                    </span>
-                  ))}
-                </div>
+                {/* Fila 2: datos complementarios, mismo estilo que el header */}
+                {headerRow([
+                  ['UTA (12×UTM)', clp(indicadores.uta)],
+                  ['Tope Imponible AFP (90 UF)', clp(indicadores.renta_tope_afp)],
+                  ['Tope Imponible AFC (135.2 UF)', clp(indicadores.renta_tope_afc)],
+                  ['Tope Gratif. (4.75 × S.Mín/12)', clp(indicadores.tope_gratif)],
+                  ['Aporte Empleador AFP', pct(indicadores.aporte_empleador_afp)],
+                  ['Seguro Social', pct(indicadores.seguro_social,1)],
+                ])}
 
-                {/* Fila 2: AFP + AFC lado a lado */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:16}}>
+                {/* AFP + AFC lado a lado */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:16,padding:'16px'}}>
 
                   {afpData.length > 0 && (
                     <div>
@@ -272,9 +268,9 @@ export default function Liquidaciones() {
                   )}
                 </div>
 
-                {/* Fila 3: Tramos IU */}
+                {/* Tramos IU */}
                 {tramosIU.length > 0 && (
-                  <div>
+                  <div style={{padding:'0 16px 16px'}}>
                     <div style={{fontWeight:600,marginBottom:8,fontSize:12,color:'var(--gray-700)'}}>Tramos Impuesto Único (en UTM)</div>
                     <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
                       <thead><tr>{thL('Tramo')}{th('Desde (UTM)')}{th('Hasta (UTM)')}{th('Factor')}{th('Rebaja (UTM)')}</tr></thead>
