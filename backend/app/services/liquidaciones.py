@@ -25,6 +25,7 @@ def calcular_tramos_desde_utm(utm: Decimal) -> list:
     Hasta_n = round(factor_topes_n × UTM).
     Rebaja acumulada: rebaja_n = rebaja_(n-1) + hasta_(n-1) × (factor_n - factor_(n-1))
     garantiza continuidad en los límites de tramo."""
+    utm_entero = utm.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     tramos = []
     desde = Decimal("0")
     rebaja = Decimal("0")
@@ -32,7 +33,7 @@ def calcular_tramos_desde_utm(utm: Decimal) -> list:
     factor_prev = Decimal("0")
 
     for i, (ft, factor) in enumerate(FACTORES_TOPES_IU):
-        hasta = (ft * utm).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if ft is not None else None
+        hasta = (ft * utm_entero).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if ft is not None else None
         if i > 0:
             rebaja = rebaja + hasta_prev * (factor - factor_prev)
         tramos.append((desde, hasta, factor, rebaja.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
