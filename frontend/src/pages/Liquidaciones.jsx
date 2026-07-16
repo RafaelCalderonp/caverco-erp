@@ -298,9 +298,18 @@ export default function Liquidaciones() {
       return {...f, [empId]: {...ef, he_days: {...ef.he_days, [dia]: {...(ef.he_days[dia]||{h50:0,h100:0}), ...patch}}}}
     })
 
+  const valorHH = (emp) => {
+    // Base = max(sueldo_base_contrato, sueldo_mínimo)
+    const base = Math.max(emp?.sueldo_base || 0, indicadores?.sueldo_minimo || 0)
+    const hs = emp?.horas_semanales || 42
+    // Factor = 1/30 * 28/(hs*4), redondeado 6 decimales
+    const factor = Math.round((1/30 * 28/(hs * 4)) * 1e6) / 1e6
+    return base * factor
+  }
+
   const heClp = (empId, ef) => {
     const emp = calcData?.empleados.find(e => e.id === empId)
-    const vh = (emp?.sueldo_base || 0) / 30 / 8
+    const vh = valorHH(emp)
     const he50  = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h50 )||0) * vh * 1.5), 0)
     const he100 = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h100)||0) * vh * 2.0), 0)
     return { he50, he100 }
@@ -739,7 +748,11 @@ export default function Liquidaciones() {
                       </div>
 
                       {rojoDias.length > 0 && (() => {
-                        const valorHora = emp.sueldo_base / 30 / 8
+                        const vh = valorHH(emp)
+                        const base = Math.max(emp.sueldo_base || 0, indicadores?.sueldo_minimo || 0)
+                        const hs = emp.horas_semanales || 42
+                        const factor = Math.round((1/30 * 28/(hs * 4)) * 1e6) / 1e6
+                        const valorHora = vh
                         const totalClp50  = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h50 )||0) * valorHora * 1.5), 0)
                         const totalClp100 = Object.values(ef.he_days).reduce((s,d) => s + Math.round((Number(d.h100)||0) * valorHora * 2.0), 0)
                         return (
@@ -748,7 +761,7 @@ export default function Liquidaciones() {
                               ⚠️ Días festivos/fines de semana trabajados — ingresa las horas extra
                             </div>
                             <div style={{fontSize:11,color:'var(--gray-500)',marginBottom:8}}>
-                              Valor hora: {fmt(Math.round(valorHora))} · Valor hora 50%: {fmt(Math.round(valorHora*1.5))} · Valor hora 100%: {fmt(Math.round(valorHora*2))}
+                              Base: {fmt(base)} · Factor: {factor} (1/30×28/{hs*4}) · Valor HH: {fmt(Math.round(vh))} · ×1,5: {fmt(Math.round(vh*1.5))} · ×2: {fmt(Math.round(vh*2))}
                             </div>
                             {rojoDias.map(dia => {
                               const d = new Date(Number(periodo.split('-')[0]), Number(periodo.split('-')[1])-1, dia)
