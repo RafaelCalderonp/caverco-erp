@@ -263,11 +263,13 @@ export default function Liquidaciones() {
     } finally { setCambiandoCierre(false) }
   }
 
-  const cargarCalcData = async () => {
-    if (!calcCC) return
+  const cargarCalcData = async (ccOverride) => {
+    const cc = ccOverride ?? calcCC
+    if (!cc) return
+    if (ccOverride) setCalcCC(ccOverride)
     setCalcLoading(true); setCalcMsg(''); setCalcData(null); setCalcPreviews({})
     try {
-      const r = await liquidacionesApi.getAsistencia(periodo, calcCC)
+      const r = await liquidacionesApi.getAsistencia(periodo, cc)
       setCalcData(r.data)
       const forms = {}
       r.data.empleados.forEach(emp => {
@@ -278,10 +280,12 @@ export default function Liquidaciones() {
           dias_trabajados: dias,
           colacion_base: emp.colacion || 0,
           movilizacion_base: emp.movilizacion || 0,
+          viaticos_base: 200000,
           colacion:     Math.round((emp.colacion    || 0) / 30 * dias),
           movilizacion: Math.round((emp.movilizacion|| 0) / 30 * dias),
+          viaticos:     Math.round(200000 / 30 * dias),
           he_days: {},
-          aguinaldo: 0, viaticos: 0, anticipo: 0, prestamo: 0, observacion: ''
+          aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: ''
         }
       })
       setEmpleadoForms(forms)
@@ -618,7 +622,7 @@ export default function Liquidaciones() {
                 {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>Cargando…</td></tr>}
                 {!loading && lista.length === 0 && (
                   <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>
-                    Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>setTab('calcular')}>Crear liquidaciones</button>
+                    Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>{ setTab('calcular'); if (centroCostoId) cargarCalcData(centroCostoId) }}>Crear liquidaciones</button>
                   </td></tr>
                 )}
                 {lista.map(l => (
@@ -652,7 +656,7 @@ export default function Liquidaciones() {
               <option value="">— Seleccionar CC —</option>
               {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
-            <button className="btn btn-primary" disabled={!calcCC || calcLoading} onClick={cargarCalcData}>
+            <button className="btn btn-primary" disabled={!calcCC || calcLoading} onClick={() => cargarCalcData()}>
               {calcLoading ? 'Cargando…' : '📋 Crear Liquidaciones del CC'}
             </button>
           </div>
@@ -712,12 +716,14 @@ export default function Liquidaciones() {
                                 dias_trabajados: dias,
                                 colacion:     Math.round(ef.colacion_base     / 30 * dias),
                                 movilizacion: Math.round(ef.movilizacion_base / 30 * dias),
+                                viaticos:     Math.round(ef.viaticos_base     / 30 * dias),
                               })
                             }} />
                         </div>
                         {[
                           ['colacion',    'Colación',    ef.colacion_base],
                           ['movilizacion','Movilización',ef.movilizacion_base],
+                          ['viaticos',   'Viáticos',    ef.viaticos_base],
                         ].map(([k,label,base]) => (
                           <div key={k} className="form-group">
                             <label className="form-label">
@@ -730,7 +736,6 @@ export default function Liquidaciones() {
                         ))}
                         {[
                           ['aguinaldo','Aguinaldo'],
-                          ['viaticos','Viáticos'],
                           ['anticipo','Anticipo'],
                           ['prestamo','Préstamo'],
                         ].map(([k,label]) => (
