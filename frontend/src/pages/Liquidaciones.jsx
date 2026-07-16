@@ -277,10 +277,10 @@ export default function Liquidaciones() {
                         {tramosIU.map((t,i) => (
                           <tr key={i} style={{borderTop:'1px solid var(--gray-100)'}}>
                             {tdL(i+1)}
-                            {td(`$${Math.round(t.desde).toLocaleString('es-CL')}`)}
-                            {td(t.hasta != null ? `$${Math.round(t.hasta).toLocaleString('es-CL')}` : 'y más')}
+                            {td(`$${Number(t.desde).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}`)}
+                            {td(t.hasta != null ? `$${Number(t.hasta).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}` : 'y más')}
                             {td(`${(t.factor*100 % 1 === 0 ? (t.factor*100).toFixed(0) : (t.factor*100).toFixed(1))}%`)}
-                            {td(`$${Number(t.monto_rebaja).toLocaleString('es-CL',{minimumFractionDigits:2})}`)}
+                            {td(`$${Number(t.monto_rebaja).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}`)}
                           </tr>
                         ))}
                       </tbody>

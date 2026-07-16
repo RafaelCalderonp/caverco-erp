@@ -32,7 +32,7 @@ def calcular_tramos_desde_utm(utm: Decimal) -> list:
     factor_prev = Decimal("0")
 
     for i, (ft, factor) in enumerate(FACTORES_TOPES_IU):
-        hasta = (ft * utm).quantize(Decimal("1"), rounding=ROUND_HALF_UP) if ft is not None else None
+        hasta = (ft * utm).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if ft is not None else None
         if i > 0:
             rebaja = rebaja + hasta_prev * (factor - factor_prev)
         tramos.append((desde, hasta, factor, rebaja.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)))
