@@ -524,17 +524,22 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     cc_codigo     = empleado.centro_costo.codigo  if empleado.centro_costo  else "—"
     fecha_ingreso = contrato.fecha_inicio if contrato else empleado.fecha_ingreso
 
-    # Descargar logo desde URL si existe
+    # Obtener logo: base64 data URL o HTTP URL
     logo_bytes: bytes | None = None
     if empresa and empresa.logo_url:
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.get(empresa.logo_url)
-                if r.status_code == 200:
-                    logo_bytes = r.content
+            if empresa.logo_url.startswith("data:"):
+                import base64 as _b64
+                _, b64data = empresa.logo_url.split(",", 1)
+                logo_bytes = _b64.b64decode(b64data)
+            else:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    r = await client.get(empresa.logo_url)
+                    if r.status_code == 200:
+                        logo_bytes = r.content
         except Exception as logo_err:
-            log.warning("No se pudo descargar el logo: %s", logo_err)
+            log.warning("No se pudo obtener el logo: %s", logo_err)
 
     try:
         docx_bytes = generar_liquidacion_docx(
