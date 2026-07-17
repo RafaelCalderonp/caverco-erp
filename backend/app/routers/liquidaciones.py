@@ -87,6 +87,7 @@ class LiquidacionOut(BaseModel):
     dias_trabajados: int
     estado: str
     observacion: Optional[str] = None
+    nombre_empleado: Optional[str] = None   # enriquecido en el endpoint de lista
     model_config = {"from_attributes": True}
 
 
@@ -393,12 +394,25 @@ async def listar_por_periodo(
     id_empresa: Optional[int] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista todas las liquidaciones de un período (YYYY-MM)."""
+    """Lista todas las liquidaciones de un período (YYYY-MM), enriquecidas con nombre del empleado."""
     q = select(Liquidacion).where(Liquidacion.periodo == periodo)
     if id_empresa:
         q = q.where(Liquidacion.id_empresa == id_empresa)
     result = await db.execute(q.order_by(Liquidacion.id_empleado))
-    return result.scalars().all()
+    liquidaciones = result.scalars().all()
+
+    # Enriquecer con nombres
+    if liquidaciones:
+        ids = [l.id_empleado for l in liquidaciones]
+        emp_res = await db.execute(select(Empleado).where(Empleado.id.in_(ids)))
+        emp_map = {e.id: f"{e.nombres} {e.apellido_paterno}" for e in emp_res.scalars().all()}
+        out = []
+        for liq in liquidaciones:
+            d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
+            d["nombre_empleado"] = emp_map.get(liq.id_empleado, f"Empleado #{liq.id_empleado}")
+            out.append(d)
+        return out
+    return []
 
 
 async def _liquidaciones_y_empleados(periodo: str, id_empresa: int, db: AsyncSession):

@@ -635,7 +635,7 @@ export default function Liquidaciones() {
                 )}
                 {lista.map(l => (
                   <tr key={l.id}>
-                    <td>Empleado #{l.id_empleado}</td>
+                    <td>{l.nombre_empleado || `Empleado #${l.id_empleado}`}</td>
                     <td>{l.periodo}</td>
                     <td style={{textAlign:'right'}}>{fmt(l.total_imponible)}</td>
                     <td style={{textAlign:'right'}}>{fmt(l.total_haberes)}</td>

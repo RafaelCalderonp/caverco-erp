@@ -135,14 +135,15 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     hdr_tbl.columns[0].width = Cm(6)
     hdr_tbl.columns[1].width = Cm(13)
 
+    empresa_nombre = (empresa.razon_social if empresa else None) or ""
     logo_cell = hdr_tbl.rows[0].cells[0]
     if logo_bytes:
         try:
             logo_cell.paragraphs[0].add_run().add_picture(io.BytesIO(logo_bytes), width=Cm(4))
         except Exception:
-            pass
+            _para(logo_cell, empresa_nombre, bold=True, size=11)
     else:
-        _para(logo_cell, empresa.razon_social or "", bold=True, size=11)
+        _para(logo_cell, empresa_nombre, bold=True, size=11)
 
     title_cell = hdr_tbl.rows[0].cells[1]
     tp = title_cell.paragraphs[0]
