@@ -360,7 +360,15 @@ export default function Liquidaciones() {
         observacion: ef.observacion,
       })
       setCalcPreviews(p => ({...p, [empId]: null}))
-      setEF(empId, {expanded: false})
+      // Marcar como emitido y expandir el siguiente pendiente automáticamente
+      setEmpleadoForms(f => {
+        const updated = {...f, [empId]: {...f[empId], expanded: false, emitido: true}}
+        const empleados = calcData?.empleados || []
+        const idxActual = empleados.findIndex(e => e.id === empId)
+        const siguiente = empleados.slice(idxActual + 1).find(e => !updated[e.id]?.emitido)
+        if (siguiente) updated[siguiente.id] = {...updated[siguiente.id], expanded: true}
+        return updated
+      })
       setCalcMsg(`✅ Liquidación de ${calcData.empleados.find(e=>e.id===empId)?.nombre} emitida`)
     } catch(e) { setCalcMsg(e.response?.data?.detail || 'Error al emitir') }
     finally { setEmitiendo(e => ({...e, [empId]: false})) }
@@ -674,6 +682,15 @@ export default function Liquidaciones() {
           {calcData && calcData.empleados.map(emp => {
             const ef = empleadoForms[emp.id]
             if (!ef) return null
+            // Card ya emitido: mostrar solo badge verde
+            if (ef.emitido) return (
+              <div key={emp.id} style={{border:'1px solid #bbf7d0',borderRadius:8,marginBottom:12,
+                background:'#f0fdf4',padding:'10px 16px',display:'flex',alignItems:'center',gap:12}}>
+                <span style={{fontSize:14,fontWeight:600,color:'#15803d'}}>✅ {emp.nombre}</span>
+                <span style={{fontSize:12,color:'#16a34a'}}>Liquidación emitida</span>
+              </div>
+            )
+
             // Días INHÁBIL que el trabajador marcó como VERDE = trabajó en feriado/fin de semana → HH.EE
             const rojoDias = emp.asistencia.map((s,i) => (calcData.tipo_dia[i] === 'INHABIL' && s === 'VERDE') ? i+1 : null).filter(Boolean)
             const rojoFaltanHE = rojoDias.some(d => {
