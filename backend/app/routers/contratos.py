@@ -284,11 +284,14 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
 async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db)):
     payload = data.model_dump()
     await _validar_consistencia_empresa(payload, db)
+    empleado = await db.get(Empleado, data.id_empleado)
     if not payload.get("numero_contrato"):
-        empleado = await db.get(Empleado, data.id_empleado)
         payload["numero_contrato"] = await siguiente_codigo(db, empleado.id_empresa, "CT")
     contrato = Contrato(**payload)
     db.add(contrato)
+    # Sincronizar tipo contrato en perfil del empleado
+    if data.id_tipo_contrato:
+        empleado.id_tipo_contrato = data.id_tipo_contrato
     await db.commit()
     await db.refresh(contrato)
     return contrato
@@ -309,6 +312,11 @@ async def actualizar_contrato(id: int, data: ContratoUpdate, db: AsyncSession = 
         await _validar_consistencia_empresa(datos_validacion, db)
     for field, value in cambios.items():
         setattr(contrato, field, value)
+    # Sincronizar tipo contrato en perfil del empleado si cambió
+    if "id_tipo_contrato" in cambios:
+        empleado = await db.get(Empleado, contrato.id_empleado)
+        if empleado:
+            empleado.id_tipo_contrato = cambios["id_tipo_contrato"]
     await db.commit()
     await db.refresh(contrato)
     return contrato
@@ -425,6 +433,7 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
         payload["valor_nuevo"] = {"id_tipo_contrato": tipo_indefinido.id}
         contrato.id_tipo_contrato = tipo_indefinido.id
         contrato.fecha_termino_pactada = None
+        empleado.id_tipo_contrato = tipo_indefinido.id
 
     anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)
