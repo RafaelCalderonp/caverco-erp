@@ -354,7 +354,7 @@ export default function Liquidaciones() {
     const { he50: totalHe50, he100: totalHe100 } = heClp(empId, ef)
     setEmitiendo(e => ({...e, [empId]: true})); setCalcMsg('')
     try {
-      await liquidacionesApi.emitir({
+      const res = await liquidacionesApi.emitir({
         periodo, id_empleado: empId,
         dias_trabajados: ef.dias_trabajados,
         horas_extra_50: totalHe50,
@@ -367,17 +367,26 @@ export default function Liquidaciones() {
         prestamo: ef.prestamo,
         observacion: ef.observacion,
       })
+      const liqId = res.data.id
       setCalcPreviews(p => ({...p, [empId]: null}))
-      // Marcar como emitido y expandir el siguiente pendiente automáticamente
+      // Marcar como emitido (guardando el id), expandir el siguiente pendiente
       setEmpleadoForms(f => {
-        const updated = {...f, [empId]: {...f[empId], expanded: false, emitido: true}}
+        const updated = {...f, [empId]: {...f[empId], expanded: false, emitido: true, liqId}}
         const empleados = calcData?.empleados || []
         const idxActual = empleados.findIndex(e => e.id === empId)
         const siguiente = empleados.slice(idxActual + 1).find(e => !updated[e.id]?.emitido)
-        if (siguiente) updated[siguiente.id] = {...updated[siguiente.id], expanded: true}
+        if (siguiente) {
+          updated[siguiente.id] = {...updated[siguiente.id], expanded: true}
+        } else {
+          // Todos emitidos → volver a lista tras 1.5s
+          setTimeout(() => setTab('lista'), 1500)
+        }
         return updated
       })
-      setCalcMsg(`✅ Liquidación de ${calcData.empleados.find(e=>e.id===empId)?.nombre} emitida`)
+      // Toast auto-dismiss
+      const nombre = calcData.empleados.find(e => e.id === empId)?.nombre
+      setCalcMsg(`✅ Liquidación de ${nombre} emitida`)
+      setTimeout(() => setCalcMsg(m => m.startsWith('✅') ? '' : m), 3000)
     } catch(e) { setCalcMsg(e.response?.data?.detail || 'Error al emitir') }
     finally { setEmitiendo(e => ({...e, [empId]: false})) }
   }
@@ -701,6 +710,12 @@ export default function Liquidaciones() {
                 background:'#f0fdf4',padding:'10px 16px',display:'flex',alignItems:'center',gap:12}}>
                 <span style={{fontSize:14,fontWeight:600,color:'#15803d'}}>✅ {emp.nombre}</span>
                 <span style={{fontSize:12,color:'#16a34a'}}>Liquidación emitida</span>
+                {ef.liqId && (
+                  <Link to={`/liquidaciones/${ef.liqId}`} className="btn btn-outline btn-sm"
+                    style={{marginLeft:'auto',fontSize:12}}>
+                    Ver / Descargar Word →
+                  </Link>
+                )}
               </div>
             )
 
