@@ -211,8 +211,7 @@ export default function Liquidaciones() {
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
-  // Calcular tab — CC flow
-  const [calcCC, setCalcCC]         = useState('')
+  // Calcular tab
   const [calcData, setCalcData]     = useState(null)
   const [calcLoading, setCalcLoading] = useState(false)
   const [empleadoForms, setEmpleadoForms] = useState({})
@@ -268,9 +267,8 @@ export default function Liquidaciones() {
   }
 
   const cargarCalcData = async (ccOverride) => {
-    const cc = ccOverride ?? calcCC
+    const cc = ccOverride ?? centroCostoId
     if (!cc) return
-    if (ccOverride) setCalcCC(ccOverride)
     setCalcLoading(true); setCalcMsg(''); setCalcData(null); setCalcPreviews({})
     try {
       const [asistRes, listaRes] = await Promise.all([
@@ -622,7 +620,7 @@ export default function Liquidaciones() {
         periodo={periodo}
         centrosCosto={centrosCosto}
         centroCostoId={centroCostoId}
-        setCentroCostoId={setCentroCostoId}
+        setCentroCostoId={val => { setCentroCostoId(val); setCalcData(null); setEmpleadoForms({}) }}
         asistOpen={asistOpen}
         setAsistOpen={setAsistOpen}
         asistData={asistData}
@@ -679,15 +677,16 @@ export default function Liquidaciones() {
       {/* ── Crear liquidaciones por CC ── */}
       {tab === 'calcular' && (
         <div>
-          {/* Selector CC */}
+          {/* CC tomado de la asistencia */}
           <div className="card" style={{marginBottom:16,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',padding:'14px 16px'}}>
             <strong style={{fontSize:14}}>Centro de Costo</strong>
-            <select className="select" style={{width:'auto',minWidth:200}} value={calcCC}
-              onChange={e => { setCalcCC(e.target.value); setCalcData(null) }}>
-              <option value="">— Seleccionar CC —</option>
-              {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-            <button className="btn btn-primary" disabled={!calcCC || calcLoading} onClick={() => cargarCalcData()}>
+            {centroCostoId
+              ? <span style={{fontSize:14,fontWeight:600,color:'var(--primary)'}}>
+                  {centrosCosto.find(c => String(c.id) === String(centroCostoId))?.nombre || `CC #${centroCostoId}`}
+                </span>
+              : <span style={{fontSize:13,color:'var(--gray-500)'}}>Selecciona un CC en el Registro de Asistencia</span>
+            }
+            <button className="btn btn-primary" disabled={!centroCostoId || calcLoading} onClick={() => cargarCalcData(centroCostoId)}>
               {calcLoading ? 'Cargando…' : '📋 Crear Liquidaciones del CC'}
             </button>
           </div>
