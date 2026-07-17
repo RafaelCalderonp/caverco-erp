@@ -481,7 +481,11 @@ async def obtener_liquidacion(id: int, db: AsyncSession = Depends(get_db)):
     liq = result.scalar_one_or_none()
     if not liq:
         raise HTTPException(404, "Liquidación no encontrada")
-    return liq
+    emp_res = await db.execute(select(Empleado).where(Empleado.id == liq.id_empleado))
+    emp = emp_res.scalar_one_or_none()
+    d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
+    d["nombre_empleado"] = f"{emp.nombres} {emp.apellido_paterno}" if emp else f"Empleado #{liq.id_empleado}"
+    return d
 
 
 @router.get("/{id}/word")
@@ -522,17 +526,21 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
 
     logo_bytes = None  # logo_url es una URL, no bytes — se omite en Word por ahora
 
-    docx_bytes = generar_liquidacion_docx(
-        empresa=empresa,
-        empleado=empleado,
-        liquidacion=liq,
-        afp_nombre=afp_nombre,
-        isapre_nombre=isapre_nombre,
-        cargo_nombre=cargo_nombre,
-        centro_costo_nombre=cc_nombre,
-        fecha_ingreso=fecha_ingreso,
-        logo_bytes=logo_bytes,
-    )
+    try:
+        docx_bytes = generar_liquidacion_docx(
+            empresa=empresa,
+            empleado=empleado,
+            liquidacion=liq,
+            afp_nombre=afp_nombre,
+            isapre_nombre=isapre_nombre,
+            cargo_nombre=cargo_nombre,
+            centro_costo_nombre=cc_nombre,
+            fecha_ingreso=fecha_ingreso,
+            logo_bytes=logo_bytes,
+        )
+    except Exception as e:
+        log.exception("Error generando Word para liquidacion %s: %s", id, e)
+        raise HTTPException(500, f"Error al generar el documento Word: {e}")
 
     apellidos = f"{empleado.apellido_paterno}".replace(" ", "_")
     filename = f"liquidacion_{liq.periodo}_{apellidos}.docx"
@@ -589,6 +597,7 @@ class AsistenciaCeldaIn(BaseModel):
 async def get_asistencia(
     periodo: str,
     centro_costo_id: Optional[int] = Query(None),
+    id_empresa: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -598,8 +607,10 @@ async def get_asistencia(
     year, month = int(periodo[:4]), int(periodo[5:7])
     dias_en_mes = calendar.monthrange(year, month)[1]
 
-    # Empleados del centro de costo (activos con contrato vigente)
+    # Empleados del centro de costo (activos, filtrados por empresa)
     q = select(Empleado).where(Empleado.activo == True)
+    if id_empresa:
+        q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
         q = q.where(Empleado.id_centro_costo == centro_costo_id)
     q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)

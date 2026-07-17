@@ -430,7 +430,7 @@ export default function Liquidaciones() {
           <button className={`btn ${tab==='lista'?'btn-primary':'btn-outline'}`}
             onClick={() => setTab('lista')}>📋 Lista</button>
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
-            onClick={() => setTab('calcular')}>➕ Nueva</button>
+            onClick={() => { setTab('calcular'); if (calcCC && !calcData) cargarCalcData(calcCC) }}>➕ Nueva</button>
           <button className="btn btn-outline"
             onClick={() => descargar(liquidacionesApi.exportarPrevired, `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
@@ -631,6 +631,11 @@ export default function Liquidaciones() {
                 {!loading && lista.length === 0 && (
                   <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>
                     Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>{ setTab('calcular'); if (centroCostoId) cargarCalcData(centroCostoId) }}>Crear liquidaciones</button>
+                  </td></tr>
+                )}
+                {!loading && lista.length > 0 && (
+                  <tr><td colSpan={8} style={{textAlign:'right',padding:'8px 12px',borderTop:'1px solid var(--gray-100)'}}>
+                    <button className="btn btn-outline btn-sm" onClick={()=>{ setTab('calcular'); if (calcCC && !calcData) cargarCalcData(calcCC) }}>➕ Agregar más liquidaciones</button>
                   </td></tr>
                 )}
                 {lista.map(l => (

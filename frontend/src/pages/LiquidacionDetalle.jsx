@@ -60,7 +60,7 @@ export default function LiquidacionDetalle() {
         background:'#dcfce7',color:'#15803d'}}>{msg}</div>}
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
-        {[['Empleado',`#${liq.id_empleado}`],['Período',liq.periodo],
+        {[['Empleado', liq.nombre_empleado || `#${liq.id_empleado}`],['Período',liq.periodo],
           ['Días Trabajados',liq.dias_trabajados],['UF',liq.valor_uf&&`$${Number(liq.valor_uf).toLocaleString('es-CL',{minimumFractionDigits:2})}`]
         ].map(([k,v])=>(
           <div key={k} style={{background:'var(--gray-50)',borderRadius:6,padding:'10px 14px'}}>

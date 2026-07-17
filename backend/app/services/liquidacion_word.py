@@ -333,7 +333,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     for i, (lbl, val) in enumerate([
         ("ALCANCE LÍQUIDO", clp(liq.liquido_a_pagar)),
         ("ANTICIPO", clp(liq.anticipo)),
-        ("TOTAL A PAGAR", clp(liq.liquido_a_pagar - (liq.anticipo or 0))),
+        ("TOTAL A PAGAR", clp((liq.liquido_a_pagar or 0) - (liq.anticipo or 0))),
     ]):
         row = liq_tbl.rows[i]
         is_total = lbl == "TOTAL A PAGAR"
@@ -348,6 +348,8 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
 
     # ── SON ───────────────────────────────────────────────────────────────────
     total_pagar = int(liq.liquido_a_pagar or 0) - int(liq.anticipo or 0)
+    if total_pagar < 0:
+        total_pagar = 0
     p_son = doc.add_paragraph()
     rs = p_son.add_run(f"SON:  {_numero_letras(total_pagar)} pesos.")
     rs.font.size = Pt(9)
