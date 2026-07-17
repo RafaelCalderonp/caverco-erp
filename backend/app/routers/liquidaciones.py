@@ -5,7 +5,7 @@ Endpoints: calcular preview, emitir, listar por período, detalle, indicadores P
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
@@ -622,7 +622,17 @@ async def get_asistencia(
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
-        q = q.where(Empleado.id_centro_costo == centro_costo_id)
+        # Incluye empleados cuyo perfil O su contrato vigente tiene este CC
+        contrato_cc_sub = (
+            select(Contrato.id_empleado)
+            .where(Contrato.id_centro_costo == centro_costo_id, Contrato.estado == "vigente")
+        )
+        q = q.where(
+            or_(
+                Empleado.id_centro_costo == centro_costo_id,
+                Empleado.id.in_(contrato_cc_sub),
+            )
+        )
     q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)
     emps = (await db.execute(q)).scalars().all()
 

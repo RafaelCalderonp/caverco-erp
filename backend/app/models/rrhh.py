@@ -185,7 +185,8 @@ class Contrato(Base):
     finiquito_ministro_fe      = Column(String(100))  # notario, inspector del trabajo, presidente de sindicato, etc.
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
-    empleado = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
+    empleado          = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
+    tipo_contrato_rel = relationship("TipoContrato")
     anexos = relationship("AnexoContrato", back_populates="contrato")
     documentos = relationship("ContratoDocumento", back_populates="contrato")
     requisitos_obra = relationship("ContratoRequisitoObra", back_populates="contrato")
