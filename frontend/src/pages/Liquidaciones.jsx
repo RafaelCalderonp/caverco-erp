@@ -53,7 +53,11 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
     finally { setAsistLoading(false) }
   }
 
-  useEffect(() => { if (asistOpen) cargar(centroCostoId) }, [periodo, centroCostoId, asistOpen])
+  useEffect(() => {
+    if (!asistOpen) return
+    setLocalData(null); setSavedData(null)
+    cargar(centroCostoId)
+  }, [periodo, centroCostoId, asistOpen])
 
   const toggleCelda = (empIdx, diaIdx) => {
     if (!editMode || !localData) return
