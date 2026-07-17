@@ -881,7 +881,7 @@ export default function Liquidaciones() {
                           <Row label={`AFP (${(prev.indicadores.tasa_afp*100).toFixed(2)}%)`} v={prev.descuentos_legales.afp} red />
                           <Row label="Salud (7%)"       v={prev.descuentos_legales.salud} red />
                           {prev.descuentos_legales.adicional_salud>0 && <Row label="Adic. Salud Isapre" v={prev.descuentos_legales.adicional_salud} red />}
-                          {prev.descuentos_legales.seguro_cesantia>0 && <Row label="AFC Trabajador"     v={prev.descuentos_legales.seguro_cesantia} red />}
+                          {prev.descuentos_legales.afc_trabajador>0 && <Row label="AFC Trabajador"     v={prev.descuentos_legales.afc_trabajador} red />}
                           <Row label="Base Tributaria"  v={prev.descuentos_legales.base_tributaria} />
                           <Row label="Impuesto Único"   v={prev.descuentos_legales.impuesto_unico} red />
                           <Row label="Total Descuentos" v={prev.descuentos_legales.total} bold red />
