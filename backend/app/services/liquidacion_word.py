@@ -306,7 +306,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     row_tot = main.add_row()
     for c, (lbl, val) in enumerate([
         ("TOTAL IMPONIBLES", clp(liq.total_imponible)),
-        ("TOTAL NO IMPONIBLES", clp(liq.total_haberes - (liq.total_imponible or 0) if liq.total_haberes else 0)),
+        ("TOTAL NO IMPONIBLES", clp((liq.total_haberes or 0) - (liq.total_imponible or 0))),
         ("TOTAL DESCUENTOS", clp(liq.total_desc_legales)),
     ]):
         _set_cell_bg(row_tot.cells[c], GRIS)
