@@ -506,13 +506,7 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     cc_nombre     = empleado.centro_costo.nombre if empleado.centro_costo else "—"
     fecha_ingreso = contrato.fecha_inicio if contrato else empleado.fecha_ingreso
 
-    logo_bytes = None
-    if empresa and empresa.logo_base64:
-        import base64
-        try:
-            logo_bytes = base64.b64decode(empresa.logo_base64)
-        except Exception:
-            pass
+    logo_bytes = None  # logo_url es una URL, no bytes — se omite en Word por ahora
 
     docx_bytes = generar_liquidacion_docx(
         empresa=empresa,
