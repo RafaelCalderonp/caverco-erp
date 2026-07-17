@@ -518,13 +518,23 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     )
     contrato = contrato_res.scalar_one_or_none()
 
-    afp_nombre  = empleado.afp_rel.nombre   if empleado.afp_rel   else (liq.id_afp and "—") or "—"
-    isapre_nombre = empleado.isapre_rel.nombre if empleado.isapre_rel else "—"
-    cargo_nombre  = empleado.cargo.nombre      if empleado.cargo      else "—"
-    cc_nombre     = empleado.centro_costo.nombre if empleado.centro_costo else "—"
+    afp_nombre    = empleado.afp_rel.nombre      if empleado.afp_rel      else "—"
+    isapre_nombre = empleado.isapre_rel.nombre   if empleado.isapre_rel   else "—"
+    cargo_nombre  = empleado.cargo.nombre         if empleado.cargo         else "—"
+    cc_codigo     = empleado.centro_costo.codigo  if empleado.centro_costo  else "—"
     fecha_ingreso = contrato.fecha_inicio if contrato else empleado.fecha_ingreso
 
-    logo_bytes = None  # logo_url es una URL, no bytes — se omite en Word por ahora
+    # Descargar logo desde URL si existe
+    logo_bytes: bytes | None = None
+    if empresa and empresa.logo_url:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(empresa.logo_url)
+                if r.status_code == 200:
+                    logo_bytes = r.content
+        except Exception as logo_err:
+            log.warning("No se pudo descargar el logo: %s", logo_err)
 
     try:
         docx_bytes = generar_liquidacion_docx(
@@ -534,7 +544,7 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
             afp_nombre=afp_nombre,
             isapre_nombre=isapre_nombre,
             cargo_nombre=cargo_nombre,
-            centro_costo_nombre=cc_nombre,
+            centro_costo_codigo=cc_codigo,
             fecha_ingreso=fecha_ingreso,
             logo_bytes=logo_bytes,
         )
