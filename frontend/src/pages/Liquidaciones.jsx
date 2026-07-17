@@ -269,14 +269,19 @@ export default function Liquidaciones() {
     if (ccOverride) setCalcCC(ccOverride)
     setCalcLoading(true); setCalcMsg(''); setCalcData(null); setCalcPreviews({})
     try {
-      const r = await liquidacionesApi.getAsistencia(periodo, cc)
-      setCalcData(r.data)
+      const [asistRes, listaRes] = await Promise.all([
+        liquidacionesApi.getAsistencia(periodo, cc),
+        liquidacionesApi.listarPeriodo(periodo),
+      ])
+      const yaEmitidos = new Set((listaRes.data || []).map(l => l.id_empleado))
+      setCalcData(asistRes.data)
       const forms = {}
-      r.data.empleados.forEach(emp => {
+      asistRes.data.empleados.forEach(emp => {
         const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE').length
         const dias = 30 - ausenteCount
         forms[emp.id] = {
           expanded: false,
+          emitido: yaEmitidos.has(emp.id),
           dias_trabajados: dias,
           colacion_base: emp.colacion || 0,
           movilizacion_base: emp.movilizacion || 0,
@@ -288,6 +293,9 @@ export default function Liquidaciones() {
           aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: ''
         }
       })
+      // Auto-expandir el primer empleado pendiente
+      const primero = asistRes.data.empleados.find(e => !forms[e.id].emitido)
+      if (primero) forms[primero.id].expanded = true
       setEmpleadoForms(forms)
     } catch { setCalcMsg('Error al cargar empleados del CC') }
     finally { setCalcLoading(false) }
@@ -430,7 +438,7 @@ export default function Liquidaciones() {
           <button className={`btn ${tab==='lista'?'btn-primary':'btn-outline'}`}
             onClick={() => setTab('lista')}>📋 Lista</button>
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
-            onClick={() => { setTab('calcular'); if (calcCC && !calcData) cargarCalcData(calcCC) }}>➕ Nueva</button>
+            onClick={() => { setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Nueva</button>
           <button className="btn btn-outline"
             onClick={() => descargar(liquidacionesApi.exportarPrevired, `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
@@ -635,7 +643,7 @@ export default function Liquidaciones() {
                 )}
                 {!loading && lista.length > 0 && (
                   <tr><td colSpan={8} style={{textAlign:'right',padding:'8px 12px',borderTop:'1px solid var(--gray-100)'}}>
-                    <button className="btn btn-outline btn-sm" onClick={()=>{ setTab('calcular'); if (calcCC && !calcData) cargarCalcData(calcCC) }}>➕ Agregar más liquidaciones</button>
+                    <button className="btn btn-outline btn-sm" onClick={()=>{ setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Agregar más liquidaciones</button>
                   </td></tr>
                 )}
                 {lista.map(l => (

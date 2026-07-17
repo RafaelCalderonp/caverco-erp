@@ -197,12 +197,10 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         _set_cell_bg(row.cells[0], GRIS)
         _set_cell_bg(row.cells[1], "FFFFFF")
         if valor is None:
-            # Título de sección
-            _set_cell_bg(row.cells[0], HEADER)
-            _set_cell_bg(row.cells[1], HEADER)
-            p0 = row.cells[0].paragraphs[0]
-            p0.merge(row.cells[1])
-            _para(row.cells[0], label, bold=True, size=9, color="FFFFFF")
+            # Título de sección — merge primero, luego colorear y escribir
+            merged = row.cells[0].merge(row.cells[1])
+            _set_cell_bg(merged, HEADER)
+            _para(merged, label, bold=True, size=9, color="FFFFFF")
         else:
             _para(row.cells[0], label, bold=True, size=9)
             _para(row.cells[1], valor, size=9)
