@@ -188,7 +188,7 @@ export default function Liquidaciones() {
   const [lista, setLista]     = useState([])
   const [loading, setLoading] = useState(false)
   const [empleados, setEmpleados] = useState([])
-  const [periodoIndicadores, setPeriodoIndicadores] = useState(PERIODOS[0])
+  const periodoIndicadores = periodo
   const [indicadores, setIndicadores] = useState(null)
   const [fuenteIndicadores, setFuenteIndicadores] = useState(null)
   const [afpData, setAfpData] = useState([])
@@ -493,10 +493,7 @@ export default function Liquidaciones() {
               <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
-                  <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
-                    style={{fontSize:13,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
-                    {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <span style={{fontSize:13,color:'var(--gray-500)',padding:'2px 6px'}}>{periodoIndicadores}</span>
                   <button title="Actualizar desde Gael Cloud" disabled={refrescando}
                     onClick={async e => { e.stopPropagation(); setRefrescando(true); try { const r = await liquidacionesApi.refrescarIndicadores(periodoIndicadores); setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente); setAfpData(r.data.afp||[]); setAfcData(r.data.afc||[]); setTramosIU(r.data.tramos_impuesto_unico||[]) } catch{} finally { setRefrescando(false) } }}
                     style={{fontSize:12,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 8px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
