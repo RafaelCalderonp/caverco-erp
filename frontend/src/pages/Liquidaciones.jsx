@@ -217,6 +217,8 @@ export default function Liquidaciones() {
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
+  const [msg, setMsg] = useState('')
+
   // Calcular tab
   const [calcData, setCalcData]     = useState(null)
   const [calcLoading, setCalcLoading] = useState(false)
@@ -401,7 +403,7 @@ export default function Liquidaciones() {
 
   const descargar = async (fn, nombreDefault) => {
     try {
-      const r = await fn(periodo, 1)
+      const r = await fn()
       const disposition = r.headers['content-disposition'] || ''
       const match = disposition.match(/filename="?([^"]+)"?/)
       const nombre = match ? match[1] : nombreDefault
@@ -457,11 +459,11 @@ export default function Liquidaciones() {
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
             onClick={() => { setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Nueva</button>
           <button className="btn btn-outline"
-            onClick={() => descargar(liquidacionesApi.exportarPrevired, `previred_${periodo}.csv`)}>
+            onClick={() => descargar(() => liquidacionesApi.exportarPrevired(periodo), `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
           </button>
           <button className="btn btn-outline"
-            onClick={() => descargar(liquidacionesApi.exportarLibroRemuneraciones, `libro_remuneraciones_${periodo}.csv`)}>
+            onClick={() => descargar(() => liquidacionesApi.exportarLibroRemuneraciones(periodo), `libro_remuneraciones_${periodo}.csv`)}>
             ⬇️ Libro Remuneraciones DT
           </button>
           {centroCostoId && (
@@ -481,6 +483,7 @@ export default function Liquidaciones() {
           Este período está cerrado: no se pueden emitir ni pagar liquidaciones para {periodo}.
         </p>
       )}
+      {msg && <p style={{fontSize:12,color:'var(--danger)',marginTop:-8,marginBottom:16}}>{msg}</p>}
       <p style={{fontSize:12,color:'var(--gray-500)',marginTop:-8,marginBottom:16}}>
         Estos archivos se generan a partir de las liquidaciones EMITIDAS del período. Súbelos manualmente en
         previred.com y en el portal Mi DT — la app no inicia sesión por ti.

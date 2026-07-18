@@ -109,10 +109,10 @@ export const liquidacionesApi = {
   getAsistencia: (periodo, centro_costo_id) => api.get(`/liquidaciones/asistencia/${periodo}`, { params: centro_costo_id ? { centro_costo_id } : {} }),
   patchAsistencia: (periodo, id_empleado, dia, estado) => api.patch(`/liquidaciones/asistencia/${periodo}/celda`, { id_empleado, dia, estado }),
   guardarAsistencia: (periodo, celdas) => api.post(`/liquidaciones/asistencia/${periodo}/guardar`, { celdas }),
-  exportarPrevired:            (periodo, idEmpresa) =>
-    api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
-  exportarLibroRemuneraciones: (periodo, idEmpresa) =>
-    api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
+  exportarPrevired:            (periodo) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { responseType: 'blob' }),
+  exportarLibroRemuneraciones: (periodo) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { responseType: 'blob' }),
   cerrarPeriodo:   (periodo) => api.post(`/liquidaciones/periodo/${periodo}/cerrar`),
   reabrirPeriodo:  (periodo) => api.post(`/liquidaciones/periodo/${periodo}/reabrir`),
   calcularFiniquito: (data) => api.post('/liquidaciones/finiquito/calcular', data),
