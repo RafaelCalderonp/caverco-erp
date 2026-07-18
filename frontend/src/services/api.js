@@ -117,6 +117,7 @@ export const liquidacionesApi = {
   reabrirPeriodo:  (periodo) => api.post(`/liquidaciones/periodo/${periodo}/reabrir`),
   calcularFiniquito: (data) => api.post('/liquidaciones/finiquito/calcular', data),
   descargarWord: (id) => api.get(`/liquidaciones/${id}/word`, { responseType: 'blob' }),
+  descargarWordCC: (periodo, ccId) => api.get(`/liquidaciones/periodo/${periodo}/cc/${ccId}/word`, { responseType: 'blob' }),
 }
 
 export const contratosApi = {

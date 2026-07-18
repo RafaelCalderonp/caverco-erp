@@ -25,7 +25,7 @@ from app.services.liquidaciones import (
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo, refrescar_indicadores
 from app.services.previred_export import generar_csv_previred
 from app.services.libro_remuneraciones import generar_csv_libro_remuneraciones, nombre_archivo
-from app.services.liquidacion_word import generar_liquidacion_docx
+from app.services.liquidacion_word import generar_liquidacion_docx, generar_cc_docx
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"], dependencies=[Depends(get_current_user)])
@@ -559,6 +559,91 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
 
     apellidos = f"{empleado.apellido_paterno}".replace(" ", "_")
     filename = f"liquidacion_{liq.periodo}_{apellidos}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/periodo/{periodo}/cc/{cc_id}/word")
+async def descargar_cc_word(periodo: str, cc_id: int, db: AsyncSession = Depends(get_db)):
+    """Genera un único Word con todas las liquidaciones del CC para el período dado."""
+    # Cargar liquidaciones del CC en el período
+    liqs_res = await db.execute(
+        select(Liquidacion)
+        .where(Liquidacion.periodo == periodo, Liquidacion.id_centro_costo == cc_id)
+        .order_by(Liquidacion.id)
+    )
+    liqs = liqs_res.scalars().all()
+    if not liqs:
+        raise HTTPException(404, "No hay liquidaciones para este CC y período")
+
+    # Empresa (tomar de la primera)
+    empresa_res = await db.execute(select(Empresa).where(Empresa.id == liqs[0].id_empresa))
+    empresa = empresa_res.scalar_one_or_none()
+
+    # Logo (igual que el endpoint individual)
+    logo_bytes: bytes | None = None
+    if empresa and empresa.logo_url:
+        try:
+            if empresa.logo_url.startswith("data:"):
+                import base64 as _b64
+                _, b64data = empresa.logo_url.split(",", 1)
+                logo_bytes = _b64.b64decode(b64data)
+            else:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    r = await client.get(empresa.logo_url)
+                    if r.status_code == 200:
+                        logo_bytes = r.content
+        except Exception as logo_err:
+            log.warning("No se pudo obtener el logo CC word: %s", logo_err)
+
+    # Cargar empleados y datos auxiliares
+    emp_ids = list({liq.id_empleado for liq in liqs})
+    emps_res = await db.execute(
+        select(Empleado)
+        .options(selectinload(Empleado.afp_rel), selectinload(Empleado.isapre_rel),
+                 selectinload(Empleado.cargo), selectinload(Empleado.centro_costo))
+        .where(Empleado.id.in_(emp_ids))
+    )
+    emps_by_id = {e.id: e for e in emps_res.scalars().all()}
+
+    contratos_res = await db.execute(
+        select(Contrato)
+        .where(Contrato.id_empleado.in_(emp_ids))
+        .order_by(Contrato.fecha_inicio.desc())
+    )
+    contratos_all = contratos_res.scalars().all()
+    contrato_by_emp: dict[int, Contrato] = {}
+    for c in contratos_all:
+        if c.id_empleado not in contrato_by_emp:
+            contrato_by_emp[c.id_empleado] = c
+
+    liquidaciones_data = []
+    for liq in liqs:
+        emp = emps_by_id.get(liq.id_empleado)
+        if not emp:
+            continue
+        contrato = contrato_by_emp.get(emp.id)
+        afp_nombre    = emp.afp_rel.nombre     if emp.afp_rel     else "—"
+        isapre_nombre = emp.isapre_rel.nombre  if emp.isapre_rel  else "—"
+        cargo_nombre  = emp.cargo.nombre        if emp.cargo        else "—"
+        cc_codigo     = emp.centro_costo.codigo if emp.centro_costo else "—"
+        fecha_ingreso = contrato.fecha_inicio if contrato else emp.fecha_ingreso
+        liquidaciones_data.append((
+            empresa, emp, liq, afp_nombre, isapre_nombre,
+            cargo_nombre, cc_codigo, fecha_ingreso, logo_bytes
+        ))
+
+    try:
+        docx_bytes = generar_cc_docx(liquidaciones_data)
+    except Exception as e:
+        log.exception("Error generando Word CC %s periodo %s: %s", cc_id, periodo, e)
+        raise HTTPException(500, f"Error al generar el documento Word: {e}")
+
+    filename = f"liquidaciones_{periodo}_CC{cc_id}.docx"
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

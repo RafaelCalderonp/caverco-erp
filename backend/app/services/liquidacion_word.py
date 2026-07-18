@@ -130,28 +130,16 @@ def _spacer(doc, pts=4):
     run.font.size = Pt(pts)
 
 
-# ── generador principal ───────────────────────────────────────────────────────
+# ── generador de contenido (opera sobre un doc existente) ────────────────────
 
-def generar_liquidacion_docx(empresa, empleado, liquidacion,
-                              afp_nombre: str, isapre_nombre: str,
-                              cargo_nombre: str, centro_costo_codigo: str,
-                              fecha_ingreso, logo_bytes) -> bytes:
-    doc = Document()
-    _remove_paragraph_spacing(doc)
-
-    # Márgenes carta (21.59 × 27.94 cm)
-    for sec in doc.sections:
-        sec.page_width  = Cm(21.59)
-        sec.page_height = Cm(27.94)
-        sec.top_margin    = Cm(1.5)
-        sec.bottom_margin = Cm(1.5)
-        sec.left_margin   = Cm(2.0)
-        sec.right_margin  = Cm(2.0)
-
+def _insert_liquidacion(doc, empresa, empleado, liquidacion,
+                         afp_nombre: str, isapre_nombre: str,
+                         cargo_nombre: str, centro_costo_codigo: str,
+                         fecha_ingreso, logo_bytes):
+    """Inserta el contenido de una liquidación en *doc* (sin crear ni guardar)."""
     HEADER  = "475569"
     AZUL    = "1E3A5F"
     GRIS    = "F2F4F6"
-    TOTAL_W = Cm(17.59)   # ancho disponible (21.59 - 2*2.0)
 
     clp = _clp
     periodo = liquidacion.periodo       # YYYY-MM
@@ -166,7 +154,6 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     hdr.columns[0].width = Cm(11)
     hdr.columns[1].width = Cm(6.59)
 
-    # Nombre empresa izquierda
     p_emp = hdr.rows[0].cells[0].paragraphs[0]
     p_emp.paragraph_format.space_before = Pt(0)
     p_emp.paragraph_format.space_after  = Pt(0)
@@ -175,7 +162,6 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     r_emp.font.size = Pt(11)
     hdr.rows[0].cells[0].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
-    # Logo derecha
     logo_cell = hdr.rows[0].cells[1]
     logo_cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
     p_logo = logo_cell.paragraphs[0]
@@ -186,7 +172,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         try:
             p_logo.add_run().add_picture(io.BytesIO(logo_bytes), height=Cm(1.2))
         except Exception:
-            pass  # logo inválido — celda queda vacía
+            pass
 
     _spacer(doc, 4)
 
@@ -221,7 +207,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     uf_label        = f"( {uf_val:.2f} UF )" if uf_val else ""
 
     datos = [
-        (None, "DATOS TRABAJADOR"),          # fila título
+        (None, "DATOS TRABAJADOR"),
         ("NOMBRE:",              nombre_completo),
         ("RUT:",                 empleado.rut),
         ("CARGO:",               cargo_nombre),
@@ -233,7 +219,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         ("FECHA DE INGRESO:",    fecha_ingreso.strftime("%d-%m-%Y") if fecha_ingreso else "—"),
     ]
 
-    ROW_H = 0.52   # cm — altura compacta por fila
+    ROW_H = 0.52
     dt = doc.add_table(rows=len(datos), cols=2)
     _set_borders(dt, "CCCCCC", "4")
     dt.autofit = False
@@ -244,7 +230,6 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         row = dt.rows[i]
         _set_row_height(row, ROW_H)
         if label is None:
-            # Fila título de sección
             merged = row.cells[0].merge(row.cells[1])
             _set_cell_bg(merged, HEADER)
             _set_cell_margins(merged, top=30, bottom=30)
@@ -297,7 +282,6 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     for col in main.columns:
         col.width = COL_W
 
-    # Encabezados
     _set_row_height(main.rows[0], ROW_H)
     for cell, txt in zip(main.rows[0].cells,
                          ["HABERES IMPONIBLES", "HABERES NO IMPONIBLES", "DESCUENTOS"]):
@@ -344,7 +328,6 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
            "",                   "",
            "IMPUESTO ÚNICO",     clp(liq.impuesto_unico))
 
-    # Fila totales
     row_tot = main.add_row()
     _set_row_height(row_tot, ROW_H)
     no_imp = (liq.total_haberes or 0) - (liq.total_imponible or 0)
@@ -401,7 +384,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     p_son.paragraph_format.space_before = Pt(0)
     p_son.paragraph_format.space_after  = Pt(0)
     rs = p_son.add_run(f"SON:  {_numero_letras(total_pagar)} pesos.")
-    rs.font.size = Pt(8)
+    rs.font.size = Pt(9)
     rs.italic = True
 
     _spacer(doc, 6)
@@ -420,7 +403,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         "presente liquidación de sueldo, por lo cual no tengo ningún cargo o reclamo "
         "posterior que efectuar a mi empleador."
     )
-    r_cert.font.size = Pt(7.5)
+    r_cert.font.size = Pt(9)
 
     p_rc = firma.rows[0].cells[1].paragraphs[0]
     p_rc.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -428,7 +411,7 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
     p_rc.paragraph_format.space_after  = Pt(0)
     r_rc = p_rc.add_run("RECIBI CONFORME")
     r_rc.bold = True
-    r_rc.font.size = Pt(9)
+    r_rc.font.size = Pt(10.5)
 
     for c in range(2):
         p = firma.rows[1].cells[c].paragraphs[0]
@@ -436,6 +419,64 @@ def generar_liquidacion_docx(empresa, empleado, liquidacion,
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after  = Pt(0)
         p.add_run("_" * 38).font.size = Pt(9)
+
+
+# ── generador individual ──────────────────────────────────────────────────────
+
+def generar_liquidacion_docx(empresa, empleado, liquidacion,
+                              afp_nombre: str, isapre_nombre: str,
+                              cargo_nombre: str, centro_costo_codigo: str,
+                              fecha_ingreso, logo_bytes) -> bytes:
+    doc = Document()
+    _remove_paragraph_spacing(doc)
+
+    for sec in doc.sections:
+        sec.page_width    = Cm(21.59)
+        sec.page_height   = Cm(27.94)
+        sec.top_margin    = Cm(1.5)
+        sec.bottom_margin = Cm(1.5)
+        sec.left_margin   = Cm(2.0)
+        sec.right_margin  = Cm(2.0)
+
+    _insert_liquidacion(doc, empresa, empleado, liquidacion,
+                        afp_nombre, isapre_nombre, cargo_nombre,
+                        centro_costo_codigo, fecha_ingreso, logo_bytes)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+# ── generador por CC (una liquidación por página) ─────────────────────────────
+
+def generar_cc_docx(liquidaciones: list) -> bytes:
+    """Genera un único .docx con todas las liquidaciones del CC, una por página."""
+    doc = Document()
+    _remove_paragraph_spacing(doc)
+
+    sec = doc.sections[0]
+    sec.page_width    = Cm(21.59)
+    sec.page_height   = Cm(27.94)
+    sec.top_margin    = Cm(1.5)
+    sec.bottom_margin = Cm(1.5)
+    sec.left_margin   = Cm(2.0)
+    sec.right_margin  = Cm(2.0)
+
+    for i, (empresa, empleado, liq, afp_nombre, isapre_nombre,
+             cargo_nombre, cc_codigo, fecha_ingreso, logo_bytes) in enumerate(liquidaciones):
+        if i > 0:
+            # Salto de página entre liquidaciones
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after  = Pt(0)
+            run = p.add_run()
+            br = OxmlElement("w:br")
+            br.set(qn("w:type"), "page")
+            run._r.append(br)
+
+        _insert_liquidacion(doc, empresa, empleado, liq, afp_nombre, isapre_nombre,
+                            cargo_nombre, cc_codigo, fecha_ingreso, logo_bytes)
 
     buf = io.BytesIO()
     doc.save(buf)

@@ -464,6 +464,12 @@ export default function Liquidaciones() {
             onClick={() => descargar(liquidacionesApi.exportarLibroRemuneraciones, `libro_remuneraciones_${periodo}.csv`)}>
             ⬇️ Libro Remuneraciones DT
           </button>
+          {centroCostoId && (
+            <button className="btn btn-outline"
+              onClick={() => descargar(() => liquidacionesApi.descargarWordCC(periodo, centroCostoId), `liquidaciones_${periodo}_CC${centroCostoId}.docx`)}>
+              ⬇️ Word del CC
+            </button>
+          )}
           <button className={`btn ${periodoCerrado ? 'btn-outline' : 'btn-danger'}`}
             onClick={toggleCierre} disabled={cambiandoCierre}>
             {cambiandoCierre ? '…' : periodoCerrado ? '🔓 Reabrir Período' : '🔒 Cerrar Período'}
