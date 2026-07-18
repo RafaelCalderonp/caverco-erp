@@ -30,7 +30,7 @@ const TICK = {
 const MES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCostoId,
-  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading }) {
+  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading, onRecalcular }) {
 
   const [localData, setLocalData] = useState(null)
   const [savedData, setSavedData] = useState(null)
@@ -87,7 +87,6 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
       if (celdas.length) await liquidacionesApi.guardarAsistencia(periodo, celdas)
       setSavedData(localData.map(e => ({ ...e, asistencia: [...e.asistencia] })))
       setEditMode(false); setGuardadoOk(true)
-      setTimeout(() => setGuardadoOk(false), 2000)
     } catch { alert('Error al guardar') }
     finally { setGuardando(false) }
   }
@@ -120,7 +119,14 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
             {hdrBtn(guardando ? 'Guardando…' : '💾 Guardar', guardar)}
             {hdrBtn('✖ Cancelar', cancelar, true)}
           </>}
-          {guardadoOk && <span style={{fontSize:11,color:'#86efac'}}>✔ Guardado</span>}
+          {guardadoOk && <>
+            <span style={{fontSize:11,color:'#86efac'}}>✔ Guardado</span>
+            <button onClick={e => { e.stopPropagation(); onRecalcular() }}
+              style={{fontSize:11,padding:'3px 10px',borderRadius:4,border:'1px solid #86efac',cursor:'pointer',
+                background:'#166534',color:'#dcfce7',fontWeight:600}}>
+              🔄 Actualizar cálculo de liquidación
+            </button>
+          </>}
         </div>
         <span style={{fontSize:11,color:'#e2e8f0'}}>{asistOpen ? '▲' : '▼'}</span>
       </div>
@@ -628,6 +634,7 @@ export default function Liquidaciones() {
         asistLoading={asistLoading}
         setAsistLoading={setAsistLoading}
         pendingRef={pendingRef}
+        onRecalcular={() => { setTab('calcular'); cargarCalcData(centroCostoId) }}
       />
 
       {/* ── Lista período ── */}
