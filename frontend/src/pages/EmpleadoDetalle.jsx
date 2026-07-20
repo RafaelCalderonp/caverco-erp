@@ -256,7 +256,13 @@ export default function EmpleadoDetalle() {
       )}
 
       <div className="card mt-4">
-        <h3 style={{marginBottom:12, fontWeight:600}}>Contratos ({emp.contratos?.length || 0})</h3>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>
+            Contratos ({emp.contratos?.length || 0})
+            {' · '}Anexos ({emp.contratos?.reduce((acc, c) => acc + (c.n_anexos || 0), 0) || 0})
+          </h3>
+          <Link to={`/contratos/nuevo?id_empleado=${emp.id}`} className="btn btn-outline btn-sm">+ Nuevo Contrato</Link>
+        </div>
         {(!emp.contratos || emp.contratos.length === 0)
           ? <p className="text-muted">Sin contratos registrados</p>
           : emp.contratos.map(c => (
@@ -265,6 +271,7 @@ export default function EmpleadoDetalle() {
                 <span>
                   Contrato {c.numero_contrato || `#${c.id}`} — Desde {c.fecha_inicio}
                   {' '}<span className={`badge ${c.estado === 'vigente' ? 'badge-green' : 'badge-gray'}`}>{c.estado}</span>
+                  {c.n_anexos > 0 && <span className="badge badge-gray" style={{marginLeft:6}}>{c.n_anexos} anexo{c.n_anexos > 1 ? 's' : ''}</span>}
                 </span>
                 <span style={{fontSize:13, color:'var(--gray-600)'}}>
                   Sueldo {fmt(c.sueldo_bruto)}

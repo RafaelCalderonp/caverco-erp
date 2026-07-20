@@ -60,12 +60,15 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
         select(Empleado)
         .options(selectinload(Empleado.departamento), selectinload(Empleado.cargo),
                  selectinload(Empleado.centro_costo),
-                 selectinload(Empleado.contratos), selectinload(Empleado.licencias))
+                 selectinload(Empleado.contratos).selectinload(Contrato.anexos),
+                 selectinload(Empleado.licencias))
         .where(Empleado.id == id)
     )
     emp = result.scalar_one_or_none()
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
+    for c in emp.contratos:
+        c.n_anexos = len(c.anexos)
     return emp
 
 async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:

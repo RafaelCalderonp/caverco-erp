@@ -305,9 +305,18 @@ async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db
         payload["numero_contrato"] = await siguiente_codigo(db, empleado.id_empresa, "CT")
     contrato = Contrato(**payload)
     db.add(contrato)
-    # Sincronizar tipo contrato en perfil del empleado
-    if data.id_tipo_contrato:
-        empleado.id_tipo_contrato = data.id_tipo_contrato
+    # Un contrato nuevo (ej. recontratación) pasa a ser la condición operativa
+    # vigente del trabajador: se refleja en su ficha igual que en el alta inicial.
+    empleado.id_tipo_contrato = data.id_tipo_contrato
+    empleado.sueldo_base = data.sueldo_bruto
+    empleado.colacion = data.colacion
+    empleado.movilizacion = data.movilizacion
+    if data.id_cargo:
+        empleado.id_cargo = data.id_cargo
+    if data.id_centro_costo:
+        empleado.id_centro_costo = data.id_centro_costo
+    if data.id_obra:
+        empleado.id_obra = data.id_obra
     await db.commit()
     await db.refresh(contrato)
     return contrato

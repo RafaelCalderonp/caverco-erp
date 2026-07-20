@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi, departamentosApi } from '../services/api'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { contratosApi, catalogosApi, departamentosApi, empleadosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 import { formatearRut, validarRut } from '../utils/rut'
@@ -51,8 +51,10 @@ function Campo({ label, required, children, span2 }) {
 export default function ContratoNuevo() {
   const nav = useNavigate()
   const { empresaActual } = useEmpresa()
+  const [searchParams] = useSearchParams()
+  const idEmpleadoRecontratacion = searchParams.get('id_empleado')
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(idEmpleadoRecontratacion ? 2 : 1)
   const [form, setForm] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
@@ -65,6 +67,13 @@ export default function ContratoNuevo() {
   const [departamentos, setDepartamentos] = useState([])
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
+  const [empleadoRecontratacion, setEmpleadoRecontratacion] = useState(null)
+
+  useEffect(() => {
+    if (idEmpleadoRecontratacion) {
+      empleadosApi.get(idEmpleadoRecontratacion).then(r => setEmpleadoRecontratacion(r.data)).catch(() => {})
+    }
+  }, [idEmpleadoRecontratacion])
 
   useEffect(() => {
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
@@ -93,7 +102,7 @@ export default function ContratoNuevo() {
       if (!form.fecha_inicio)     e.fecha_inicio = 'Fecha de inicio requerida'
       if (!form.sueldo_bruto)     e.sueldo_bruto = 'Sueldo bruto requerido'
     }
-    if (s === 3) {
+    if (s === 3 && !idEmpleadoRecontratacion) {
       if (!form.id_afp)    e.id_afp = 'AFP requerida'
       if (!form.id_isapre) e.id_isapre = 'Sistema de salud requerido'
     }
@@ -102,8 +111,10 @@ export default function ContratoNuevo() {
 
   const esPorObra = tiposContrato.find(t => t.id === Number(form.id_tipo_contrato))?.codigo === 'POR_OBRA'
   // Bloquea avanzar DE step 1 si no hay cargos, o DE step 2 si POR_OBRA sin obras
-  const bloqueadoPorCargos = cargos.length === 0 && step <= 2
+  const bloqueadoPorCargos = cargos.length === 0 && step <= 2 && !idEmpleadoRecontratacion
   const bloqueadoPorObras  = step === 2 && esPorObra && obras.length === 0
+  const stepsMostrados = idEmpleadoRecontratacion ? [STEPS[1]] : STEPS
+  const esUltimoPaso = idEmpleadoRecontratacion ? true : step === STEPS.length
 
   const next = () => {
     if (step === 1 && cargos.length === 0) return
@@ -117,11 +128,33 @@ export default function ContratoNuevo() {
 
   const submit = async () => {
     if (enviandoRef.current) return
-    const e = validate(3)
+    const e = validate(idEmpleadoRecontratacion ? 2 : 3)
     if (Object.keys(e).length) { setErrors(e); return }
     enviandoRef.current = true
     setSaving(true); setMsg('')
     try {
+      if (idEmpleadoRecontratacion) {
+        const payload = {
+          id_empleado: Number(idEmpleadoRecontratacion),
+          id_tipo_contrato: Number(form.id_tipo_contrato),
+          id_obra: form.id_obra ? Number(form.id_obra) : null,
+          id_centro_costo: form.id_centro_costo ? Number(form.id_centro_costo) : null,
+          id_cargo: form.id_cargo ? Number(form.id_cargo) : null,
+          numero_contrato: form.numero_contrato || null,
+          fecha_contrato: form.fecha_contrato,
+          fecha_inicio: form.fecha_inicio,
+          fecha_termino_pactada: form.fecha_termino_pactada || null,
+          sueldo_bruto: Number(form.sueldo_bruto),
+          colacion: Number(form.colacion) || 0,
+          movilizacion: Number(form.movilizacion) || 0,
+          horas_semanales: Number(form.horas_semanales),
+          jornada: form.jornada,
+          horario_detalle: form.horario_detalle || null,
+        }
+        const r = await contratosApi.create(payload)
+        nav(`/contratos/${r.data.id}`)
+        return
+      }
       const { plazo_dias, ...formSinPlazo } = form
       const payload = {
         ...formSinPlazo,
@@ -193,12 +226,16 @@ export default function ContratoNuevo() {
       <div className="page-header">
         <div className="flex items-center gap-2">
           <Link to="/contratos" className="btn btn-outline btn-sm">← Volver</Link>
-          <h1>Nuevo Contrato</h1>
+          <h1>
+            {idEmpleadoRecontratacion && empleadoRecontratacion
+              ? `Nuevo Contrato — ${empleadoRecontratacion.nombres} ${empleadoRecontratacion.apellido_paterno}`
+              : 'Nuevo Contrato'}
+          </h1>
         </div>
       </div>
 
       <div className="wizard-steps">
-        {STEPS.map(s => (
+        {stepsMostrados.map(s => (
           <div key={s.num} className={`wizard-step${step===s.num?' active':step>s.num?' done':''}`}>
             <div className="step-num">{step > s.num ? '✓' : s.num}</div>
             <span>{s.icon} {s.label}</span>
@@ -387,11 +424,11 @@ export default function ContratoNuevo() {
 
         <div className="wizard-footer">
           <div>
-            {step > 1 && (<button className="btn btn-outline" onClick={prev}>← Anterior</button>)}
+            {step > 1 && !idEmpleadoRecontratacion && (<button className="btn btn-outline" onClick={prev}>← Anterior</button>)}
           </div>
-          <div style={{fontSize:12,color:'var(--gray-500)'}}>Paso {step} de {STEPS.length}</div>
+          <div style={{fontSize:12,color:'var(--gray-500)'}}>Paso {stepsMostrados.findIndex(s => s.num === step) + 1} de {stepsMostrados.length}</div>
           <div>
-            {step < STEPS.length
+            {!esUltimoPaso
               ? <button className="btn btn-primary" onClick={next}
                   disabled={bloqueadoPorCargos || bloqueadoPorObras}>Siguiente →</button>
               : <button className="btn btn-primary" onClick={submit} disabled={saving}>
