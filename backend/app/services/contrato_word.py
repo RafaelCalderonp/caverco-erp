@@ -384,6 +384,23 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
             "presente Anexo. En todo lo no modificado por el presente instrumento, se mantienen plenamente "
             "vigentes las demás cláusulas y condiciones del contrato original.",
         ])
+    elif tipo_anexo_codigo == "MOD_REMUNER":
+        _parrafo(doc, [("PRIMERO: Modificación de Remuneración: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes acuerdan modificar la remuneración pactada, '
+            'la que a contar de esta fecha será de ', (_clp(anexo.nuevo_sueldo), True),
+            ' bruto mensual."',
+        ])
+        if anexo.observacion:
+            _parrafo(doc, [("SEGUNDO: Observaciones: ", True), (anexo.observacion, True)])
+    elif tipo_anexo_codigo == "MOD_CARGO":
+        _parrafo(doc, [("PRIMERO: Modificación de Cargo: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes acuerdan modificar el cargo desempeñado por EL TRABAJADOR, '
+            'quien a contar de esta fecha se desempeñará como ', (anexo.nuevo_cargo or "", True), '."',
+        ])
+        if anexo.observacion:
+            _parrafo(doc, [("SEGUNDO: Observaciones: ", True), (anexo.observacion, True)])
     else:
         _parrafo(doc, [("PRIMERO: ", True), (anexo.observacion or "", True)])
 

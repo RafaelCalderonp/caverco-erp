@@ -372,6 +372,7 @@ class AnexoContratoCreate(BaseModel):
     nuevo_sueldo: Optional[Decimal] = None
     id_nueva_obra: Optional[int] = None
     nuevo_cargo: Optional[str] = None
+    id_nuevo_cargo: Optional[int] = None
     nueva_jornada: Optional[str] = None
     nueva_fecha_termino: Optional[date] = None
     valor_anterior: Optional[dict] = None

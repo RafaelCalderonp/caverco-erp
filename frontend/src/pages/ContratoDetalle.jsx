@@ -309,6 +309,8 @@ export default function ContratoDetalle() {
 
   const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
   const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
+  const esModRemuner = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_REMUNER'
+  const esModCargo = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_CARGO'
   const yaProrrogado = anexos.some(a => tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo === 'PRORROGA_PLAZO')
 
   const abrirEdicion = async () => {
@@ -430,16 +432,25 @@ export default function ContratoDetalle() {
       setErrorAnexo('Tipo de anexo y fecha son obligatorios')
       return
     }
+    if (esModRemuner && !formAnexo.nuevo_sueldo) {
+      setErrorAnexo('Debes indicar el nuevo sueldo bruto')
+      return
+    }
+    if (esModCargo && !formAnexo.id_nuevo_cargo) {
+      setErrorAnexo('Debes indicar el nuevo cargo')
+      return
+    }
     setGuardandoAnexo(true); setErrorAnexo('')
     try {
       const { plazo_dias, ...formSinPlazo } = formAnexo
-      const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
       await contratosApi.anexos.create(id, {
         ...formSinPlazo,
         id_tipo_anexo: Number(formAnexo.id_tipo_anexo),
         nueva_fecha_termino: esProrroga && formAnexo.fecha_anexo
           ? calcularFechaTermino(formAnexo.fecha_anexo, plazo_dias)
           : null,
+        nuevo_sueldo: esModRemuner ? Number(formAnexo.nuevo_sueldo) : null,
+        id_nuevo_cargo: esModCargo ? Number(formAnexo.id_nuevo_cargo) : null,
       })
       setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
       setMostrarFormAnexo(false)
@@ -1438,6 +1449,27 @@ export default function ContratoDetalle() {
                       Nuevo vencimiento: {calcularFechaTermino(formAnexo.fecha_anexo, formAnexo.plazo_dias)}
                     </span>
                   )}
+                </div>
+              )}
+              {esModRemuner && (
+                <div className="form-group">
+                  <label className="form-label">Nuevo Sueldo Bruto<span style={{color:'var(--danger)'}}> *</span></label>
+                  <input className="input" type="number" value={formAnexo.nuevo_sueldo || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, nuevo_sueldo: e.target.value }))} />
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>Actual: {fmt(contrato.sueldo_bruto)}</span>
+                </div>
+              )}
+              {esModCargo && (
+                <div className="form-group">
+                  <label className="form-label">Nuevo Cargo<span style={{color:'var(--danger)'}}> *</span></label>
+                  <select className="select" value={formAnexo.id_nuevo_cargo || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, id_nuevo_cargo: e.target.value }))}>
+                    <option value="">Seleccionar…</option>
+                    {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                  </select>
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>
+                    Actual: {cargos.find(c => c.id === contrato.id_cargo)?.nombre || '—'}
+                  </span>
                 </div>
               )}
             </div>

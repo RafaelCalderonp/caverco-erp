@@ -226,6 +226,7 @@ class AnexoContrato(Base):
     nuevo_sueldo  = Column(Numeric(12, 2))
     id_nueva_obra = Column(Integer, ForeignKey("erp.obras.id"))
     nuevo_cargo   = Column(String(100))
+    id_nuevo_cargo = Column(Integer, ForeignKey("erp.cargos.id"))
     nueva_jornada = Column(String(30))
     nueva_fecha_termino = Column(Date)
     valor_anterior = Column(JSONB)

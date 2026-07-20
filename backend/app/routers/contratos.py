@@ -437,6 +437,29 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
         contrato.fecha_termino_pactada = None
         empleado.id_tipo_contrato = tipo_indefinido.id
 
+    elif tipo_anexo.codigo == "MOD_REMUNER":
+        # Actualiza únicamente el contrato vigente y el perfil actual del
+        # empleado. No modifica anexos ni contratos anteriores: esos quedan
+        # como registro histórico de lo que regía en su momento.
+        if not data.nuevo_sueldo:
+            raise HTTPException(400, "Debe indicar el nuevo sueldo bruto")
+        payload["valor_anterior"] = {"sueldo_bruto": str(contrato.sueldo_bruto)}
+        payload["valor_nuevo"] = {"sueldo_bruto": str(data.nuevo_sueldo)}
+        contrato.sueldo_bruto = data.nuevo_sueldo
+        empleado.sueldo_base = data.nuevo_sueldo
+
+    elif tipo_anexo.codigo == "MOD_CARGO":
+        if not data.id_nuevo_cargo:
+            raise HTTPException(400, "Debe indicar el nuevo cargo")
+        nuevo_cargo = await db.get(Cargo, data.id_nuevo_cargo)
+        if nuevo_cargo is None or nuevo_cargo.id_empresa != empleado.id_empresa:
+            raise HTTPException(400, "El cargo indicado no pertenece a la misma empresa del trabajador")
+        payload["valor_anterior"] = {"id_cargo": contrato.id_cargo}
+        payload["valor_nuevo"] = {"id_cargo": nuevo_cargo.id}
+        payload["nuevo_cargo"] = nuevo_cargo.nombre
+        contrato.id_cargo = nuevo_cargo.id
+        empleado.id_cargo = nuevo_cargo.id
+
     anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)
     await db.commit()
