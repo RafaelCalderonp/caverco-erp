@@ -251,6 +251,8 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
     datos_empleado = {k: v for k, v in payload.items() if k in campos_empleado}
     datos_empleado["fecha_ingreso"] = data.fecha_inicio
     datos_empleado["sueldo_base"] = data.sueldo_bruto
+    datos_empleado["colacion"] = data.colacion
+    datos_empleado["movilizacion"] = data.movilizacion
     datos_empleado["id_cargo"] = data.id_cargo
     datos_empleado["id_centro_costo"] = data.id_centro_costo
     datos_empleado["id_obra"] = data.id_obra

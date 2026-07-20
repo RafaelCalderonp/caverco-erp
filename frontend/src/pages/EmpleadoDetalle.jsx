@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { empleadosApi, catalogosApi, departamentosApi, contratosApi } from '../services/api'
+import { empleadosApi, catalogosApi, departamentosApi } from '../services/api'
 import { formatearRut } from '../utils/rut'
 
 export default function EmpleadoDetalle() {
@@ -45,7 +45,8 @@ export default function EmpleadoDetalle() {
     return nombre !== 'fonasa' && nombre !== '—'
   }
 
-  const contratoVigente = emp?.contratos?.find(c => c.estado === 'vigente')
+  const isapreSeleccionada = isapres.find(i => i.id === Number(form?.id_isapre))
+  const esIsapreForm = isapreSeleccionada && isapreSeleccionada.nombre.toLowerCase() !== 'fonasa'
 
   const abrirEdicion = () => {
     setForm({
@@ -62,40 +63,36 @@ export default function EmpleadoDetalle() {
       id_afp: emp.id_afp || '',
       id_isapre: emp.id_isapre || '',
       valor_isapre_uf: emp.valor_isapre_uf || '',
-      colacion: contratoVigente?.colacion ?? '',
-      movilizacion: contratoVigente?.movilizacion ?? '',
+      colacion: emp.colacion ?? '',
+      movilizacion: emp.movilizacion ?? '',
     })
     setError('')
     setEditando(true)
   }
 
   const guardar = async () => {
+    if (esIsapreForm && !form.valor_isapre_uf) {
+      setError('Debes indicar el valor en UF del plan al seleccionar una Isapre')
+      return
+    }
     setGuardando(true); setError('')
     try {
-      const { colacion, movilizacion, ...datosEmpleado } = form
       const payload = {
-        ...datosEmpleado,
-        id_departamento: datosEmpleado.id_departamento ? Number(datosEmpleado.id_departamento) : null,
+        ...form,
+        id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
+        colacion: Number(form.colacion) || 0,
+        movilizacion: Number(form.movilizacion) || 0,
       }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
       if (!payload.valor_isapre_uf) delete payload.valor_isapre_uf
       await empleadosApi.update(id, payload)
-      if (contratoVigente) {
-        await contratosApi.update(contratoVigente.id, {
-          colacion: Number(colacion) || 0,
-          movilizacion: Number(movilizacion) || 0,
-        })
-      }
       setEditando(false)
       cargar()
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al guardar los cambios')
     } finally { setGuardando(false) }
   }
-
-  const isapreSeleccionada = isapres.find(i => i.id === Number(form?.id_isapre))
-  const esIsapreForm = isapreSeleccionada && isapreSeleccionada.nombre.toLowerCase() !== 'fonasa'
 
   return (
     <div>
@@ -174,20 +171,16 @@ export default function EmpleadoDetalle() {
                 {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
               </select>
             </div>
-            {contratoVigente && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Colación (CLP)</label>
-                  <input className="input" type="number" value={form.colacion}
-                    onChange={e => setForm(f => ({ ...f, colacion: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Movilización (CLP)</label>
-                  <input className="input" type="number" value={form.movilizacion}
-                    onChange={e => setForm(f => ({ ...f, movilizacion: e.target.value }))} />
-                </div>
-              </>
-            )}
+            <div className="form-group">
+              <label className="form-label">Colación (CLP)</label>
+              <input className="input" type="number" value={form.colacion}
+                onChange={e => setForm(f => ({ ...f, colacion: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Movilización (CLP)</label>
+              <input className="input" type="number" value={form.movilizacion}
+                onChange={e => setForm(f => ({ ...f, movilizacion: e.target.value }))} />
+            </div>
           </div>
           <p className="text-muted" style={{fontSize:12, marginBottom:16}}>
             Cargo, Centro de Costo y Sueldo Base se definen en el Contrato vigente del trabajador
@@ -248,8 +241,8 @@ export default function EmpleadoDetalle() {
             ['Centro de Costo', emp.centro_costo ? `${emp.centro_costo.codigo} — ${emp.centro_costo.nombre}` : null],
             ['Fecha Ingreso', emp.fecha_ingreso],
             ['Sueldo Base', fmt(emp.sueldo_base)],
-            ['Colación', contratoVigente ? fmt(contratoVigente.colacion) : '—'],
-            ['Movilización', contratoVigente ? fmt(contratoVigente.movilizacion) : '—'],
+            ['Colación', fmt(emp.colacion)],
+            ['Movilización', fmt(emp.movilizacion)],
             ['AFP', afpNombre(emp.id_afp)],
             ['Salud', isapreNombre(emp.id_isapre)],
             ...(esIsapre(emp.id_isapre) ? [['Valor Plan Isapre', emp.valor_isapre_uf ? `${emp.valor_isapre_uf} UF` : '—']] : []),

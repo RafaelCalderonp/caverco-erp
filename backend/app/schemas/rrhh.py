@@ -156,6 +156,8 @@ class EmpleadoBase(BaseModel):
     id_centro_costo: Optional[int] = None
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
+    colacion: Optional[Decimal] = Decimal("0")
+    movilizacion: Optional[Decimal] = Decimal("0")
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
     valor_isapre_uf: Optional[Decimal] = None
@@ -187,6 +189,8 @@ class EmpleadoUpdate(BaseModel):
     id_cargo: Optional[int] = None
     id_centro_costo: Optional[int] = None
     sueldo_base: Optional[Decimal] = None
+    colacion: Optional[Decimal] = None
+    movilizacion: Optional[Decimal] = None
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
     valor_isapre_uf: Optional[Decimal] = None

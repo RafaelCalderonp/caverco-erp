@@ -760,7 +760,7 @@ async def get_asistencia(
         dt = date(year, month, d)
         tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
 
-    # Contrato vigente por empleado (para colación/movilización)
+    # Contrato vigente por empleado (para sueldo base y horas semanales)
     contratos_q = await db.execute(
         select(Contrato)
         .where(Contrato.id_empleado.in_(emp_ids))
@@ -782,8 +782,8 @@ async def get_asistencia(
                 "nombre": f"{e.nombres} {e.apellido_paterno}",
                 "sueldo_base":    float(contrato_por_emp[e.id].sueldo_bruto    or 0) if e.id in contrato_por_emp else 0,
                 "horas_semanales": int(contrato_por_emp[e.id].horas_semanales or 42) if e.id in contrato_por_emp else 42,
-                "colacion":       float(contrato_por_emp[e.id].colacion       or 0) if e.id in contrato_por_emp else 0,
-                "movilizacion":   float(contrato_por_emp[e.id].movilizacion   or 0) if e.id in contrato_por_emp else 0,
+                "colacion":       float(e.colacion or 0),
+                "movilizacion":   float(e.movilizacion or 0),
                 "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
             }
             for e in emps

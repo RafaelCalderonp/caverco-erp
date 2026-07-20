@@ -135,6 +135,8 @@ class Empleado(Base):
     fecha_egreso      = Column(Date)
     activo            = Column(Boolean, default=True)
     sueldo_base       = Column(Numeric(12, 2))
+    colacion          = Column(Numeric(12, 2), nullable=False, default=0)
+    movilizacion      = Column(Numeric(12, 2), nullable=False, default=0)
     id_afp            = Column(Integer, ForeignKey("erp.afp.id"))
     id_isapre         = Column(Integer, ForeignKey("erp.isapre.id"))
     id_tipo_contrato  = Column(Integer, ForeignKey("erp.tipo_contrato.id"))
