@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { contratosApi, catalogosApi, departamentosApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
@@ -56,6 +56,7 @@ export default function ContratoNuevo() {
   const [form, setForm] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const enviandoRef = useRef(false) // corta dobles clics antes de que `saving` se refleje en el render
   const [msg, setMsg] = useState('')
   const [tiposContrato, setTiposContrato] = useState([])
   const [obras, setObras] = useState([])
@@ -115,8 +116,10 @@ export default function ContratoNuevo() {
   const prev = () => { setErrors({}); setStep(s => s - 1) }
 
   const submit = async () => {
+    if (enviandoRef.current) return
     const e = validate(3)
     if (Object.keys(e).length) { setErrors(e); return }
+    enviandoRef.current = true
     setSaving(true); setMsg('')
     try {
       const { plazo_dias, ...formSinPlazo } = form
@@ -153,7 +156,7 @@ export default function ContratoNuevo() {
           ? detalle.map(d => d.msg || JSON.stringify(d)).join(' · ')
           : 'Error al guardar el contrato'
       setMsg(texto)
-    } finally { setSaving(false) }
+    } finally { setSaving(false); enviandoRef.current = false }
   }
 
   const err = (k) => errors[k] ? (

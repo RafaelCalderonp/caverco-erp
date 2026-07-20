@@ -239,6 +239,20 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
                     "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
                 )
 
+    # Regla 3: evitar altas duplicadas del mismo trabajador (ej. doble clic en "Generar Contrato")
+    rut_normalizado = data.rut.replace(".", "").replace("-", "").upper()
+    rut_normalizado_sql = func.upper(func.replace(func.replace(Empleado.rut, ".", ""), "-", ""))
+    ya_existe = (await db.execute(
+        select(func.count()).select_from(Empleado)
+        .where(Empleado.id_empresa == id_empresa, rut_normalizado_sql == rut_normalizado)
+    )).scalar_one()
+    if ya_existe:
+        raise HTTPException(
+            400,
+            f"Ya existe un trabajador con RUT {data.rut} en esta empresa. "
+            "Si necesitas registrar un nuevo contrato para él, hazlo desde su ficha existente."
+        )
+
     payload = data.model_dump()
     campos_empleado = {
         "id_empresa", "rut", "nombres", "apellido_paterno", "apellido_materno",
