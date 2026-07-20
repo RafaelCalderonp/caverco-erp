@@ -14,8 +14,6 @@ export default function EmpleadoDetalle() {
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
   const [departamentos, setDepartamentos] = useState([])
-  const [cargos, setCargos] = useState([])
-  const [centrosCosto, setCentrosCosto] = useState([])
 
   const cargar = () => {
     setErrorCarga('')
@@ -27,8 +25,6 @@ export default function EmpleadoDetalle() {
     cargar()
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
     catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
-    catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
-    catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
     departamentosApi.list().then(r => setDepartamentos(r.data)).catch(() => {})
   }, [id])
 
@@ -61,9 +57,6 @@ export default function EmpleadoDetalle() {
       comuna: emp.comuna || '',
       ciudad: emp.ciudad || '',
       id_departamento: emp.id_departamento || '',
-      id_cargo: emp.id_cargo || '',
-      id_centro_costo: emp.id_centro_costo || '',
-      sueldo_base: emp.sueldo_base || '',
       id_afp: emp.id_afp || '',
       id_isapre: emp.id_isapre || '',
       valor_isapre_uf: emp.valor_isapre_uf || '',
@@ -78,9 +71,6 @@ export default function EmpleadoDetalle() {
       const payload = {
         ...form,
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
-        id_cargo: form.id_cargo ? Number(form.id_cargo) : null,
-        id_centro_costo: form.id_centro_costo ? Number(form.id_centro_costo) : null,
-        sueldo_base: form.sueldo_base ? Number(form.sueldo_base) : null,
       }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
@@ -165,7 +155,7 @@ export default function EmpleadoDetalle() {
           </div>
 
           <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Datos Laborales</h4>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:8}}>
             <div className="form-group">
               <label className="form-label">Departamento</label>
               <select className="input" value={form.id_departamento} onChange={e => setForm(f => ({ ...f, id_departamento: e.target.value }))}>
@@ -173,25 +163,11 @@ export default function EmpleadoDetalle() {
                 {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Cargo</label>
-              <select className="input" value={form.id_cargo} onChange={e => setForm(f => ({ ...f, id_cargo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Centro de Costo</label>
-              <select className="input" value={form.id_centro_costo} onChange={e => setForm(f => ({ ...f, id_centro_costo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Sueldo Base</label>
-              <input className="input" type="number" value={form.sueldo_base} onChange={e => setForm(f => ({ ...f, sueldo_base: e.target.value }))} />
-            </div>
           </div>
+          <p className="text-muted" style={{fontSize:12, marginBottom:16}}>
+            Cargo, Centro de Costo y Sueldo Base se definen en el Contrato vigente del trabajador
+            (o en un Anexo de contrato) y no se editan aquí.
+          </p>
 
           <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Previsión</h4>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16}}>
