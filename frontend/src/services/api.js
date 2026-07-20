@@ -81,7 +81,6 @@ export const empleadosApi = {
   list:   (params) => api.get('/empleados', { params }),
   stats:  ()       => api.get('/empleados/stats'),
   get:    (id)     => api.get(`/empleados/${id}`),
-  create: (data)   => api.post('/empleados', data),
   update: (id, d)  => api.patch(`/empleados/${id}`, d),
   delete: (id)     => api.delete(`/empleados/${id}`),
   eliminarDefinitivo: (id) => api.delete(`/empleados/${id}/definitivo`),

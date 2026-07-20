@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { empleadosApi, catalogosApi, departamentosApi } from '../services/api'
+import { empleadosApi, catalogosApi, departamentosApi, contratosApi } from '../services/api'
 import { formatearRut } from '../utils/rut'
 
 export default function EmpleadoDetalle() {
@@ -45,6 +45,8 @@ export default function EmpleadoDetalle() {
     return nombre !== 'fonasa' && nombre !== '—'
   }
 
+  const contratoVigente = emp?.contratos?.find(c => c.estado === 'vigente')
+
   const abrirEdicion = () => {
     setForm({
       nombres: emp.nombres || '',
@@ -60,6 +62,8 @@ export default function EmpleadoDetalle() {
       id_afp: emp.id_afp || '',
       id_isapre: emp.id_isapre || '',
       valor_isapre_uf: emp.valor_isapre_uf || '',
+      colacion: contratoVigente?.colacion ?? '',
+      movilizacion: contratoVigente?.movilizacion ?? '',
     })
     setError('')
     setEditando(true)
@@ -68,14 +72,21 @@ export default function EmpleadoDetalle() {
   const guardar = async () => {
     setGuardando(true); setError('')
     try {
+      const { colacion, movilizacion, ...datosEmpleado } = form
       const payload = {
-        ...form,
-        id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
+        ...datosEmpleado,
+        id_departamento: datosEmpleado.id_departamento ? Number(datosEmpleado.id_departamento) : null,
       }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
       if (!payload.valor_isapre_uf) delete payload.valor_isapre_uf
       await empleadosApi.update(id, payload)
+      if (contratoVigente) {
+        await contratosApi.update(contratoVigente.id, {
+          colacion: Number(colacion) || 0,
+          movilizacion: Number(movilizacion) || 0,
+        })
+      }
       setEditando(false)
       cargar()
     } catch (err) {
@@ -163,10 +174,24 @@ export default function EmpleadoDetalle() {
                 {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
               </select>
             </div>
+            {contratoVigente && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Colación (CLP)</label>
+                  <input className="input" type="number" value={form.colacion}
+                    onChange={e => setForm(f => ({ ...f, colacion: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Movilización (CLP)</label>
+                  <input className="input" type="number" value={form.movilizacion}
+                    onChange={e => setForm(f => ({ ...f, movilizacion: e.target.value }))} />
+                </div>
+              </>
+            )}
           </div>
           <p className="text-muted" style={{fontSize:12, marginBottom:16}}>
             Cargo, Centro de Costo y Sueldo Base se definen en el Contrato vigente del trabajador
-            (o en un Anexo de contrato) y no se editan aquí.
+            y solo cambian con un nuevo Contrato o un Anexo de contrato.
           </p>
 
           <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Previsión</h4>
@@ -223,6 +248,8 @@ export default function EmpleadoDetalle() {
             ['Centro de Costo', emp.centro_costo ? `${emp.centro_costo.codigo} — ${emp.centro_costo.nombre}` : null],
             ['Fecha Ingreso', emp.fecha_ingreso],
             ['Sueldo Base', fmt(emp.sueldo_base)],
+            ['Colación', contratoVigente ? fmt(contratoVigente.colacion) : '—'],
+            ['Movilización', contratoVigente ? fmt(contratoVigente.movilizacion) : '—'],
             ['AFP', afpNombre(emp.id_afp)],
             ['Salud', isapreNombre(emp.id_isapre)],
             ...(esIsapre(emp.id_isapre) ? [['Valor Plan Isapre', emp.valor_isapre_uf ? `${emp.valor_isapre_uf} UF` : '—']] : []),

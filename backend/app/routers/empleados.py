@@ -9,8 +9,7 @@ from app.models.rrhh import (
     Empleado, Departamento, Cargo, CentroCosto, Contrato, AnexoContrato, ContratoDocumento,
     ContratoRequisitoObra, EntregaEpp, PactoHorasExtra, Licencia, Liquidacion, Usuario,
 )
-from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
-from app.services.correlativos import siguiente_codigo
+from app.schemas.rrhh import EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
 
@@ -78,17 +77,6 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
         entidad = await db.get(modelo, valor)
         if entidad is None or entidad.id_empresa != data["id_empresa"]:
             raise HTTPException(status_code=400, detail=f"{etiqueta} no pertenece a la misma empresa del empleado")
-
-@router.post("", response_model=EmpleadoOut, status_code=201)
-async def crear_empleado(data: EmpleadoCreate, db: AsyncSession = Depends(get_db)):
-    payload = data.model_dump()
-    await _validar_consistencia_empresa(payload, db)
-    payload["codigo"] = await siguiente_codigo(db, data.id_empresa, "EMP")
-    emp = Empleado(**payload)
-    db.add(emp)
-    await db.flush()
-    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
-    return emp
 
 @router.patch("/{id}", response_model=EmpleadoOut)
 async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = Depends(get_db)):
