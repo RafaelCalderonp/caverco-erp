@@ -12,10 +12,13 @@ const api = axios.create({ baseURL: BASE_URL, timeout: 60000 })
 
 // ── Cache en memoria para catálogos estáticos (dura la sesión) ───────────────
 const _cache = new Map()
+function scopedKey(key) { return `${key}:${localStorage.getItem('empresaActualId') || ''}` }
 function cached(key, fn) {
-  if (_cache.has(key)) return Promise.resolve({ data: _cache.get(key) })
-  return fn().then(res => { _cache.set(key, res.data); return res })
+  const cacheKey = scopedKey(key)
+  if (_cache.has(cacheKey)) return Promise.resolve({ data: _cache.get(cacheKey) })
+  return fn().then(res => { _cache.set(cacheKey, res.data); return res })
 }
+function invalidate(key) { _cache.delete(scopedKey(key)) }
 export function invalidarCatalogos() { _cache.clear() }
 
 const SIN_SCOPE_EMPRESA = [
@@ -191,17 +194,17 @@ export const catalogosApi = {
   motivosTermino: () => cached('motivos-termino', () => api.get('/catalogos/motivos-termino')),
   tiposAnexo:     () => cached('tipos-anexo',     () => api.get('/catalogos/tipos-anexo')),
   obras:          () => cached('obras',            () => api.get('/catalogos/obras')),
-  crearObra:      (d) => api.post('/catalogos/obras', d).then(r => { _cache.delete('obras'); return r }),
-  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d).then(r => { _cache.delete('obras'); return r }),
-  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`).then(r => { _cache.delete('obras'); return r }),
+  crearObra:      (d) => api.post('/catalogos/obras', d).then(r => { invalidate('obras'); return r }),
+  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d).then(r => { invalidate('obras'); return r }),
+  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`).then(r => { invalidate('obras'); return r }),
   cargos:         () => cached('cargos',           () => api.get('/catalogos/cargos')),
-  crearCargo:      (d) => api.post('/catalogos/cargos', d).then(r => { _cache.delete('cargos'); return r }),
-  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d).then(r => { _cache.delete('cargos'); return r }),
-  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`).then(r => { _cache.delete('cargos'); return r }),
+  crearCargo:      (d) => api.post('/catalogos/cargos', d).then(r => { invalidate('cargos'); return r }),
+  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d).then(r => { invalidate('cargos'); return r }),
+  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`).then(r => { invalidate('cargos'); return r }),
   centrosCosto:   () => cached('centros-costo',    () => api.get('/catalogos/centros-costo')),
-  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d).then(r => { _cache.delete('centros-costo'); return r }),
-  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d).then(r => { _cache.delete('centros-costo'); return r }),
-  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { _cache.delete('centros-costo'); return r }),
+  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d).then(r => { invalidate('centros-costo'); return r }),
+  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d).then(r => { invalidate('centros-costo'); return r }),
+  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { invalidate('centros-costo'); return r }),
   afp:            () => cached('afp',              () => api.get('/catalogos/afp')),
   isapre:         () => cached('isapre',           () => api.get('/catalogos/isapre')),
 }
