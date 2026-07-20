@@ -264,7 +264,7 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
     datos_contrato = {
         "id_tipo_contrato", "id_obra", "id_centro_costo", "id_cargo",
         "fecha_contrato", "fecha_inicio", "fecha_termino_pactada",
-        "sueldo_bruto", "horas_semanales", "jornada", "horario_detalle",
+        "sueldo_bruto", "colacion", "movilizacion", "horas_semanales", "jornada", "horario_detalle",
     }
     numero_contrato = await siguiente_codigo(db, data.id_empresa, "CT")
     contrato = Contrato(
