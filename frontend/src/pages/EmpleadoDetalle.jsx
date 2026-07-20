@@ -50,6 +50,7 @@ export default function EmpleadoDetalle() {
 
   const abrirEdicion = () => {
     setForm({
+      // Nombres/apellidos se muestran solo de referencia (deshabilitados): no son editables aquí.
       nombres: emp.nombres || '',
       apellido_paterno: emp.apellido_paterno || '',
       apellido_materno: emp.apellido_materno || '',
@@ -77,8 +78,9 @@ export default function EmpleadoDetalle() {
     }
     setGuardando(true); setError('')
     try {
+      const { nombres, apellido_paterno, apellido_materno, ...formEditable } = form
       const payload = {
-        ...form,
+        ...formEditable,
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
         colacion: Number(form.colacion) || 0,
         movilizacion: Number(form.movilizacion) || 0,
@@ -126,15 +128,15 @@ export default function EmpleadoDetalle() {
             </div>
             <div className="form-group">
               <label className="form-label">Nombres</label>
-              <input className="input" value={form.nombres} onChange={e => setForm(f => ({ ...f, nombres: e.target.value }))} />
+              <input className="input" value={form.nombres} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Paterno</label>
-              <input className="input" value={form.apellido_paterno} onChange={e => setForm(f => ({ ...f, apellido_paterno: e.target.value }))} />
+              <input className="input" value={form.apellido_paterno} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Materno</label>
-              <input className="input" value={form.apellido_materno} onChange={e => setForm(f => ({ ...f, apellido_materno: e.target.value }))} />
+              <input className="input" value={form.apellido_materno} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Teléfono</label>

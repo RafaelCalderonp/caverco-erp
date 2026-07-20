@@ -395,13 +395,6 @@ export default function ContratoDetalle() {
           id_cargo: f.id_cargo ? Number(f.id_cargo) : null,
         }),
         empleadosApi.update(contrato.id_empleado, {
-          nombres: f.nombres,
-          apellido_paterno: f.apellido_paterno,
-          apellido_materno: f.apellido_materno || null,
-          fecha_nacimiento: f.fecha_nacimiento || null,
-          genero: f.genero || null,
-          estado_civil: f.estado_civil || null,
-          nacionalidad: f.nacionalidad || null,
           telefono: f.telefono || null,
           email_personal: f.email_personal || null,
           email_corporativo: f.email_corporativo || null,
@@ -823,45 +816,33 @@ export default function ContratoDetalle() {
             {pasoEdicion === 1 && (
               <>
                 <h4 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h4>
+                <p className="text-muted" style={{fontSize:12, marginBottom:12}}>
+                  Identidad y datos civiles no son editables aquí: son datos maestros del trabajador.
+                </p>
                 <div className="form-grid">
                   <Campo label="RUT">
                     <input className="input" value={formatearRut(formContrato.rut)} disabled />
                   </Campo>
                   <Campo label="Nombres">
-                    <input className="input" value={formContrato.nombres}
-                      onChange={e => setFormContrato(f => ({ ...f, nombres: e.target.value }))} />
+                    <input className="input" value={formContrato.nombres} disabled />
                   </Campo>
                   <Campo label="Apellido Paterno">
-                    <input className="input" value={formContrato.apellido_paterno}
-                      onChange={e => setFormContrato(f => ({ ...f, apellido_paterno: e.target.value }))} />
+                    <input className="input" value={formContrato.apellido_paterno} disabled />
                   </Campo>
                   <Campo label="Apellido Materno">
-                    <input className="input" value={formContrato.apellido_materno}
-                      onChange={e => setFormContrato(f => ({ ...f, apellido_materno: e.target.value }))} />
+                    <input className="input" value={formContrato.apellido_materno} disabled />
                   </Campo>
                   <Campo label="Fecha de Nacimiento">
-                    <input className="input" type="date" value={formContrato.fecha_nacimiento}
-                      onChange={e => setFormContrato(f => ({ ...f, fecha_nacimiento: e.target.value }))} />
+                    <input className="input" type="date" value={formContrato.fecha_nacimiento} disabled />
                   </Campo>
                   <Campo label="Género">
-                    <select className="select" value={formContrato.genero}
-                      onChange={e => setFormContrato(f => ({ ...f, genero: e.target.value }))}>
-                      <option value="">Seleccionar…</option>
-                      <option value="M">Masculino</option>
-                      <option value="F">Femenino</option>
-                      <option value="O">Otro</option>
-                    </select>
+                    <input className="input" value={{M:'Masculino',F:'Femenino',O:'Otro'}[formContrato.genero] || '—'} disabled />
                   </Campo>
                   <Campo label="Estado Civil">
-                    <select className="select" value={formContrato.estado_civil}
-                      onChange={e => setFormContrato(f => ({ ...f, estado_civil: e.target.value }))}>
-                      <option value="">Seleccionar…</option>
-                      {['Soltero','Casado','Conviviente civil','Divorciado','Viudo'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                    <input className="input" value={formContrato.estado_civil || '—'} disabled />
                   </Campo>
                   <Campo label="Nacionalidad">
-                    <input className="input" value={formContrato.nacionalidad}
-                      onChange={e => setFormContrato(f => ({ ...f, nacionalidad: e.target.value }))} />
+                    <input className="input" value={formContrato.nacionalidad} disabled />
                   </Campo>
                   <Campo label="Teléfono">
                     <input className="input" value={formContrato.telefono}
