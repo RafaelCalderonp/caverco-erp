@@ -92,8 +92,10 @@ export default function Layout() {
           <h2>{pageTitle}</h2>
           <div className="topbar-right">
             {empresaActual && location.pathname !== '/seleccionar-empresa' && (
-              <button className="btn btn-outline btn-sm" onClick={() => navigate('/seleccionar-empresa')}>
-                🏢 {empresaActual.razon_social} · Cambiar
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('/seleccionar-empresa')}
+                style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                <img src={empresaActual.logo_url || logo} alt="" style={{height:18, objectFit:'contain'}} />
+                {empresaActual.razon_social} · Cambiar
               </button>
             )}
             <div className="avatar">{(usuario?.username || '??').slice(0, 2).toUpperCase()}</div>
