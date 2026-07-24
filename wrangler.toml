@@ -4,3 +4,9 @@ compatibility_date = "2024-09-01"
 [assets]
 directory = "frontend/dist"
 not_found_handling = "single-page-application"
+
+# Dominio custom conectado desde el dashboard de Cloudflare
+# (Workers & Pages > caverco-erp > Settings > Domains & Routes).
+[[routes]]
+pattern = "app.caverco-partners.cl"
+custom_domain = true
