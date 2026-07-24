@@ -6,6 +6,7 @@ import logo from '../assets/caverco-logo.png'
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [verPassword, setVerPassword] = useState(false)
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(false)
   const { login } = useAuth()
@@ -52,7 +53,16 @@ export default function Login() {
             </div>
             <div className="form-group" style={{marginBottom:0}}>
               <label className="form-label">Contraseña</label>
-              <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <div style={{position:'relative'}}>
+                <input className="input" style={{paddingRight:36}} type={verPassword ? 'text' : 'password'}
+                  value={password} onChange={e => setPassword(e.target.value)} required />
+                <button type="button" onClick={() => setVerPassword(v => !v)}
+                  aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  style={{position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
+                    background:'none', border:'none', cursor:'pointer', fontSize:16, lineHeight:1, padding:4}}>
+                  {verPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
             {error && <div className="login-error">{error}</div>}
             <button className="btn btn-primary" type="submit" disabled={cargando}>
