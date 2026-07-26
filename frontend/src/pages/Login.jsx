@@ -20,8 +20,18 @@ export default function Login() {
     try {
       await login(username, password)
       navigate(location.state?.from || '/dashboard', { replace: true })
-    } catch {
-      setError('Usuario o contraseña incorrectos')
+    } catch (err) {
+      if (!err.response) {
+        setError(
+          err.code === 'ECONNABORTED'
+            ? 'El servidor está despertando (puede tardar hasta 1 minuto en la primera carga tras un tiempo inactivo). Intenta de nuevo en unos segundos.'
+            : 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.'
+        )
+      } else if (err.response.status === 401) {
+        setError('Usuario o contraseña incorrectos')
+      } else {
+        setError(err.response.data?.detail || `Error del servidor (${err.response.status})`)
+      }
     } finally {
       setCargando(false)
     }
