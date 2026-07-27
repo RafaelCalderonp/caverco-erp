@@ -210,6 +210,14 @@ export default function ContratoDetalle() {
     setDespidoExpandido(false)
   }
 
+  // Autoguardado: evita perder los datos si se genera el Word sin apretar "Guardar" antes.
+  useEffect(() => {
+    if (formDespido.causal_codigo && formDespido.fecha_termino) {
+      localStorage.setItem(DESPIDO_KEY, JSON.stringify(formDespido))
+      setDespidoGuardado(true)
+    }
+  }, [formDespido, DESPIDO_KEY])
+
   // Auto-cargar colación/movilización del contrato solo si no hay datos guardados
   useEffect(() => {
     if (contrato && !localStorage.getItem(DESPIDO_KEY)) {
