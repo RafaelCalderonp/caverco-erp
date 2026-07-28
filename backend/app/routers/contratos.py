@@ -318,7 +318,7 @@ async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db
     if data.id_obra:
         empleado.id_obra = data.id_obra
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -343,7 +343,7 @@ async def actualizar_contrato(id: int, data: ContratoUpdate, db: AsyncSession = 
         if empleado:
             empleado.id_tipo_contrato = cambios["id_tipo_contrato"]
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -385,7 +385,7 @@ async def finiquitar_contrato(
     contrato.id_motivo_termino = id_motivo_termino
     contrato.fecha_termino_real = fecha_termino_real if isinstance(fecha_termino_real, date) else date.fromisoformat(str(fecha_termino_real))
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -402,7 +402,7 @@ async def ratificar_finiquito(id: int, data: FiniquitoRatificacionCreate, db: As
     contrato.finiquito_fecha_ratificacion = data.fecha_ratificacion
     contrato.finiquito_ministro_fe = data.ministro_fe
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
