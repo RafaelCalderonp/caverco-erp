@@ -149,8 +149,12 @@ export default function Contratos() {
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td style={{display:'flex', gap:6}}>
                     <Link to={`/contratos/${c.id}`} className="btn btn-outline btn-sm">Ver</Link>
+                    <Link to={`/contratos/nuevo?id_empleado=${c.id_empleado}&duplicar_de=${c.id}`}
+                      className="btn btn-outline btn-sm" title="Crear un nuevo contrato para este trabajador (ej. otra obra), copiando los mismos datos salvo obra y fechas">
+                      Duplicar
+                    </Link>
                   </td>
                 </tr>
               )})}

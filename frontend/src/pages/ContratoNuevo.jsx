@@ -53,6 +53,7 @@ export default function ContratoNuevo() {
   const { empresaActual } = useEmpresa()
   const [searchParams] = useSearchParams()
   const idEmpleadoRecontratacion = searchParams.get('id_empleado')
+  const idContratoDuplicar = searchParams.get('duplicar_de')
 
   const [step, setStep] = useState(idEmpleadoRecontratacion ? 2 : 1)
   const [form, setForm] = useState(EMPTY)
@@ -74,6 +75,30 @@ export default function ContratoNuevo() {
       empleadosApi.get(idEmpleadoRecontratacion).then(r => setEmpleadoRecontratacion(r.data)).catch(() => {})
     }
   }, [idEmpleadoRecontratacion])
+
+  // Duplicar un contrato existente: copia todo salvo Obra y fechas (lo único
+  // que cambia normalmente al reasignar a un trabajador a otra obra).
+  useEffect(() => {
+    if (idContratoDuplicar) {
+      contratosApi.get(idContratoDuplicar).then(r => {
+        const c = r.data
+        setForm(f => ({
+          ...f,
+          id_tipo_contrato: c.id_tipo_contrato || '',
+          id_cargo: c.id_cargo || '',
+          id_centro_costo: c.id_centro_costo || '',
+          sueldo_bruto: c.sueldo_bruto || '',
+          colacion: c.colacion || 0,
+          movilizacion: c.movilizacion || 0,
+          horas_semanales: c.horas_semanales || 42,
+          jornada: c.jornada || 'Completa',
+          horario_detalle: c.horario_detalle || HORARIO_DETALLE_DEFAULT,
+          // id_obra, numero_contrato y fechas quedan en blanco: son los datos
+          // que cambian al duplicar el contrato para otra obra.
+        }))
+      }).catch(() => {})
+    }
+  }, [idContratoDuplicar])
 
   useEffect(() => {
     catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
@@ -233,6 +258,12 @@ export default function ContratoNuevo() {
           </h1>
         </div>
       </div>
+      {idContratoDuplicar && (
+        <p className="text-muted" style={{fontSize:13, marginBottom:12}}>
+          Se copiaron sueldo, cargo, centro de costo, jornada y horario del contrato original.
+          Solo falta indicar la Obra y las fechas del nuevo contrato.
+        </p>
+      )}
 
       <div className="wizard-steps">
         {stepsMostrados.map(s => (
