@@ -15,6 +15,8 @@ export const HORARIO_DETALLE_DEFAULT =
   'Lunes a Martes 08:00 a 13:00 horas. y de 14:00 a 18:00 horas.\n' +
   'Miércoles a Viernes: 08:00 a 13:00 horas y de 14:00 a 17:00 horas.'
 
+const HOY = new Date().toISOString().slice(0, 10)
+
 const EMPTY = {
   // Paso 1: trabajador
   rut: '', nombres: '', apellido_paterno: '', apellido_materno: '',
@@ -23,7 +25,7 @@ const EMPTY = {
   telefono: '', email_personal: '', email_corporativo: '', id_departamento: '',
   // Paso 2: contrato
   id_tipo_contrato: '', id_obra: '', id_centro_costo: '', id_cargo: '',
-  numero_contrato: '', fecha_contrato: '', fecha_inicio: '', fecha_termino_pactada: '', plazo_dias: '30',
+  numero_contrato: '', fecha_contrato: HOY, fecha_inicio: HOY, fecha_termino_pactada: '', plazo_dias: '30',
   sueldo_bruto: '553553', colacion: '100000', movilizacion: '100000', horas_semanales: 42, jornada: 'Completa', horario_detalle: HORARIO_DETALLE_DEFAULT,
   // Paso 3: previsión
   id_afp: '', id_isapre: '', valor_isapre_uf: '', n_cargas: 0,
