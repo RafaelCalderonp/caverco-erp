@@ -98,7 +98,11 @@ async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = 
     for k, v in cambios.items():
         setattr(emp, k, v)
     await db.flush()
-    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
+    await db.refresh(emp, ["departamento", "cargo", "centro_costo", "contratos"])
+    for c in emp.contratos:
+        c.n_anexos = (await db.execute(
+            select(func.count()).select_from(AnexoContrato).where(AnexoContrato.id_contrato == c.id)
+        )).scalar_one()
     return emp
 
 @router.delete("/{id}", status_code=204)
