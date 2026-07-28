@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { contratosApi, catalogosApi } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 const ESTADO_BADGE = { vigente: 'badge-green', finiquitado: 'badge-red', anulado: 'badge-gray' }
 
@@ -16,6 +17,7 @@ const ORDEN_OPTS = [
 ]
 
 export default function Contratos() {
+  const { usuario } = useAuth()
   const [contratos, setContratos]       = useState([])
   const [estado, setEstado]             = useState('vigente')
   const [centroCosto, setCentroCosto]   = useState('')
@@ -36,6 +38,17 @@ export default function Contratos() {
   }, [estado])
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
+
+  const eliminarContrato = async (c) => {
+    const nombreEmp = c.empleado ? `${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `#${c.id_empleado}`
+    if (!confirm(`¿Eliminar el contrato ${c.numero_contrato || '#' + c.id} de ${nombreEmp}? Esta acción no se puede deshacer.`)) return
+    try {
+      await contratosApi.delete(c.id)
+      setContratos(prev => prev.filter(x => x.id !== c.id))
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el contrato')
+    }
+  }
 
   const diasParaVencer = (c) => {
     if (c.estado !== 'vigente' || !c.fecha_termino_pactada) return null
@@ -155,6 +168,12 @@ export default function Contratos() {
                       className="btn btn-outline btn-sm" title="Crear un nuevo contrato para este trabajador (ej. otra obra), copiando los mismos datos salvo obra y fechas">
                       Duplicar
                     </Link>
+                    {usuario?.rol === 'SUPERADMIN' && (
+                      <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}}
+                        onClick={() => eliminarContrato(c)}>
+                        Eliminar
+                      </button>
+                    )}
                   </td>
                 </tr>
               )})}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
@@ -345,6 +345,29 @@ async def actualizar_contrato(id: int, data: ContratoUpdate, db: AsyncSession = 
     await db.commit()
     await db.refresh(contrato)
     return contrato
+
+
+@router.delete("/{id}", status_code=204,
+                dependencies=[Depends(require_roles("SUPERADMIN"))])
+async def eliminar_contrato(id: int, db: AsyncSession = Depends(get_db)):
+    """Elimina un contrato y sus registros asociados (anexos, documentos,
+    entregas de EPP, requisitos de obra, pactos de horas extra). No toca al
+    Empleado ni a otros contratos suyos. Reservado a SUPERADMIN: pensado para
+    corregir altas erróneas (ej. contrato duplicado por error), no para bajas
+    reales de trabajadores (que deben registrarse vía Finiquito)."""
+    contrato = await _get_contrato_or_404(id, db)
+    try:
+        await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato == id))
+        await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato == id))
+        await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato == id))
+        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato == id))
+        await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato == id))
+        await db.execute(update(Contrato).where(Contrato.id_contrato_origen == id).values(id_contrato_origen=None))
+        await db.delete(contrato)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"No se pudo eliminar el contrato: {exc}")
 
 
 @router.post("/{id}/finiquitar", response_model=ContratoOut,
