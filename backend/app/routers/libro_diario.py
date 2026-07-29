@@ -362,11 +362,17 @@ async def balance_8_columnas(
     periodo_hasta: Optional[str] = Query(None, description="YYYYMM opcional"),
     db: AsyncSession = Depends(get_db),
 ):
-    # Subquery: sumar debe/haber por cuenta de asientos CONTABILIZADOS en el rango
+    # Los períodos vienen de query params sin validar: nunca interpolarlos
+    # directamente en el SQL (inyección). Se validan aquí y se pasan como
+    # parámetros bind de la consulta.
+    for valor in (periodo, periodo_hasta):
+        if valor is not None and (len(valor) != 6 or not valor.isdigit()):
+            raise HTTPException(400, "periodo y periodo_hasta deben tener formato YYYYMM")
+
     cond_periodo = (
-        f"a.periodo BETWEEN '{periodo}' AND '{periodo_hasta}'"
+        "a.periodo BETWEEN :periodo AND :periodo_hasta"
         if periodo_hasta
-        else f"a.periodo = '{periodo}'"
+        else "a.periodo = :periodo"
     )
 
     sql = text(f"""
@@ -388,7 +394,10 @@ async def balance_8_columnas(
         ORDER BY p.codigo
     """)
 
-    result = await db.execute(sql, {"id_empresa": id_empresa})
+    params = {"id_empresa": id_empresa, "periodo": periodo}
+    if periodo_hasta:
+        params["periodo_hasta"] = periodo_hasta
+    result = await db.execute(sql, params)
     filas = result.mappings().all()
 
     salida = []
