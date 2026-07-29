@@ -29,6 +29,8 @@ class Empresa(Base):
     rut_representante_legal = Column(String(15))
     logo_url            = Column(Text)
     prefijo             = Column(String(10))
+    # 14A | 14D_N3 (Pro Pyme General) | 14D_N8 (Pro Pyme Transparente) | RENTA_PRESUNTA
+    regimen_tributario  = Column(String(20))
     activa              = Column(Boolean, default=True)
     created_at          = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at          = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())

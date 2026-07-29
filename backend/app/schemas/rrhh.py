@@ -3,6 +3,13 @@ from typing import List, Optional
 from datetime import date, datetime
 from decimal import Decimal
 
+REGIMENES_TRIBUTARIOS = {"14A", "14D_N3", "14D_N8", "RENTA_PRESUNTA"}
+
+def _validar_regimen_tributario(v):
+    if v is not None and v not in REGIMENES_TRIBUTARIOS:
+        raise ValueError(f"regimen_tributario debe ser uno de: {', '.join(sorted(REGIMENES_TRIBUTARIOS))}")
+    return v
+
 # ---- Empresa ----
 class EmpresaBase(BaseModel):
     rut: str
@@ -22,6 +29,12 @@ class EmpresaBase(BaseModel):
     rut_representante_legal: str
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
+    regimen_tributario: Optional[str] = None
+
+    @field_validator("regimen_tributario")
+    @classmethod
+    def _regimen_tributario_valido(cls, v):
+        return _validar_regimen_tributario(v)
 
 class EmpresaCreate(EmpresaBase): pass
 
@@ -42,7 +55,13 @@ class EmpresaUpdate(BaseModel):
     rut_representante_legal: Optional[str] = None
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
+    regimen_tributario: Optional[str] = None
     activa: Optional[bool] = None
+
+    @field_validator("regimen_tributario")
+    @classmethod
+    def _regimen_tributario_valido(cls, v):
+        return _validar_regimen_tributario(v)
 
 class EmpresaOut(EmpresaBase):
     id: int

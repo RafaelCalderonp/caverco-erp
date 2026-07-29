@@ -270,6 +270,10 @@ export const libroDiarioApi = {
     api.get(`/empresas/${idEmpresa}/libro-diario/estado-resultados`, {
       params: { periodo, periodo_hasta: periodoHasta },
     }),
+  balanceClasificado:(idEmpresa, periodo) =>
+    api.get(`/empresas/${idEmpresa}/libro-diario/balance-clasificado`, { params: { periodo } }),
+  rentaLiquida:(idEmpresa, anio) =>
+    api.get(`/empresas/${idEmpresa}/libro-diario/renta-liquida`, { params: { anio } }),
 }
 
 export const contabilidadApi = {

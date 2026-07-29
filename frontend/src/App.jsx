@@ -20,6 +20,8 @@ import PlanCuentas from './pages/PlanCuentas'
 import LibroDiario from './pages/LibroDiario'
 import Balance8Columnas from './pages/Balance8Columnas'
 import EstadoResultados from './pages/EstadoResultados'
+import BalanceClasificado from './pages/BalanceClasificado'
+import RentaLiquida from './pages/RentaLiquida'
 import PlantillasContabilizacion from './pages/PlantillasContabilizacion'
 import Capacitaciones from './pages/Capacitaciones'
 import Configuracion from './pages/Configuracion'
@@ -69,6 +71,8 @@ export default function App() {
         <Route path="libro-diario"        element={<RequireEmpresa><LibroDiario /></RequireEmpresa>} />
         <Route path="balance-8-columnas"       element={<RequireEmpresa><Balance8Columnas /></RequireEmpresa>} />
         <Route path="estado-resultados"        element={<RequireEmpresa><EstadoResultados /></RequireEmpresa>} />
+        <Route path="balance-clasificado"      element={<RequireEmpresa><BalanceClasificado /></RequireEmpresa>} />
+        <Route path="renta-liquida"            element={<RequireEmpresa><RentaLiquida /></RequireEmpresa>} />
         <Route path="plantillas-contabilizacion" element={<RequireEmpresa><PlantillasContabilizacion /></RequireEmpresa>} />
         <Route path="configuracion"      element={<Configuracion />} />
         <Route path="usuarios"           element={<Usuarios />} />
