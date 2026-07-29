@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { liquidacionesApi, empleadosApi, catalogosApi } from '../services/api'
+import { liquidacionesApi, empleadosApi, catalogosApi, remuneracionesContabilidadApi } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 const PERIODOS = (() => {
   const arr = []
@@ -193,6 +194,7 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
 }
 
 export default function Liquidaciones() {
+  const { empresaActual } = useEmpresa()
   const [tab, setTab]         = useState('lista')        // 'lista' | 'calcular'
   const [periodo, setPeriodo] = useState(PERIODOS[0])
   const [lista, setLista]     = useState([])
@@ -216,6 +218,10 @@ export default function Liquidaciones() {
   const pendingRef = useRef({})
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
+
+  // Asientos contables de remuneraciones
+  const [estadoContable, setEstadoContable] = useState(null)
+  const [generandoAsiento, setGenerandoAsiento] = useState(false)
 
   const [msg, setMsg] = useState('')
 
@@ -258,6 +264,36 @@ export default function Liquidaciones() {
       .then(r => setPeriodoCerrado(!!r.data.cerrado))
       .catch(() => setPeriodoCerrado(false))
   }, [periodo])
+
+  const cargarEstadoContable = () => {
+    if (!empresaActual) return
+    remuneracionesContabilidadApi.estadoPeriodo(empresaActual.id, periodo)
+      .then(r => setEstadoContable(r.data))
+      .catch(() => setEstadoContable(null))
+  }
+  useEffect(cargarEstadoContable, [empresaActual, periodo])
+
+  async function generarAsientoProvision() {
+    setGenerandoAsiento(true); setMsg('')
+    try {
+      await remuneracionesContabilidadApi.generarProvision(empresaActual.id, periodo)
+      setMsg('✅ Asiento de provisión generado')
+      cargarEstadoContable()
+    } catch (e) {
+      setMsg(e.response?.data?.detail || 'Error generando el asiento de provisión')
+    } finally { setGenerandoAsiento(false) }
+  }
+
+  async function generarAsientoPago() {
+    setGenerandoAsiento(true); setMsg('')
+    try {
+      await remuneracionesContabilidadApi.generarPago(empresaActual.id, periodo)
+      setMsg('✅ Asiento de pago generado')
+      cargarEstadoContable()
+    } catch (e) {
+      setMsg(e.response?.data?.detail || 'Error generando el asiento de pago')
+    } finally { setGenerandoAsiento(false) }
+  }
 
   const toggleCierre = async () => {
     setCambiandoCierre(true); setMsg('')
@@ -483,7 +519,24 @@ export default function Liquidaciones() {
           Este período está cerrado: no se pueden emitir ni pagar liquidaciones para {periodo}.
         </p>
       )}
-      {msg && <p style={{fontSize:12,color:'var(--danger)',marginTop:-8,marginBottom:16}}>{msg}</p>}
+      {msg && <p style={{fontSize:12,marginTop:-8,marginBottom:16, color: msg.startsWith('✅') ? 'var(--success, green)' : 'var(--danger)'}}>{msg}</p>}
+
+      {estadoContable && (
+        <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', background:'var(--gray-50, #fafafa)', border:'1px solid var(--gray-200, #e0e0e0)', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12}}>
+          <strong>Contabilidad:</strong>
+          <span>{estadoContable.n_liquidaciones} liquidaciones ({estadoContable.n_pagadas} pagadas)</span>
+          <button className="btn btn-outline btn-sm" disabled={generandoAsiento || !!estadoContable.id_asiento_provision}
+            onClick={generarAsientoProvision}>
+            {estadoContable.id_asiento_provision ? `✓ Asiento Provisión N° ${estadoContable.id_asiento_provision}` : 'Generar Asiento Provisión'}
+          </button>
+          <button className="btn btn-outline btn-sm" disabled={generandoAsiento || !estadoContable.id_asiento_provision || !!estadoContable.id_asiento_pago}
+            onClick={generarAsientoPago}>
+            {estadoContable.id_asiento_pago ? `✓ Asiento Pago N° ${estadoContable.id_asiento_pago} (Bco. Santander)` : 'Generar Asiento Pago (Bco. Santander)'}
+          </button>
+          <Link to="/config-asientos-remuneraciones" style={{fontSize:11}}>Configurar cuentas</Link>
+        </div>
+      )}
+
       <p style={{fontSize:12,color:'var(--gray-500)',marginTop:-8,marginBottom:16}}>
         Estos archivos se generan a partir de las liquidaciones EMITIDAS del período. Súbelos manualmente en
         previred.com y en el portal Mi DT — la app no inicia sesión por ti.

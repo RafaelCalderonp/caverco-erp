@@ -815,15 +815,16 @@ class AsistenciaGuardarIn(BaseModel):
 @router.post("/asistencia/{periodo}/guardar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def guardar_asistencia_lote(periodo: str, body: AsistenciaGuardarIn, db: AsyncSession = Depends(get_db)):
     """Guarda múltiples celdas de asistencia en una sola transacción."""
+    existentes = {
+        (r.id_empleado, r.dia): r
+        for r in (await db.execute(
+            select(RegistroAsistencia).where(RegistroAsistencia.periodo == periodo)
+        )).scalars().all()
+    }
     for celda in body.celdas:
         if celda.estado not in ("VERDE", "ROJO", "AUSENTE"):
             continue
-        row = (await db.execute(
-            select(RegistroAsistencia)
-            .where(RegistroAsistencia.periodo == periodo)
-            .where(RegistroAsistencia.id_empleado == celda.id_empleado)
-            .where(RegistroAsistencia.dia == celda.dia)
-        )).scalar_one_or_none()
+        row = existentes.get((celda.id_empleado, celda.dia))
         if row:
             row.estado = celda.estado
         else:

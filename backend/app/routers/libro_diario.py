@@ -157,7 +157,21 @@ async def listar(
     estado:     Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(AsientoContable).where(AsientoContable.id_empresa == id_empresa)
+    totales = (
+        select(
+            AsientoLinea.id_asiento,
+            func.coalesce(func.sum(AsientoLinea.debe), 0).label("total_debe"),
+            func.coalesce(func.sum(AsientoLinea.haber), 0).label("total_haber"),
+        )
+        .group_by(AsientoLinea.id_asiento)
+        .subquery()
+    )
+
+    q = (
+        select(AsientoContable, totales.c.total_debe, totales.c.total_haber)
+        .outerjoin(totales, totales.c.id_asiento == AsientoContable.id)
+        .where(AsientoContable.id_empresa == id_empresa)
+    )
     if periodo:
         q = q.where(AsientoContable.periodo == periodo)
     if tipo:
@@ -166,21 +180,16 @@ async def listar(
         q = q.where(AsientoContable.estado == estado.upper())
     q = q.order_by(AsientoContable.fecha, AsientoContable.numero)
 
-    result = await db.execute(q)
-    asientos = result.scalars().all()
+    filas = (await db.execute(q)).all()
 
-    salida = []
-    for a in asientos:
-        lineas_r = await db.execute(select(AsientoLinea).where(AsientoLinea.id_asiento == a.id))
-        lineas = lineas_r.scalars().all()
-        total_debe  = sum(l.debe  or 0 for l in lineas)
-        total_haber = sum(l.haber or 0 for l in lineas)
-        salida.append(AsientoListOut(
+    return [
+        AsientoListOut(
             id=a.id, numero=a.numero, tipo=a.tipo, fecha=a.fecha,
             periodo=a.periodo, glosa=a.glosa, estado=a.estado,
-            total_debe=total_debe, total_haber=total_haber,
-        ))
-    return salida
+            total_debe=total_debe or 0, total_haber=total_haber or 0,
+        )
+        for a, total_debe, total_haber in filas
+    ]
 
 
 @router.post("", response_model=AsientoOut, dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])

@@ -276,6 +276,19 @@ export const libroDiarioApi = {
     api.get(`/empresas/${idEmpresa}/libro-diario/renta-liquida`, { params: { anio } }),
 }
 
+export const remuneracionesContabilidadApi = {
+  obtenerConfig: (idEmpresa) =>
+    api.get(`/empresas/${idEmpresa}/remuneraciones-contabilidad/config`),
+  guardarConfig: (idEmpresa, data) =>
+    api.put(`/empresas/${idEmpresa}/remuneraciones-contabilidad/config`, data),
+  estadoPeriodo: (idEmpresa, periodo) =>
+    api.get(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}`),
+  generarProvision: (idEmpresa, periodo) =>
+    api.post(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}/generar-provision`),
+  generarPago: (idEmpresa, periodo) =>
+    api.post(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}/generar-pago`),
+}
+
 export const contabilidadApi = {
   listarRcv: (idEmpresa, periodo, operacion) =>
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv`, { params: { periodo, operacion } }),

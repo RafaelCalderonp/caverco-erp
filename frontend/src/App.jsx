@@ -22,6 +22,7 @@ import Balance8Columnas from './pages/Balance8Columnas'
 import EstadoResultados from './pages/EstadoResultados'
 import BalanceClasificado from './pages/BalanceClasificado'
 import RentaLiquida from './pages/RentaLiquida'
+import ConfigAsientosRemuneraciones from './pages/ConfigAsientosRemuneraciones'
 import PlantillasContabilizacion from './pages/PlantillasContabilizacion'
 import Capacitaciones from './pages/Capacitaciones'
 import Configuracion from './pages/Configuracion'
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="estado-resultados"        element={<RequireEmpresa><EstadoResultados /></RequireEmpresa>} />
         <Route path="balance-clasificado"      element={<RequireEmpresa><BalanceClasificado /></RequireEmpresa>} />
         <Route path="renta-liquida"            element={<RequireEmpresa><RentaLiquida /></RequireEmpresa>} />
+        <Route path="config-asientos-remuneraciones" element={<RequireEmpresa><ConfigAsientosRemuneraciones /></RequireEmpresa>} />
         <Route path="plantillas-contabilizacion" element={<RequireEmpresa><PlantillasContabilizacion /></RequireEmpresa>} />
         <Route path="configuracion"      element={<Configuracion />} />
         <Route path="usuarios"           element={<Usuarios />} />
