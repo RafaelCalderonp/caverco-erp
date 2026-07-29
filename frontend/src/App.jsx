@@ -19,6 +19,7 @@ import Contabilidad from './pages/Contabilidad'
 import PlanCuentas from './pages/PlanCuentas'
 import LibroDiario from './pages/LibroDiario'
 import Balance8Columnas from './pages/Balance8Columnas'
+import EstadoResultados from './pages/EstadoResultados'
 import PlantillasContabilizacion from './pages/PlantillasContabilizacion'
 import Capacitaciones from './pages/Capacitaciones'
 import Configuracion from './pages/Configuracion'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="plan-cuentas"        element={<PlanCuentas />} />
         <Route path="libro-diario"        element={<RequireEmpresa><LibroDiario /></RequireEmpresa>} />
         <Route path="balance-8-columnas"       element={<RequireEmpresa><Balance8Columnas /></RequireEmpresa>} />
+        <Route path="estado-resultados"        element={<RequireEmpresa><EstadoResultados /></RequireEmpresa>} />
         <Route path="plantillas-contabilizacion" element={<RequireEmpresa><PlantillasContabilizacion /></RequireEmpresa>} />
         <Route path="configuracion"      element={<Configuracion />} />
         <Route path="usuarios"           element={<Usuarios />} />

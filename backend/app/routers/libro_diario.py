@@ -421,3 +421,87 @@ async def balance_8_columnas(
             activo=activo, pasivo=pasivo, perdidas=perdidas, ganancias=ganancias,
         ))
     return salida
+
+
+# ── Estado de Resultados ──────────────────────────────────────────────────────
+
+class EstadoResultadosFilaOut(BaseModel):
+    id_cuenta: int
+    codigo:    str
+    nombre:    str
+    monto:     Decimal
+
+
+class EstadoResultadosOut(BaseModel):
+    ingresos:       List[EstadoResultadosFilaOut]
+    total_ingresos: Decimal
+    egresos:        List[EstadoResultadosFilaOut]
+    total_egresos:  Decimal
+    resultado:      Decimal  # total_ingresos - total_egresos (utilidad si > 0, pérdida si < 0)
+
+
+@router.get("/estado-resultados", response_model=EstadoResultadosOut)
+async def estado_resultados(
+    id_empresa:    int,
+    periodo:       str = Query(..., description="YYYYMM"),
+    periodo_hasta: Optional[str] = Query(None, description="YYYYMM opcional, para acumulado"),
+    db: AsyncSession = Depends(get_db),
+):
+    for valor in (periodo, periodo_hasta):
+        if valor is not None and (len(valor) != 6 or not valor.isdigit()):
+            raise HTTPException(400, "periodo y periodo_hasta deben tener formato YYYYMM")
+
+    cond_periodo = (
+        "a.periodo BETWEEN :periodo AND :periodo_hasta"
+        if periodo_hasta
+        else "a.periodo = :periodo"
+    )
+
+    sql = text(f"""
+        SELECT
+            p.id   AS id_cuenta,
+            p.codigo,
+            p.nombre,
+            p.tipo,
+            COALESCE(SUM(l.debe),  0) AS suma_debe,
+            COALESCE(SUM(l.haber), 0) AS suma_haber
+        FROM erp.plan_cuentas p
+        JOIN erp.asiento_lineas l ON l.id_cuenta = p.id
+        JOIN erp.asientos_contables a ON a.id = l.id_asiento
+        WHERE a.id_empresa = :id_empresa
+          AND a.estado = 'CONTABILIZADO'
+          AND {cond_periodo}
+          AND p.nivel = 'D'
+          AND p.tipo IN ('INGRESO', 'EGRESO')
+        GROUP BY p.id, p.codigo, p.nombre, p.tipo
+        ORDER BY p.codigo
+    """)
+
+    params = {"id_empresa": id_empresa, "periodo": periodo}
+    if periodo_hasta:
+        params["periodo_hasta"] = periodo_hasta
+    filas = (await db.execute(sql, params)).mappings().all()
+
+    ingresos, egresos = [], []
+    total_ingresos = total_egresos = Decimal("0")
+    for f in filas:
+        debe  = Decimal(str(f["suma_debe"]))
+        haber = Decimal(str(f["suma_haber"]))
+        if f["tipo"] == "INGRESO":
+            monto = max(haber - debe, Decimal("0"))
+            if monto == 0:
+                continue
+            total_ingresos += monto
+            ingresos.append(EstadoResultadosFilaOut(id_cuenta=f["id_cuenta"], codigo=f["codigo"], nombre=f["nombre"], monto=monto))
+        else:
+            monto = max(debe - haber, Decimal("0"))
+            if monto == 0:
+                continue
+            total_egresos += monto
+            egresos.append(EstadoResultadosFilaOut(id_cuenta=f["id_cuenta"], codigo=f["codigo"], nombre=f["nombre"], monto=monto))
+
+    return EstadoResultadosOut(
+        ingresos=ingresos, total_ingresos=total_ingresos,
+        egresos=egresos, total_egresos=total_egresos,
+        resultado=total_ingresos - total_egresos,
+    )
