@@ -38,9 +38,7 @@ CONCEPTOS = [
     "id_cuenta_gasto_remuneraciones",
     "id_cuenta_gasto_colacion_movilizacion",
     "id_cuenta_gasto_cotizaciones_patronales",
-    "id_cuenta_prevision_por_pagar",
-    "id_cuenta_cesantia_por_pagar",
-    "id_cuenta_salud_por_pagar",
+    "id_cuenta_previred_por_pagar",
     "id_cuenta_impuesto_unico_por_pagar",
     "id_cuenta_anticipos_prestamos",
     "id_cuenta_remuneraciones_por_pagar",
@@ -64,9 +62,7 @@ class ConfigOut(BaseModel):
     id_cuenta_gasto_remuneraciones: Optional[int] = None
     id_cuenta_gasto_colacion_movilizacion: Optional[int] = None
     id_cuenta_gasto_cotizaciones_patronales: Optional[int] = None
-    id_cuenta_prevision_por_pagar: Optional[int] = None
-    id_cuenta_cesantia_por_pagar: Optional[int] = None
-    id_cuenta_salud_por_pagar: Optional[int] = None
+    id_cuenta_previred_por_pagar: Optional[int] = None
     id_cuenta_impuesto_unico_por_pagar: Optional[int] = None
     id_cuenta_anticipos_prestamos: Optional[int] = None
     id_cuenta_remuneraciones_por_pagar: Optional[int] = None
@@ -78,9 +74,7 @@ class ConfigIn(BaseModel):
     id_cuenta_gasto_remuneraciones: Optional[int] = None
     id_cuenta_gasto_colacion_movilizacion: Optional[int] = None
     id_cuenta_gasto_cotizaciones_patronales: Optional[int] = None
-    id_cuenta_prevision_por_pagar: Optional[int] = None
-    id_cuenta_cesantia_por_pagar: Optional[int] = None
-    id_cuenta_salud_por_pagar: Optional[int] = None
+    id_cuenta_previred_por_pagar: Optional[int] = None
     id_cuenta_impuesto_unico_por_pagar: Optional[int] = None
     id_cuenta_anticipos_prestamos: Optional[int] = None
     id_cuenta_remuneraciones_por_pagar: Optional[int] = None
@@ -163,10 +157,14 @@ async def _totales_periodo(db: AsyncSession, id_empresa: int, periodo: str) -> d
             func.coalesce(func.sum(Liquidacion.colacion + Liquidacion.movilizacion + Liquidacion.viaticos), 0),
             func.coalesce(func.sum(Liquidacion.afc_empleador + Liquidacion.sis_empleador +
                                     Liquidacion.aporte_empleador_afp + Liquidacion.seguro_social_empleador), 0),
-            func.coalesce(func.sum(Liquidacion.descuento_afp + Liquidacion.aporte_empleador_afp +
-                                    Liquidacion.sis_empleador + Liquidacion.seguro_social_empleador), 0),
-            func.coalesce(func.sum(Liquidacion.afc_trabajador + Liquidacion.afc_empleador), 0),
-            func.coalesce(func.sum(Liquidacion.descuento_salud + Liquidacion.adicional_salud), 0),
+            # Previred por Pagar: todo lo que se entera junto en la planilla mensual
+            # (AFP + SIS + Seguro Social + AFC + Isapre/Fonasa, trabajador y empleador)
+            func.coalesce(func.sum(
+                Liquidacion.descuento_afp + Liquidacion.aporte_empleador_afp +
+                Liquidacion.sis_empleador + Liquidacion.seguro_social_empleador +
+                Liquidacion.afc_trabajador + Liquidacion.afc_empleador +
+                Liquidacion.descuento_salud + Liquidacion.adicional_salud
+            ), 0),
             func.coalesce(func.sum(Liquidacion.impuesto_unico), 0),
             func.coalesce(func.sum(Liquidacion.anticipo + Liquidacion.prestamo), 0),
             func.coalesce(func.sum(Liquidacion.liquido_a_pagar), 0),
@@ -177,7 +175,7 @@ async def _totales_periodo(db: AsyncSession, id_empresa: int, periodo: str) -> d
     campos = [
         "n_liquidaciones", "n_pagadas",
         "gasto_remuneraciones", "gasto_colacion_movilizacion", "gasto_cotizaciones_patronales",
-        "prevision_por_pagar", "cesantia_por_pagar", "salud_por_pagar", "impuesto_unico_por_pagar",
+        "previred_por_pagar", "impuesto_unico_por_pagar",
         "anticipos_prestamos", "remuneraciones_por_pagar", "total_liquido_pagado",
     ]
     return dict(zip(campos, row))
@@ -244,9 +242,7 @@ async def generar_provision(id_empresa: int, periodo: str, db: AsyncSession = De
         (cfg.id_cuenta_gasto_remuneraciones,          "Sueldos y haberes imponibles", t["gasto_remuneraciones"], Decimal("0")),
         (cfg.id_cuenta_gasto_colacion_movilizacion,   "Colación, movilización y viáticos", t["gasto_colacion_movilizacion"], Decimal("0")),
         (cfg.id_cuenta_gasto_cotizaciones_patronales, "Aportes patronales (AFC/SIS/Seg. Social)", t["gasto_cotizaciones_patronales"], Decimal("0")),
-        (cfg.id_cuenta_prevision_por_pagar,           "AFP/SIS/Seguro Social por pagar", Decimal("0"), t["prevision_por_pagar"]),
-        (cfg.id_cuenta_cesantia_por_pagar,            "AFC por pagar", Decimal("0"), t["cesantia_por_pagar"]),
-        (cfg.id_cuenta_salud_por_pagar,                "Isapre/Fonasa por pagar", Decimal("0"), t["salud_por_pagar"]),
+        (cfg.id_cuenta_previred_por_pagar,            "Previred por pagar (AFP/SIS/Seg. Social/AFC/Salud)", Decimal("0"), t["previred_por_pagar"]),
         (cfg.id_cuenta_impuesto_unico_por_pagar,      "Impuesto único retenido por pagar (SII)", Decimal("0"), t["impuesto_unico_por_pagar"]),
         (cfg.id_cuenta_anticipos_prestamos,           "Anticipos y préstamos descontados", Decimal("0"), t["anticipos_prestamos"]),
         (cfg.id_cuenta_remuneraciones_por_pagar,      "Remuneraciones por pagar a trabajadores", Decimal("0"), t["remuneraciones_por_pagar"]),

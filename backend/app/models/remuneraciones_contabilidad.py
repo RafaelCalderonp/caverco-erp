@@ -13,9 +13,7 @@ class PlantillaAsientoRemuneraciones(Base):
     id_cuenta_gasto_colacion_movilizacion   = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
     id_cuenta_gasto_cotizaciones_patronales = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
 
-    id_cuenta_prevision_por_pagar      = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
-    id_cuenta_cesantia_por_pagar       = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
-    id_cuenta_salud_por_pagar          = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
+    id_cuenta_previred_por_pagar       = Column(Integer, ForeignKey("erp.plan_cuentas.id"))  # AFP+SIS+Seg.Social+AFC+Isapre/Fonasa
     id_cuenta_impuesto_unico_por_pagar = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
     id_cuenta_anticipos_prestamos      = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
     id_cuenta_remuneraciones_por_pagar = Column(Integer, ForeignKey("erp.plan_cuentas.id"))
