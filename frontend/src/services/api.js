@@ -228,7 +228,12 @@ export const capacitacionesApi = {
 }
 
 export const planCuentasApi = {
-  list: () => api.get('/plan-cuentas'),
+  list:      (idEmpresa, incluirInactivas) =>
+    api.get(`/empresas/${idEmpresa}/plan-cuentas`, { params: incluirInactivas ? { incluir_inactivas: true } : {} }),
+  crear:     (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/plan-cuentas`, data),
+  actualizar:(idEmpresa, id, data) => api.put(`/empresas/${idEmpresa}/plan-cuentas/${id}`, data),
+  activar:   (idEmpresa, id, activa) => api.patch(`/empresas/${idEmpresa}/plan-cuentas/${id}/activar`, null, { params: { activa } }),
+  eliminar:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/plan-cuentas/${id}`),
 }
 
 export const plantillasApi = {

@@ -46,8 +46,9 @@ export default function PlantillasContabilizacion() {
 
   useEffect(() => { cargarPlantillas() }, [cargarPlantillas])
   useEffect(() => {
-    planCuentasApi.list().then(r => setCuentas(r.data)).catch(() => {})
-  }, [])
+    if (!empresaActual) return
+    planCuentasApi.list(empresaActual.id).then(r => setCuentas(r.data)).catch(() => {})
+  }, [empresaActual])
 
   const cuentasDetalle = cuentas.filter(c => c.nivel === 'D')
 
