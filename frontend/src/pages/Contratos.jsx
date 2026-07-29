@@ -5,6 +5,26 @@ import { useAuth } from '../context/AuthContext'
 
 const ESTADO_BADGE = { vigente: 'badge-green', finiquitado: 'badge-red', anulado: 'badge-gray' }
 
+function IconBtn({ as: Tag = 'button', icon, title, danger, ...props }) {
+  return (
+    <Tag
+      title={title}
+      aria-label={title}
+      {...props}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, borderRadius: '50%',
+        border: `1px solid ${danger ? 'var(--danger)' : 'var(--gray-300)'}`,
+        background: '#fff', color: danger ? 'var(--danger)' : 'var(--gray-600)',
+        fontSize: 13, lineHeight: 1, cursor: 'pointer', textDecoration: 'none',
+        ...props.style,
+      }}
+    >
+      {icon}
+    </Tag>
+  )
+}
+
 const ORDEN_OPTS = [
   { value: 'numero_asc',  label: 'N° Contrato ↑' },
   { value: 'numero_desc', label: 'N° Contrato ↓' },
@@ -141,20 +161,20 @@ export default function Contratos() {
               {!loading && lista.length === 0 && (
                 <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
               )}
-              {lista.map(c => {
+              {lista.map((c, i) => {
                 const dias = diasParaVencer(c)
                 const cc = centrosCosto.find(x => x.id === c.id_centro_costo)
                 return (
-                <tr key={c.id}>
-                  <td>{c.numero_contrato || `#${c.id}`}</td>
-                  <td className="text-muted">
+                <tr key={c.id} style={{background: i % 2 === 1 ? 'var(--gray-50)' : 'transparent'}}>
+                  <td style={{padding:'7px 14px'}}>{c.numero_contrato || `#${c.id}`}</td>
+                  <td className="text-muted" style={{padding:'7px 14px'}}>
                     {c.empleado ? `${c.empleado.codigo || '#' + c.empleado.id} — ${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Empleado #${c.id_empleado}`}
                   </td>
-                  <td className="text-muted">{cc ? `${cc.codigo} — ${cc.nombre}` : '—'}</td>
-                  <td className="text-muted">{c.fecha_inicio}</td>
-                  <td>{fmt(c.sueldo_bruto)}</td>
-                  <td>{c.jornada}</td>
-                  <td>
+                  <td className="text-muted" style={{padding:'7px 14px'}}>{cc ? `${cc.codigo} — ${cc.nombre}` : '—'}</td>
+                  <td className="text-muted" style={{padding:'7px 14px'}}>{c.fecha_inicio}</td>
+                  <td style={{padding:'7px 14px'}}>{fmt(c.sueldo_bruto)}</td>
+                  <td style={{padding:'7px 14px'}}>{c.jornada}</td>
+                  <td style={{padding:'7px 14px'}}>
                     <span className={`badge ${ESTADO_BADGE[c.estado] || 'badge-gray'}`}>{c.estado}</span>
                     {dias !== null && dias <= 7 && (
                       <span className={`badge ${dias <= 1 ? 'badge-red' : 'badge-orange'}`} style={{marginLeft:6}}>
@@ -162,17 +182,12 @@ export default function Contratos() {
                       </span>
                     )}
                   </td>
-                  <td style={{display:'flex', gap:6}}>
-                    <Link to={`/contratos/${c.id}`} className="btn btn-outline btn-sm">Ver</Link>
-                    <Link to={`/contratos/nuevo?id_empleado=${c.id_empleado}&duplicar_de=${c.id}`}
-                      className="btn btn-outline btn-sm" title="Crear un nuevo contrato para este trabajador (ej. otra obra), copiando los mismos datos salvo obra y fechas">
-                      Duplicar
-                    </Link>
+                  <td style={{padding:'7px 14px', display:'flex', gap:6}}>
+                    <IconBtn as={Link} to={`/contratos/${c.id}`} icon="👁️" title="Ver contrato" />
+                    <IconBtn as={Link} to={`/contratos/nuevo?id_empleado=${c.id_empleado}&duplicar_de=${c.id}`}
+                      icon="⧉" title="Duplicar: crear un nuevo contrato para este trabajador (ej. otra obra), copiando los mismos datos salvo obra y fechas" />
                     {usuario?.rol === 'SUPERADMIN' && (
-                      <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}}
-                        onClick={() => eliminarContrato(c)}>
-                        Eliminar
-                      </button>
+                      <IconBtn icon="✕" danger title="Eliminar contrato" onClick={() => eliminarContrato(c)} />
                     )}
                   </td>
                 </tr>
