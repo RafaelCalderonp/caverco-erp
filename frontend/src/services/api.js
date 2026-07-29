@@ -304,4 +304,8 @@ export const contabilidadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  libro: (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro`, { params: { periodo, operacion } }),
+  exportarLibro: (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro/export`, { params: { periodo, operacion }, responseType: 'blob' }),
 }

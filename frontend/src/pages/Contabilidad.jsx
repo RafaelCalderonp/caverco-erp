@@ -31,15 +31,34 @@ export default function Contabilidad() {
   const [msg, setMsg] = useState(null)
 
   const periodo = `${año}${String(mes).padStart(2, '0')}`
+  const [resumen, setResumen] = useState([])
+  const [totales, setTotales] = useState(null)
 
   const cargarDocs = () => {
     if (!idEmpresa) return
     contabilidadApi.listarRcv(idEmpresa, periodo, operacion)
       .then(r => setDocs(r.data))
       .catch(() => setDocs([]))
+    contabilidadApi.libro(idEmpresa, periodo, operacion)
+      .then(r => { setResumen(r.data.resumen_por_tipo_doc); setTotales(r.data.totales) })
+      .catch(() => { setResumen([]); setTotales(null) })
   }
 
   useEffect(cargarDocs, [idEmpresa, periodo, operacion])
+
+  const exportarLibro = async () => {
+    try {
+      const r = await contabilidadApi.exportarLibro(idEmpresa, periodo, operacion)
+      const nombre = `libro_${operacion === 'COMPRA' ? 'compras' : 'ventas'}_${periodo}.csv`
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a = document.createElement('a')
+      a.href = url; a.download = nombre
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setMsg('Error al exportar el libro')
+    }
+  }
 
   const cargarArchivo = async () => {
     if (!archivos || archivos.length === 0) return
@@ -100,6 +119,53 @@ export default function Contabilidad() {
           <div style={{fontSize:13, marginTop:12, color: msg.startsWith('✅') ? 'var(--success)' : 'var(--danger)'}}>
             {msg}
           </div>
+        )}
+      </div>
+
+      <div className="card" style={{marginBottom: 16}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600, margin:0}}>
+            Libro de {operacion === 'COMPRA' ? 'Compras' : 'Ventas'} — {MESES[mes-1]} {año}
+          </h3>
+          <button className="btn btn-outline btn-sm" onClick={exportarLibro} disabled={!totales || totales.cantidad === 0}>
+            ⬇️ Exportar CSV
+          </button>
+        </div>
+        <p style={{fontSize:12, color:'var(--gray-500)', marginBottom:12}}>
+          Espejo del RCV cargado, resumido por tipo de documento — mismo formato que el libro tributario mensual del SII.
+        </p>
+        {!totales || totales.cantidad === 0 ? (
+          <p className="text-muted">No hay documentos para {MESES[mes-1]} {año}.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tipo Documento</th><th>Cantidad</th><th>Exento</th><th>Neto</th><th>IVA</th><th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumen.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.tipo_doc_nombre || r.tipo_doc || 'Sin tipo'}</td>
+                  <td>{r.cantidad}</td>
+                  <td>{CLP(r.monto_exento)}</td>
+                  <td>{CLP(r.monto_neto)}</td>
+                  <td>{CLP(r.monto_iva)}</td>
+                  <td>{CLP(r.monto_total)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{fontWeight:700}}>
+                <td>TOTALES</td>
+                <td>{totales.cantidad}</td>
+                <td>{CLP(totales.monto_exento)}</td>
+                <td>{CLP(totales.monto_neto)}</td>
+                <td>{CLP(totales.monto_iva)}</td>
+                <td>{CLP(totales.monto_total)}</td>
+              </tr>
+            </tfoot>
+          </table>
         )}
       </div>
 
