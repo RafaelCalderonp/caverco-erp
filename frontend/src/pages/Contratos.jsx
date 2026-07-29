@@ -13,10 +13,10 @@ function IconBtn({ as: Tag = 'button', icon, title, danger, ...props }) {
       {...props}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, borderRadius: '50%',
+        width: 20, height: 20, borderRadius: '50%',
         border: `1px solid ${danger ? 'var(--danger)' : 'var(--gray-300)'}`,
         background: '#fff', color: danger ? 'var(--danger)' : 'var(--gray-600)',
-        fontSize: 13, lineHeight: 1, cursor: 'pointer', textDecoration: 'none',
+        fontSize: 9, lineHeight: 1, cursor: 'pointer', textDecoration: 'none',
         ...props.style,
       }}
     >
