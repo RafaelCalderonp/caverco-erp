@@ -25,7 +25,8 @@ async def listar_empleados(
 ):
     q = select(Empleado).options(
         selectinload(Empleado.departamento),
-        selectinload(Empleado.cargo)
+        selectinload(Empleado.cargo),
+        selectinload(Empleado.centro_costo),
     )
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)

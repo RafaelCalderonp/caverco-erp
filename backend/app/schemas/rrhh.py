@@ -261,6 +261,7 @@ class EmpleadoListOut(BaseModel):
     sueldo_base: Optional[Decimal] = None
     departamento: Optional[DepartamentoOut] = None
     cargo: Optional[CargoOut] = None
+    centro_costo: Optional[CentroCostoOut] = None
     model_config = {"from_attributes": True}
 
 # ---- Contrato ----
