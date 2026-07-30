@@ -65,6 +65,7 @@ export default function Empleados() {
 
   const initials = (e) => `${e.nombres?.[0] || ''}${e.apellido_paterno?.[0] || ''}`.toUpperCase()
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
+  const fmtFecha = (f) => f ? f.slice(2) : '—'  // YYYY-MM-DD -> YY-MM-DD
 
   const ordenarPor = (key) => {
     setOrden(o => o.key === key ? { key, dir: -o.dir } : { key, dir: 1 })
@@ -136,20 +137,21 @@ export default function Empleados() {
               )}
               {lista.map((e, i) => (
                 <tr key={e.id} style={{background: i % 2 === 1 ? 'var(--gray-50)' : 'transparent'}}>
-                  <td style={{padding:'5px 10px'}}><span className="badge badge-blue">{e.codigo || '—'}</span></td>
+                  <td style={{padding:'5px 10px', whiteSpace:'nowrap'}}><span className="badge badge-blue">{e.codigo || '—'}</span></td>
                   <td style={{padding:'5px 10px'}}>
                     <div className="flex items-center gap-2">
                       <div className="avatar" style={{width:22, height:22, fontSize:10}}>{initials(e)}</div>
                       <span>{e.nombres} {e.apellido_paterno}</span>
                     </div>
                   </td>
-                  <td className="text-muted" style={{padding:'5px 10px'}}>{e.rut}</td>
+                  <td className="text-muted" style={{padding:'5px 10px', whiteSpace:'nowrap'}}>{e.rut}</td>
                   <td style={{padding:'5px 10px'}}>{e.cargo?.nombre || '—'}</td>
-                  <td className="text-muted" style={{padding:'5px 10px'}}>
-                    {e.centro_costo ? `${e.centro_costo.codigo} — ${e.centro_costo.nombre}` : '—'}
+                  <td className="text-muted" style={{padding:'5px 10px', whiteSpace:'nowrap'}}
+                    title={e.centro_costo?.nombre || ''}>
+                    {e.centro_costo?.codigo || '—'}
                   </td>
-                  <td style={{padding:'5px 10px'}}>{fmt(e.sueldo_base)}</td>
-                  <td className="text-muted" style={{padding:'5px 10px'}}>{e.fecha_ingreso}</td>
+                  <td style={{padding:'5px 10px', whiteSpace:'nowrap'}}>{fmt(e.sueldo_base)}</td>
+                  <td className="text-muted" style={{padding:'5px 10px', whiteSpace:'nowrap'}}>{fmtFecha(e.fecha_ingreso)}</td>
                   <td style={{padding:'5px 10px'}}>
                     <span className={`badge ${e.activo ? 'badge-green' : 'badge-red'}`}>
                       {e.activo ? 'Activo' : 'Inactivo'}
