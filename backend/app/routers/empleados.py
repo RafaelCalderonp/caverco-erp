@@ -67,7 +67,7 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     for c in emp.contratos:
         c.n_anexos = len(c.anexos)
     return emp
@@ -80,14 +80,14 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
             continue
         entidad = await db.get(modelo, valor)
         if entidad is None or entidad.id_empresa != data["id_empresa"]:
-            raise HTTPException(status_code=400, detail=f"{etiqueta} no pertenece a la misma empresa del empleado")
+            raise HTTPException(status_code=400, detail=f"{etiqueta} no pertenece a la misma empresa del trabajador")
 
 @router.patch("/{id}", response_model=EmpleadoOut)
 async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Empleado).where(Empleado.id == id))
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     cambios = data.model_dump(exclude_none=True)
     if {"id_departamento", "id_cargo", "id_centro_costo"} & cambios.keys():
         await _validar_consistencia_empresa({
@@ -115,7 +115,7 @@ async def desactivar_empleado(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Empleado).where(Empleado.id == id))
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     emp.activo = False
 
 
@@ -127,7 +127,7 @@ async def eliminar_empleado_definitivo(id: int, db: AsyncSession = Depends(get_d
     no para bajas reales (que deben quedar registradas vía desactivación)."""
     emp = await db.get(Empleado, id)
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
     try:
         result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
@@ -171,7 +171,7 @@ async def exportar_datos_personales(id: int, db: AsyncSession = Depends(get_db))
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
     datos_personales = {
         "rut": emp.rut, "nombres": emp.nombres,

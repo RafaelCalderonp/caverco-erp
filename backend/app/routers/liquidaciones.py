@@ -109,7 +109,7 @@ async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     return emp
 
 def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiquidacion:
@@ -330,7 +330,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         )
     )
     if dup.scalar_one_or_none():
-        raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
+        raise HTTPException(409, f"Ya existe liquidación para el trabajador {req.id_empleado} en período {req.periodo}")
 
     await _verificar_periodo_abierto(req.periodo, db)
 
@@ -383,7 +383,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         await db.flush()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
+        raise HTTPException(409, f"Ya existe liquidación para el trabajador {req.id_empleado} en período {req.periodo}")
     await db.refresh(liq)
     return liq
 
@@ -504,7 +504,7 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     )
     empleado = emp.scalar_one_or_none()
     if not empleado:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
 
     empresa_res = await db.execute(select(Empresa).where(Empresa.id == liq.id_empresa))
     empresa = empresa_res.scalar_one_or_none()

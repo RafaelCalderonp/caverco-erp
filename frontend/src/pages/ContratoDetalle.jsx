@@ -1082,7 +1082,7 @@ export default function ContratoDetalle() {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
-          {[['Empleado', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
+          {[['Trabajador', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
             ['Teléfono', contrato.empleado?.telefono],
             ['Correo', contrato.empleado?.email_corporativo],
             ['Tipo de Contrato', tiposContrato.find(t => t.id === contrato.id_tipo_contrato)?.nombre || (contrato.id_tipo_contrato ? `#${contrato.id_tipo_contrato}` : '—')],

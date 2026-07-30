@@ -481,7 +481,7 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
               )}
               <select className="form-control" style={{ width: 'auto', fontSize: 12 }}
                 onChange={e => { const emp = empleados.find(x => String(x.id) === e.target.value); if (emp) addEmpleadoCap(emp); e.target.value = '' }}>
-                <option value="">+ Desde empleados...</option>
+                <option value="">+ Desde trabajadores...</option>
                 {empleados.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.nombres} {emp.apellido_paterno} — {emp.rut}

@@ -94,7 +94,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
     """
     empleado = await db.get(Empleado, data["id_empleado"])
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     id_empresa = empleado.id_empresa
 
     # Regla 1: la empresa debe tener al menos un cargo
@@ -131,7 +131,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
             continue
         entidad = await db.get(modelo, valor)
         if entidad is None or entidad.id_empresa != id_empresa:
-            raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del empleado")
+            raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del trabajador")
 
 
 @router.get("/{id}", response_model=ContratoOut)
@@ -176,7 +176,7 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
     empleado = await db.get(Empleado, contrato.id_empleado)
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     empresa = await db.get(Empresa, empleado.id_empresa)
     cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
     obra = await db.get(Obra, contrato.id_obra) if contrato.id_obra else None
@@ -428,7 +428,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
 
     empleado = await db.get(Empleado, contrato.id_empleado)
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     empresa = await db.get(Empresa, empleado.id_empresa)
     cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
 
@@ -938,7 +938,7 @@ async def descargar_finiquito_word(
     cargo    = await db.get(Cargo, empleado.id_cargo) if (empleado and empleado.id_cargo) else None
 
     if not empresa or not empleado:
-        raise HTTPException(status_code=400, detail="Contrato sin empresa o empleado")
+        raise HTTPException(status_code=400, detail="Contrato sin empresa o trabajador")
 
     sueldo       = Decimal(str(contrato.sueldo_bruto or 0))
     colacion     = Decimal(str(colacion_mensual))

@@ -8,7 +8,7 @@ const CAMPOS = [
   { key: 'id_cuenta_gasto_cotizaciones_patronales', label: 'Gasto: Aportes Patronales (AFC/SIS/Seg. Social)', grupo: 'Gastos (DEBE)' },
   { key: 'id_cuenta_previred_por_pagar',            label: 'Previred por Pagar (AFP/SIS/Seg. Social/AFC/Salud)', grupo: 'Pasivos (HABER)' },
   { key: 'id_cuenta_impuesto_unico_por_pagar',      label: 'Impuesto Único por Pagar (SII)', grupo: 'Pasivos (HABER)' },
-  { key: 'id_cuenta_anticipos_prestamos',           label: 'Anticipos y Préstamos a Empleados', grupo: 'Pasivos (HABER)' },
+  { key: 'id_cuenta_anticipos_prestamos',           label: 'Anticipos y Préstamos a Trabajadores', grupo: 'Pasivos (HABER)' },
   { key: 'id_cuenta_remuneraciones_por_pagar',      label: 'Remuneraciones por Pagar', grupo: 'Pasivos (HABER)' },
   { key: 'id_cuenta_banco',                          label: 'Banco Santander Cta. Cte. (pago)', grupo: 'Pago' },
 ]

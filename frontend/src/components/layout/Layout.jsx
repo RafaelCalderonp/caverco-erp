@@ -9,7 +9,7 @@ const NAV = [
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
   { section: 'RRHH' },
-  { to: '/empleados',     icon: '👥', label: 'Empleados' },
+  { to: '/empleados',     icon: '👥', label: 'Trabajadores' },
   { to: '/catalogos',     icon: '⚙️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/capacitaciones', icon: '🎓', label: 'Capacitaciones' },

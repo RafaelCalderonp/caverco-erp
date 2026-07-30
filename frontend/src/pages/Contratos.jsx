@@ -28,8 +28,8 @@ function IconBtn({ as: Tag = 'button', icon, title, danger, ...props }) {
 const ORDEN_OPTS = [
   { value: 'numero_asc',  label: 'N° Contrato ↑' },
   { value: 'numero_desc', label: 'N° Contrato ↓' },
-  { value: 'nombre_asc',  label: 'Empleado A→Z' },
-  { value: 'nombre_desc', label: 'Empleado Z→A' },
+  { value: 'nombre_asc',  label: 'Trabajador A→Z' },
+  { value: 'nombre_desc', label: 'Trabajador Z→A' },
   { value: 'fecha_asc',   label: 'Fecha Inicio ↑' },
   { value: 'fecha_desc',  label: 'Fecha Inicio ↓' },
   { value: 'sueldo_desc', label: 'Sueldo Mayor' },
@@ -145,8 +145,8 @@ export default function Contratos() {
             <thead>
               <tr>
                 <th>N° Contrato</th>
-                <th>Empleado</th>
-                <th>Centro de Costo</th>
+                <th>Trabajador</th>
+                <th>CC</th>
                 <th>Fecha Inicio</th>
                 <th>Sueldo Bruto</th>
                 <th>Jornada</th>
@@ -166,12 +166,12 @@ export default function Contratos() {
                 const cc = centrosCosto.find(x => x.id === c.id_centro_costo)
                 return (
                 <tr key={c.id} style={{background: i % 2 === 1 ? 'var(--gray-50)' : 'transparent'}}>
-                  <td style={{padding:'7px 14px'}}>{c.numero_contrato || `#${c.id}`}</td>
+                  <td style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.numero_contrato || `#${c.id}`}</td>
                   <td className="text-muted" style={{padding:'7px 14px'}}>
-                    {c.empleado ? `${c.empleado.codigo || '#' + c.empleado.id} — ${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Empleado #${c.id_empleado}`}
+                    {c.empleado ? `${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Trabajador #${c.id_empleado}`}
                   </td>
-                  <td className="text-muted" style={{padding:'7px 14px'}}>{cc ? `${cc.codigo} — ${cc.nombre}` : '—'}</td>
-                  <td className="text-muted" style={{padding:'7px 14px'}}>{c.fecha_inicio}</td>
+                  <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}} title={cc?.nombre || ''}>{cc?.codigo || '—'}</td>
+                  <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.fecha_inicio}</td>
                   <td style={{padding:'7px 14px'}}>{fmt(c.sueldo_bruto)}</td>
                   <td style={{padding:'7px 14px'}}>{c.jornada}</td>
                   <td style={{padding:'7px 14px'}}>
