@@ -1189,22 +1189,6 @@ def generar_finiquito_docx(
         "separación (Art. 168 CT).",
     ], space_after=12)
 
-    _parrafo(doc, [("RATIFICACIÓN ANTE MINISTRO DE FE", True)], align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
-    rat = doc.add_table(rows=1, cols=2)
-    _set_table_light_borders(rat)
-    _cell_text(rat.rows[0].cells[0],
-               "Ministro de fe: ___________________________\n"
-               "Cargo / Institución: _______________________\n"
-               "Fecha: ____________   Firma: _______________",
-               size=10)
-    _cell_text(rat.rows[0].cells[1],
-               "N° folio / Timbre: _________________________\n"
-               "Lugar: ____________________________________\n\n",
-               size=10)
-    rat.columns[0].width = Cm(8.75)
-    rat.columns[1].width = Cm(8.75)
-    doc.add_paragraph()
-
     _parrafo(doc, [
         "Para constancia firman las partes en dos ejemplares del mismo tenor y fecha, "
         "quedando un ejemplar en poder de cada parte.",
