@@ -48,19 +48,29 @@ function valorOrden(c, cc, key) {
   }
 }
 
+const FILTROS_KEY = 'contratosFiltros'
+function cargarFiltrosGuardados() {
+  try { return JSON.parse(localStorage.getItem(FILTROS_KEY)) || {} } catch { return {} }
+}
+
 export default function Contratos() {
   const { usuario } = useAuth()
+  const filtrosGuardados = cargarFiltrosGuardados()
   const [contratos, setContratos]       = useState([])
-  const [estado, setEstado]             = useState('vigente')
-  const [centroCosto, setCentroCosto]   = useState('')
-  const [buscar, setBuscar]             = useState('')
-  const [orden, setOrden]               = useState({ key: 'numero', dir: 1 })
+  const [estado, setEstado]             = useState(filtrosGuardados.estado ?? 'vigente')
+  const [centroCosto, setCentroCosto]   = useState(filtrosGuardados.centroCosto ?? '')
+  const [buscar, setBuscar]             = useState(filtrosGuardados.buscar ?? '')
+  const [orden, setOrden]               = useState(filtrosGuardados.orden ?? { key: 'numero', dir: 1 })
   const [centrosCosto, setCentrosCosto] = useState([])
   const [loading, setLoading]           = useState(true)
 
   useEffect(() => {
     catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem(FILTROS_KEY, JSON.stringify({ estado, centroCosto, buscar, orden }))
+  }, [estado, centroCosto, buscar, orden])
 
   useEffect(() => {
     setLoading(true)
