@@ -33,6 +33,20 @@ function descargarBlob(blob, nombre) {
   URL.revokeObjectURL(url)
 }
 
+// Con responseType:'blob', el error real (JSON {detail:...} de FastAPI) llega
+// como Blob en err.response.data en vez de objeto — hay que leerlo aparte.
+async function detalleErrorBlob(err, fallback) {
+  const data = err?.response?.data
+  if (data instanceof Blob) {
+    try {
+      const texto = await data.text()
+      const json = JSON.parse(texto)
+      if (json?.detail) return json.detail
+    } catch { /* no era JSON, usar fallback */ }
+  }
+  return err?.response?.data?.detail || fallback
+}
+
 function sumarUnDia(fechaStr) {
   const fecha = new Date(fechaStr + 'T00:00:00')
   fecha.setDate(fecha.getDate() + 1)
@@ -522,7 +536,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.reglamento.word(id, fechaReglamento)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Reglamento_Interno_${id}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoReglamento(false) }
   }
 
@@ -531,7 +545,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Certificado_Antiguedad_${id}.docx`))
-    } catch { alert('Error al generar certificado') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar certificado')) }
     finally { setDescargandoCertificado(false) }
   }
 
@@ -555,7 +569,7 @@ export default function ContratoDetalle() {
         relator_cargo: formIrl.relator_cargo,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `IRL_${nombre.replace(/ /g, '_')}.docx`))
-    } catch { alert('Error al generar IRL') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar IRL')) }
     finally { setDescargandoIrl(false) }
   }
 
@@ -565,7 +579,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.amonestacion.word(id, formAmon.motivo, formAmon.descripcion, formAmon.fecha)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Amonestacion_${id}.docx`))
-    } catch { alert('Error al generar amonestación') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar amonestación')) }
     finally { setDescargandoAmon(false) }
   }
 
@@ -673,7 +687,7 @@ export default function ContratoDetalle() {
         descripcion_adicional: formDespido.descripcion_adicional,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Carta_Despido_${id}.docx`))
-    } catch { alert('Error al generar carta de despido') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar carta de despido')) }
     finally { setDescargandoDespido(false) }
   }
 
@@ -693,7 +707,7 @@ export default function ContratoDetalle() {
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
-    } catch { alert('Error al generar finiquito') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar finiquito')) }
     finally { setDescargandoFiniquito(false) }
   }
 
@@ -702,7 +716,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.entregasEpp.word(id, eppId)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `EntregaEPP_${eppId}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoEpp(null) }
   }
 
@@ -751,7 +765,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.pactosHorasExtra.word(id, pactoId)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Pacto_Horas_Extra_${pactoId}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoPactoId(null) }
   }
 
