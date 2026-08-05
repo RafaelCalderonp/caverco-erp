@@ -8,7 +8,15 @@ const VACIO = {
   rut: '', razon_social: '', nombre_fantasia: '', direccion: '', comuna: '', region: 'Metropolitana',
   contacto: '', telefono_contacto: '', email_contacto: '',
   representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '', prefijo: '',
+  regimen_tributario: '',
 }
+
+const REGIMENES_TRIBUTARIOS = [
+  { v: '14A',            l: '14A — Semi Integrado (tributa sobre RLI)' },
+  { v: '14D_N3',         l: '14D N°3 — Pro Pyme General (tributa sobre BI)' },
+  { v: '14D_N8',         l: '14D N°8 — Pro Pyme Transparente' },
+  { v: 'RENTA_PRESUNTA', l: 'Renta Presunta' },
+]
 
 export default function Empresas() {
   const { usuario } = useAuth()
@@ -81,10 +89,11 @@ export default function Empresas() {
     setGuardando(true)
     setMsg(null)
     try {
+      const payload = { ...form, regimen_tributario: form.regimen_tributario || null }
       if (editando === 'nueva') {
-        await empresasApi.create(form)
+        await empresasApi.create(payload)
       } else {
-        await empresasApi.update(editando, form)
+        await empresasApi.update(editando, payload)
       }
       cargar()
       recargarEmpresas()
@@ -152,6 +161,14 @@ export default function Empresas() {
             <label className="form-label">Prefijo (para códigos de trabajadores, cargos y contratos)</label>
             <input className="input" maxLength={10} value={form.prefijo || ''}
               onChange={e => setCampo('prefijo', e.target.value.toUpperCase())} placeholder="Ej: INST" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Régimen Tributario</label>
+            <select className="input" value={form.regimen_tributario || ''}
+              onChange={e => setCampo('regimen_tributario', e.target.value)}>
+              <option value="">— sin definir —</option>
+              {REGIMENES_TRIBUTARIOS.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
+            </select>
           </div>
 
           <h3 style={{marginTop:20, marginBottom:8, fontSize:14, color:'var(--gray-600)'}}>Contacto</h3>
@@ -248,7 +265,7 @@ export default function Empresas() {
       <table className="table">
         <thead>
           <tr>
-            <th>RUT</th><th>Razón Social</th><th>Representante Legal</th><th>Teléfono</th><th></th>
+            <th>RUT</th><th>Razón Social</th><th>Representante Legal</th><th>Teléfono</th><th>Régimen Tributario</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -261,6 +278,11 @@ export default function Empresas() {
               </td>
               <td>{emp.representante_legal || '—'}</td>
               <td>{emp.telefono || '—'}</td>
+              <td>
+                {emp.regimen_tributario
+                  ? (REGIMENES_TRIBUTARIOS.find(r => r.v === emp.regimen_tributario)?.l || emp.regimen_tributario)
+                  : <span style={{ color: 'var(--danger, #c62828)' }}>Sin definir</span>}
+              </td>
               <td><button className="btn btn-outline btn-sm" onClick={() => abrirEditar(emp)}>Editar</button></td>
             </tr>
           ))}

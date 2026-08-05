@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { liquidacionesApi, empleadosApi, catalogosApi } from '../services/api'
+import { liquidacionesApi, empleadosApi, catalogosApi, remuneracionesContabilidadApi } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 const PERIODOS = (() => {
   const arr = []
@@ -30,7 +31,7 @@ const TICK = {
 const MES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCostoId,
-  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading }) {
+  asistOpen, setAsistOpen, asistData, setAsistData, asistLoading, setAsistLoading, onRecalcular }) {
 
   const [localData, setLocalData] = useState(null)
   const [savedData, setSavedData] = useState(null)
@@ -53,7 +54,11 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
     finally { setAsistLoading(false) }
   }
 
-  useEffect(() => { if (asistOpen) cargar(centroCostoId) }, [periodo, centroCostoId, asistOpen])
+  useEffect(() => {
+    if (!asistOpen) return
+    setLocalData(null); setSavedData(null)
+    cargar(centroCostoId)
+  }, [periodo, centroCostoId, asistOpen])
 
   const toggleCelda = (empIdx, diaIdx) => {
     if (!editMode || !localData) return
@@ -83,7 +88,6 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
       if (celdas.length) await liquidacionesApi.guardarAsistencia(periodo, celdas)
       setSavedData(localData.map(e => ({ ...e, asistencia: [...e.asistencia] })))
       setEditMode(false); setGuardadoOk(true)
-      setTimeout(() => setGuardadoOk(false), 2000)
     } catch { alert('Error al guardar') }
     finally { setGuardando(false) }
   }
@@ -116,7 +120,14 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
             {hdrBtn(guardando ? 'Guardando…' : '💾 Guardar', guardar)}
             {hdrBtn('✖ Cancelar', cancelar, true)}
           </>}
-          {guardadoOk && <span style={{fontSize:11,color:'#86efac'}}>✔ Guardado</span>}
+          {guardadoOk && <>
+            <span style={{fontSize:11,color:'#86efac'}}>✔ Guardado</span>
+            <button onClick={e => { e.stopPropagation(); onRecalcular() }}
+              style={{fontSize:11,padding:'3px 10px',borderRadius:4,border:'1px solid #86efac',cursor:'pointer',
+                background:'#166534',color:'#dcfce7',fontWeight:600}}>
+              🔄 Actualizar cálculo de liquidación
+            </button>
+          </>}
         </div>
         <span style={{fontSize:11,color:'#e2e8f0'}}>{asistOpen ? '▲' : '▼'}</span>
       </div>
@@ -183,12 +194,13 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
 }
 
 export default function Liquidaciones() {
+  const { empresaActual } = useEmpresa()
   const [tab, setTab]         = useState('lista')        // 'lista' | 'calcular'
   const [periodo, setPeriodo] = useState(PERIODOS[0])
   const [lista, setLista]     = useState([])
   const [loading, setLoading] = useState(false)
   const [empleados, setEmpleados] = useState([])
-  const [periodoIndicadores, setPeriodoIndicadores] = useState(PERIODOS[0])
+  const periodoIndicadores = periodo
   const [indicadores, setIndicadores] = useState(null)
   const [fuenteIndicadores, setFuenteIndicadores] = useState(null)
   const [afpData, setAfpData] = useState([])
@@ -207,8 +219,13 @@ export default function Liquidaciones() {
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
-  // Calcular tab — CC flow
-  const [calcCC, setCalcCC]         = useState('')
+  // Asientos contables de remuneraciones
+  const [estadoContable, setEstadoContable] = useState(null)
+  const [generandoAsiento, setGenerandoAsiento] = useState(false)
+
+  const [msg, setMsg] = useState('')
+
+  // Calcular tab
   const [calcData, setCalcData]     = useState(null)
   const [calcLoading, setCalcLoading] = useState(false)
   const [empleadoForms, setEmpleadoForms] = useState({})
@@ -248,6 +265,36 @@ export default function Liquidaciones() {
       .catch(() => setPeriodoCerrado(false))
   }, [periodo])
 
+  const cargarEstadoContable = () => {
+    if (!empresaActual) return
+    remuneracionesContabilidadApi.estadoPeriodo(empresaActual.id, periodo)
+      .then(r => setEstadoContable(r.data))
+      .catch(() => setEstadoContable(null))
+  }
+  useEffect(cargarEstadoContable, [empresaActual, periodo])
+
+  async function generarAsientoProvision() {
+    setGenerandoAsiento(true); setMsg('')
+    try {
+      await remuneracionesContabilidadApi.generarProvision(empresaActual.id, periodo)
+      setMsg('✅ Asiento de provisión generado')
+      cargarEstadoContable()
+    } catch (e) {
+      setMsg(e.response?.data?.detail || 'Error generando el asiento de provisión')
+    } finally { setGenerandoAsiento(false) }
+  }
+
+  async function generarAsientoPago() {
+    setGenerandoAsiento(true); setMsg('')
+    try {
+      await remuneracionesContabilidadApi.generarPago(empresaActual.id, periodo)
+      setMsg('✅ Asiento de pago generado')
+      cargarEstadoContable()
+    } catch (e) {
+      setMsg(e.response?.data?.detail || 'Error generando el asiento de pago')
+    } finally { setGenerandoAsiento(false) }
+  }
+
   const toggleCierre = async () => {
     setCambiandoCierre(true); setMsg('')
     try {
@@ -264,19 +311,23 @@ export default function Liquidaciones() {
   }
 
   const cargarCalcData = async (ccOverride) => {
-    const cc = ccOverride ?? calcCC
+    const cc = ccOverride ?? centroCostoId
     if (!cc) return
-    if (ccOverride) setCalcCC(ccOverride)
     setCalcLoading(true); setCalcMsg(''); setCalcData(null); setCalcPreviews({})
     try {
-      const r = await liquidacionesApi.getAsistencia(periodo, cc)
-      setCalcData(r.data)
+      const [asistRes, listaRes] = await Promise.all([
+        liquidacionesApi.getAsistencia(periodo, cc),
+        liquidacionesApi.listarPeriodo(periodo),
+      ])
+      const yaEmitidos = new Set((listaRes.data || []).map(l => l.id_empleado))
+      setCalcData(asistRes.data)
       const forms = {}
-      r.data.empleados.forEach(emp => {
+      asistRes.data.empleados.forEach(emp => {
         const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE').length
         const dias = 30 - ausenteCount
         forms[emp.id] = {
           expanded: false,
+          emitido: yaEmitidos.has(emp.id),
           dias_trabajados: dias,
           colacion_base: emp.colacion || 0,
           movilizacion_base: emp.movilizacion || 0,
@@ -288,6 +339,9 @@ export default function Liquidaciones() {
           aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: ''
         }
       })
+      // Auto-expandir el primer empleado pendiente
+      const primero = asistRes.data.empleados.find(e => !forms[e.id].emitido)
+      if (primero) forms[primero.id].expanded = true
       setEmpleadoForms(forms)
     } catch { setCalcMsg('Error al cargar empleados del CC') }
     finally { setCalcLoading(false) }
@@ -346,7 +400,7 @@ export default function Liquidaciones() {
     const { he50: totalHe50, he100: totalHe100 } = heClp(empId, ef)
     setEmitiendo(e => ({...e, [empId]: true})); setCalcMsg('')
     try {
-      await liquidacionesApi.emitir({
+      const res = await liquidacionesApi.emitir({
         periodo, id_empleado: empId,
         dias_trabajados: ef.dias_trabajados,
         horas_extra_50: totalHe50,
@@ -359,24 +413,33 @@ export default function Liquidaciones() {
         prestamo: ef.prestamo,
         observacion: ef.observacion,
       })
+      const liqId = res.data.id
       setCalcPreviews(p => ({...p, [empId]: null}))
-      // Marcar como emitido y expandir el siguiente pendiente automáticamente
+      // Marcar como emitido (guardando el id), expandir el siguiente pendiente
       setEmpleadoForms(f => {
-        const updated = {...f, [empId]: {...f[empId], expanded: false, emitido: true}}
+        const updated = {...f, [empId]: {...f[empId], expanded: false, emitido: true, liqId}}
         const empleados = calcData?.empleados || []
         const idxActual = empleados.findIndex(e => e.id === empId)
         const siguiente = empleados.slice(idxActual + 1).find(e => !updated[e.id]?.emitido)
-        if (siguiente) updated[siguiente.id] = {...updated[siguiente.id], expanded: true}
+        if (siguiente) {
+          updated[siguiente.id] = {...updated[siguiente.id], expanded: true}
+        } else {
+          // Todos emitidos → volver a lista tras 1.5s
+          setTimeout(() => setTab('lista'), 1500)
+        }
         return updated
       })
-      setCalcMsg(`✅ Liquidación de ${calcData.empleados.find(e=>e.id===empId)?.nombre} emitida`)
+      // Toast auto-dismiss
+      const nombre = calcData.empleados.find(e => e.id === empId)?.nombre
+      setCalcMsg(`✅ Liquidación de ${nombre} emitida`)
+      setTimeout(() => setCalcMsg(m => m.startsWith('✅') ? '' : m), 3000)
     } catch(e) { setCalcMsg(e.response?.data?.detail || 'Error al emitir') }
     finally { setEmitiendo(e => ({...e, [empId]: false})) }
   }
 
   const descargar = async (fn, nombreDefault) => {
     try {
-      const r = await fn(periodo, 1)
+      const r = await fn()
       const disposition = r.headers['content-disposition'] || ''
       const match = disposition.match(/filename="?([^"]+)"?/)
       const nombre = match ? match[1] : nombreDefault
@@ -430,15 +493,21 @@ export default function Liquidaciones() {
           <button className={`btn ${tab==='lista'?'btn-primary':'btn-outline'}`}
             onClick={() => setTab('lista')}>📋 Lista</button>
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
-            onClick={() => setTab('calcular')}>➕ Nueva</button>
+            onClick={() => { setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Nueva</button>
           <button className="btn btn-outline"
-            onClick={() => descargar(liquidacionesApi.exportarPrevired, `previred_${periodo}.csv`)}>
+            onClick={() => descargar(() => liquidacionesApi.exportarPrevired(periodo), `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
           </button>
           <button className="btn btn-outline"
-            onClick={() => descargar(liquidacionesApi.exportarLibroRemuneraciones, `libro_remuneraciones_${periodo}.csv`)}>
+            onClick={() => descargar(() => liquidacionesApi.exportarLibroRemuneraciones(periodo), `libro_remuneraciones_${periodo}.csv`)}>
             ⬇️ Libro Remuneraciones DT
           </button>
+          {centroCostoId && (
+            <button className="btn btn-outline"
+              onClick={() => descargar(() => liquidacionesApi.descargarWordCC(periodo, centroCostoId), `liquidaciones_${periodo}_CC${centroCostoId}.docx`)}>
+              ⬇️ Word del CC
+            </button>
+          )}
           <button className={`btn ${periodoCerrado ? 'btn-outline' : 'btn-danger'}`}
             onClick={toggleCierre} disabled={cambiandoCierre}>
             {cambiandoCierre ? '…' : periodoCerrado ? '🔓 Reabrir Período' : '🔒 Cerrar Período'}
@@ -450,6 +519,24 @@ export default function Liquidaciones() {
           Este período está cerrado: no se pueden emitir ni pagar liquidaciones para {periodo}.
         </p>
       )}
+      {msg && <p style={{fontSize:12,marginTop:-8,marginBottom:16, color: msg.startsWith('✅') ? 'var(--success, green)' : 'var(--danger)'}}>{msg}</p>}
+
+      {estadoContable && (
+        <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', background:'var(--gray-50, #fafafa)', border:'1px solid var(--gray-200, #e0e0e0)', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12}}>
+          <strong>Contabilidad:</strong>
+          <span>{estadoContable.n_liquidaciones} liquidaciones ({estadoContable.n_pagadas} pagadas)</span>
+          <button className="btn btn-outline btn-sm" disabled={generandoAsiento || !!estadoContable.id_asiento_provision}
+            onClick={generarAsientoProvision}>
+            {estadoContable.id_asiento_provision ? `✓ Asiento Provisión N° ${estadoContable.id_asiento_provision}` : 'Generar Asiento Provisión'}
+          </button>
+          <button className="btn btn-outline btn-sm" disabled={generandoAsiento || !estadoContable.id_asiento_provision || !!estadoContable.id_asiento_pago}
+            onClick={generarAsientoPago}>
+            {estadoContable.id_asiento_pago ? `✓ Asiento Pago N° ${estadoContable.id_asiento_pago} (Bco. Santander)` : 'Generar Asiento Pago (Bco. Santander)'}
+          </button>
+          <Link to="/config-asientos-remuneraciones" style={{fontSize:11}}>Configurar cuentas</Link>
+        </div>
+      )}
+
       <p style={{fontSize:12,color:'var(--gray-500)',marginTop:-8,marginBottom:16}}>
         Estos archivos se generan a partir de las liquidaciones EMITIDAS del período. Súbelos manualmente en
         previred.com y en el portal Mi DT — la app no inicia sesión por ti.
@@ -476,10 +563,7 @@ export default function Liquidaciones() {
               <div style={{display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <strong style={{fontSize:13}}>📊 Indicadores Previsionales</strong>
-                  <select value={periodoIndicadores} onChange={e => { e.stopPropagation(); setPeriodoIndicadores(e.target.value) }}
-                    style={{fontSize:13,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 6px',background:'var(--bg)',cursor:'pointer'}}>
-                    {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <span style={{fontSize:13,color:'var(--gray-500)',padding:'2px 6px'}}>{periodoIndicadores}</span>
                   <button title="Actualizar desde Gael Cloud" disabled={refrescando}
                     onClick={async e => { e.stopPropagation(); setRefrescando(true); try { const r = await liquidacionesApi.refrescarIndicadores(periodoIndicadores); setIndicadores(r.data.indicadores); setFuenteIndicadores(r.data.fuente); setAfpData(r.data.afp||[]); setAfcData(r.data.afc||[]); setTramosIU(r.data.tramos_impuesto_unico||[]) } catch{} finally { setRefrescando(false) } }}
                     style={{fontSize:12,border:'1px solid #cbd5e1',borderRadius:4,padding:'2px 8px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
@@ -604,7 +688,7 @@ export default function Liquidaciones() {
         periodo={periodo}
         centrosCosto={centrosCosto}
         centroCostoId={centroCostoId}
-        setCentroCostoId={setCentroCostoId}
+        setCentroCostoId={val => { setCentroCostoId(val); setCalcData(null); setEmpleadoForms({}) }}
         asistOpen={asistOpen}
         setAsistOpen={setAsistOpen}
         asistData={asistData}
@@ -612,6 +696,7 @@ export default function Liquidaciones() {
         asistLoading={asistLoading}
         setAsistLoading={setAsistLoading}
         pendingRef={pendingRef}
+        onRecalcular={() => { setTab('calcular'); cargarCalcData(centroCostoId) }}
       />
 
       {/* ── Lista período ── */}
@@ -621,7 +706,7 @@ export default function Liquidaciones() {
             <table>
               <thead>
                 <tr>
-                  <th>Empleado</th><th>Período</th><th>Total Imponible</th>
+                  <th>Trabajador</th><th>Período</th><th>Total Imponible</th>
                   <th>Total Haberes</th><th>Desc. Legales</th>
                   <th>Líquido a Pagar</th><th>Estado</th><th></th>
                 </tr>
@@ -633,9 +718,14 @@ export default function Liquidaciones() {
                     Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>{ setTab('calcular'); if (centroCostoId) cargarCalcData(centroCostoId) }}>Crear liquidaciones</button>
                   </td></tr>
                 )}
+                {!loading && lista.length > 0 && (
+                  <tr><td colSpan={8} style={{textAlign:'right',padding:'8px 12px',borderTop:'1px solid var(--gray-100)'}}>
+                    <button className="btn btn-outline btn-sm" onClick={()=>{ setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Agregar más liquidaciones</button>
+                  </td></tr>
+                )}
                 {lista.map(l => (
                   <tr key={l.id}>
-                    <td>{l.nombre_empleado || `Empleado #${l.id_empleado}`}</td>
+                    <td>{l.nombre_empleado || `Trabajador #${l.id_empleado}`}</td>
                     <td>{l.periodo}</td>
                     <td style={{textAlign:'right'}}>{fmt(l.total_imponible)}</td>
                     <td style={{textAlign:'right'}}>{fmt(l.total_haberes)}</td>
@@ -656,15 +746,16 @@ export default function Liquidaciones() {
       {/* ── Crear liquidaciones por CC ── */}
       {tab === 'calcular' && (
         <div>
-          {/* Selector CC */}
+          {/* CC tomado de la asistencia */}
           <div className="card" style={{marginBottom:16,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',padding:'14px 16px'}}>
             <strong style={{fontSize:14}}>Centro de Costo</strong>
-            <select className="select" style={{width:'auto',minWidth:200}} value={calcCC}
-              onChange={e => { setCalcCC(e.target.value); setCalcData(null) }}>
-              <option value="">— Seleccionar CC —</option>
-              {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-            <button className="btn btn-primary" disabled={!calcCC || calcLoading} onClick={() => cargarCalcData()}>
+            {centroCostoId
+              ? <span style={{fontSize:14,fontWeight:600,color:'var(--primary)'}}>
+                  {centrosCosto.find(c => String(c.id) === String(centroCostoId))?.nombre || `CC #${centroCostoId}`}
+                </span>
+              : <span style={{fontSize:13,color:'var(--gray-500)'}}>Selecciona un CC en el Registro de Asistencia</span>
+            }
+            <button className="btn btn-primary" disabled={!centroCostoId || calcLoading} onClick={() => cargarCalcData(centroCostoId)}>
               {calcLoading ? 'Cargando…' : '📋 Crear Liquidaciones del CC'}
             </button>
           </div>
@@ -688,6 +779,12 @@ export default function Liquidaciones() {
                 background:'#f0fdf4',padding:'10px 16px',display:'flex',alignItems:'center',gap:12}}>
                 <span style={{fontSize:14,fontWeight:600,color:'#15803d'}}>✅ {emp.nombre}</span>
                 <span style={{fontSize:12,color:'#16a34a'}}>Liquidación emitida</span>
+                {ef.liqId && (
+                  <Link to={`/liquidaciones/${ef.liqId}`} className="btn btn-outline btn-sm"
+                    style={{marginLeft:'auto',fontSize:12}}>
+                    Ver / Descargar Word →
+                  </Link>
+                )}
               </div>
             )
 
@@ -852,7 +949,7 @@ export default function Liquidaciones() {
                           <Row label={`AFP (${(prev.indicadores.tasa_afp*100).toFixed(2)}%)`} v={prev.descuentos_legales.afp} red />
                           <Row label="Salud (7%)"       v={prev.descuentos_legales.salud} red />
                           {prev.descuentos_legales.adicional_salud>0 && <Row label="Adic. Salud Isapre" v={prev.descuentos_legales.adicional_salud} red />}
-                          {prev.descuentos_legales.seguro_cesantia>0 && <Row label="AFC Trabajador"     v={prev.descuentos_legales.seguro_cesantia} red />}
+                          {prev.descuentos_legales.afc_trabajador>0 && <Row label="AFC Trabajador"     v={prev.descuentos_legales.afc_trabajador} red />}
                           <Row label="Base Tributaria"  v={prev.descuentos_legales.base_tributaria} />
                           <Row label="Impuesto Único"   v={prev.descuentos_legales.impuesto_unico} red />
                           <Row label="Total Descuentos" v={prev.descuentos_legales.total} bold red />

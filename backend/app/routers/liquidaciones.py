@@ -5,7 +5,7 @@ Endpoints: calcular preview, emitir, listar por período, detalle, indicadores P
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ from app.services.liquidaciones import (
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo, refrescar_indicadores
 from app.services.previred_export import generar_csv_previred
 from app.services.libro_remuneraciones import generar_csv_libro_remuneraciones, nombre_archivo
-from app.services.liquidacion_word import generar_liquidacion_docx
+from app.services.liquidacion_word import generar_liquidacion_docx, generar_cc_docx
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"], dependencies=[Depends(get_current_user)])
@@ -109,7 +109,7 @@ async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     return emp
 
 def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiquidacion:
@@ -330,7 +330,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         )
     )
     if dup.scalar_one_or_none():
-        raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
+        raise HTTPException(409, f"Ya existe liquidación para el trabajador {req.id_empleado} en período {req.periodo}")
 
     await _verificar_periodo_abierto(req.periodo, db)
 
@@ -383,7 +383,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         await db.flush()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(409, f"Ya existe liquidación para empleado {req.id_empleado} en período {req.periodo}")
+        raise HTTPException(409, f"Ya existe liquidación para el trabajador {req.id_empleado} en período {req.periodo}")
     await db.refresh(liq)
     return liq
 
@@ -481,7 +481,11 @@ async def obtener_liquidacion(id: int, db: AsyncSession = Depends(get_db)):
     liq = result.scalar_one_or_none()
     if not liq:
         raise HTTPException(404, "Liquidación no encontrada")
-    return liq
+    emp_res = await db.execute(select(Empleado).where(Empleado.id == liq.id_empleado))
+    emp = emp_res.scalar_one_or_none()
+    d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
+    d["nombre_empleado"] = f"{emp.nombres} {emp.apellido_paterno}" if emp else f"Empleado #{liq.id_empleado}"
+    return d
 
 
 @router.get("/{id}/word")
@@ -500,7 +504,7 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     )
     empleado = emp.scalar_one_or_none()
     if not empleado:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
 
     empresa_res = await db.execute(select(Empresa).where(Empresa.id == liq.id_empresa))
     empresa = empresa_res.scalar_one_or_none()
@@ -514,28 +518,132 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
     )
     contrato = contrato_res.scalar_one_or_none()
 
-    afp_nombre  = empleado.afp_rel.nombre   if empleado.afp_rel   else (liq.id_afp and "—") or "—"
-    isapre_nombre = empleado.isapre_rel.nombre if empleado.isapre_rel else "—"
-    cargo_nombre  = empleado.cargo.nombre      if empleado.cargo      else "—"
-    cc_nombre     = empleado.centro_costo.nombre if empleado.centro_costo else "—"
+    afp_nombre    = empleado.afp_rel.nombre      if empleado.afp_rel      else "—"
+    isapre_nombre = empleado.isapre_rel.nombre   if empleado.isapre_rel   else "—"
+    cargo_nombre  = empleado.cargo.nombre         if empleado.cargo         else "—"
+    cc_codigo     = empleado.centro_costo.codigo  if empleado.centro_costo  else "—"
     fecha_ingreso = contrato.fecha_inicio if contrato else empleado.fecha_ingreso
 
-    logo_bytes = None  # logo_url es una URL, no bytes — se omite en Word por ahora
+    # Obtener logo: base64 data URL o HTTP URL
+    logo_bytes: bytes | None = None
+    if empresa and empresa.logo_url:
+        try:
+            if empresa.logo_url.startswith("data:"):
+                import base64 as _b64
+                _, b64data = empresa.logo_url.split(",", 1)
+                logo_bytes = _b64.b64decode(b64data)
+            else:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    r = await client.get(empresa.logo_url)
+                    if r.status_code == 200:
+                        logo_bytes = r.content
+        except Exception as logo_err:
+            log.warning("No se pudo obtener el logo: %s", logo_err)
 
-    docx_bytes = generar_liquidacion_docx(
-        empresa=empresa,
-        empleado=empleado,
-        liquidacion=liq,
-        afp_nombre=afp_nombre,
-        isapre_nombre=isapre_nombre,
-        cargo_nombre=cargo_nombre,
-        centro_costo_nombre=cc_nombre,
-        fecha_ingreso=fecha_ingreso,
-        logo_bytes=logo_bytes,
-    )
+    try:
+        docx_bytes = generar_liquidacion_docx(
+            empresa=empresa,
+            empleado=empleado,
+            liquidacion=liq,
+            afp_nombre=afp_nombre,
+            isapre_nombre=isapre_nombre,
+            cargo_nombre=cargo_nombre,
+            centro_costo_codigo=cc_codigo,
+            fecha_ingreso=fecha_ingreso,
+            logo_bytes=logo_bytes,
+        )
+    except Exception as e:
+        log.exception("Error generando Word para liquidacion %s: %s", id, e)
+        raise HTTPException(500, f"Error al generar el documento Word: {e}")
 
     apellidos = f"{empleado.apellido_paterno}".replace(" ", "_")
     filename = f"liquidacion_{liq.periodo}_{apellidos}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/periodo/{periodo}/cc/{cc_id}/word")
+async def descargar_cc_word(periodo: str, cc_id: int, db: AsyncSession = Depends(get_db)):
+    """Genera un único Word con todas las liquidaciones del CC para el período dado."""
+    # Cargar liquidaciones del CC en el período
+    liqs_res = await db.execute(
+        select(Liquidacion)
+        .where(Liquidacion.periodo == periodo, Liquidacion.id_centro_costo == cc_id)
+        .order_by(Liquidacion.id)
+    )
+    liqs = liqs_res.scalars().all()
+    if not liqs:
+        raise HTTPException(404, "No hay liquidaciones para este CC y período")
+
+    # Empresa (tomar de la primera)
+    empresa_res = await db.execute(select(Empresa).where(Empresa.id == liqs[0].id_empresa))
+    empresa = empresa_res.scalar_one_or_none()
+
+    # Logo (igual que el endpoint individual)
+    logo_bytes: bytes | None = None
+    if empresa and empresa.logo_url:
+        try:
+            if empresa.logo_url.startswith("data:"):
+                import base64 as _b64
+                _, b64data = empresa.logo_url.split(",", 1)
+                logo_bytes = _b64.b64decode(b64data)
+            else:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    r = await client.get(empresa.logo_url)
+                    if r.status_code == 200:
+                        logo_bytes = r.content
+        except Exception as logo_err:
+            log.warning("No se pudo obtener el logo CC word: %s", logo_err)
+
+    # Cargar empleados y datos auxiliares
+    emp_ids = list({liq.id_empleado for liq in liqs})
+    emps_res = await db.execute(
+        select(Empleado)
+        .options(selectinload(Empleado.afp_rel), selectinload(Empleado.isapre_rel),
+                 selectinload(Empleado.cargo), selectinload(Empleado.centro_costo))
+        .where(Empleado.id.in_(emp_ids))
+    )
+    emps_by_id = {e.id: e for e in emps_res.scalars().all()}
+
+    contratos_res = await db.execute(
+        select(Contrato)
+        .where(Contrato.id_empleado.in_(emp_ids))
+        .order_by(Contrato.fecha_inicio.desc())
+    )
+    contratos_all = contratos_res.scalars().all()
+    contrato_by_emp: dict[int, Contrato] = {}
+    for c in contratos_all:
+        if c.id_empleado not in contrato_by_emp:
+            contrato_by_emp[c.id_empleado] = c
+
+    liquidaciones_data = []
+    for liq in liqs:
+        emp = emps_by_id.get(liq.id_empleado)
+        if not emp:
+            continue
+        contrato = contrato_by_emp.get(emp.id)
+        afp_nombre    = emp.afp_rel.nombre     if emp.afp_rel     else "—"
+        isapre_nombre = emp.isapre_rel.nombre  if emp.isapre_rel  else "—"
+        cargo_nombre  = emp.cargo.nombre        if emp.cargo        else "—"
+        cc_codigo     = emp.centro_costo.codigo if emp.centro_costo else "—"
+        fecha_ingreso = contrato.fecha_inicio if contrato else emp.fecha_ingreso
+        liquidaciones_data.append((
+            empresa, emp, liq, afp_nombre, isapre_nombre,
+            cargo_nombre, cc_codigo, fecha_ingreso, logo_bytes
+        ))
+
+    try:
+        docx_bytes = generar_cc_docx(liquidaciones_data)
+    except Exception as e:
+        log.exception("Error generando Word CC %s periodo %s: %s", cc_id, periodo, e)
+        raise HTTPException(500, f"Error al generar el documento Word: {e}")
+
+    filename = f"liquidaciones_{periodo}_CC{cc_id}.docx"
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -589,6 +697,7 @@ class AsistenciaCeldaIn(BaseModel):
 async def get_asistencia(
     periodo: str,
     centro_costo_id: Optional[int] = Query(None),
+    id_empresa: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -598,10 +707,22 @@ async def get_asistencia(
     year, month = int(periodo[:4]), int(periodo[5:7])
     dias_en_mes = calendar.monthrange(year, month)[1]
 
-    # Empleados del centro de costo (activos con contrato vigente)
+    # Empleados del centro de costo (activos, filtrados por empresa)
     q = select(Empleado).where(Empleado.activo == True)
+    if id_empresa:
+        q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
-        q = q.where(Empleado.id_centro_costo == centro_costo_id)
+        # Incluye empleados cuyo perfil O su contrato vigente tiene este CC
+        contrato_cc_sub = (
+            select(Contrato.id_empleado)
+            .where(Contrato.id_centro_costo == centro_costo_id, Contrato.estado == "vigente")
+        )
+        q = q.where(
+            or_(
+                Empleado.id_centro_costo == centro_costo_id,
+                Empleado.id.in_(contrato_cc_sub),
+            )
+        )
     q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)
     emps = (await db.execute(q)).scalars().all()
 
@@ -639,7 +760,7 @@ async def get_asistencia(
         dt = date(year, month, d)
         tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
 
-    # Contrato vigente por empleado (para colación/movilización)
+    # Contrato vigente por empleado (para sueldo base y horas semanales)
     contratos_q = await db.execute(
         select(Contrato)
         .where(Contrato.id_empleado.in_(emp_ids))
@@ -661,8 +782,8 @@ async def get_asistencia(
                 "nombre": f"{e.nombres} {e.apellido_paterno}",
                 "sueldo_base":    float(contrato_por_emp[e.id].sueldo_bruto    or 0) if e.id in contrato_por_emp else 0,
                 "horas_semanales": int(contrato_por_emp[e.id].horas_semanales or 42) if e.id in contrato_por_emp else 42,
-                "colacion":       float(contrato_por_emp[e.id].colacion       or 0) if e.id in contrato_por_emp else 0,
-                "movilizacion":   float(contrato_por_emp[e.id].movilizacion   or 0) if e.id in contrato_por_emp else 0,
+                "colacion":       float(e.colacion or 0),
+                "movilizacion":   float(e.movilizacion or 0),
                 "asistencia": [existentes.get((e.id, d), "VERDE") for d in range(1, dias_en_mes + 1)]
             }
             for e in emps
@@ -694,15 +815,16 @@ class AsistenciaGuardarIn(BaseModel):
 @router.post("/asistencia/{periodo}/guardar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def guardar_asistencia_lote(periodo: str, body: AsistenciaGuardarIn, db: AsyncSession = Depends(get_db)):
     """Guarda múltiples celdas de asistencia en una sola transacción."""
+    existentes = {
+        (r.id_empleado, r.dia): r
+        for r in (await db.execute(
+            select(RegistroAsistencia).where(RegistroAsistencia.periodo == periodo)
+        )).scalars().all()
+    }
     for celda in body.celdas:
         if celda.estado not in ("VERDE", "ROJO", "AUSENTE"):
             continue
-        row = (await db.execute(
-            select(RegistroAsistencia)
-            .where(RegistroAsistencia.periodo == periodo)
-            .where(RegistroAsistencia.id_empleado == celda.id_empleado)
-            .where(RegistroAsistencia.dia == celda.dia)
-        )).scalar_one_or_none()
+        row = existentes.get((celda.id_empleado, celda.dia))
         if row:
             row.estado = celda.estado
         else:

@@ -1,25 +1,60 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { contratosApi, catalogosApi } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 const ESTADO_BADGE = { vigente: 'badge-green', finiquitado: 'badge-red', anulado: 'badge-gray' }
 
-const ORDEN_OPTS = [
-  { value: 'numero_asc',  label: 'N° Contrato ↑' },
-  { value: 'numero_desc', label: 'N° Contrato ↓' },
-  { value: 'nombre_asc',  label: 'Empleado A→Z' },
-  { value: 'nombre_desc', label: 'Empleado Z→A' },
-  { value: 'fecha_asc',   label: 'Fecha Inicio ↑' },
-  { value: 'fecha_desc',  label: 'Fecha Inicio ↓' },
-  { value: 'sueldo_desc', label: 'Sueldo Mayor' },
-  { value: 'sueldo_asc',  label: 'Sueldo Menor' },
+function IconBtn({ as: Tag = 'button', icon, title, danger, ...props }) {
+  return (
+    <Tag
+      title={title}
+      aria-label={title}
+      {...props}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 16, height: 16, borderRadius: '50%',
+        border: `1px solid ${danger ? 'var(--danger)' : 'var(--gray-300)'}`,
+        background: '#fff', color: danger ? 'var(--danger)' : 'var(--gray-600)',
+        fontSize: 12, lineHeight: 1, cursor: 'pointer', textDecoration: 'none', overflow: 'visible',
+        ...props.style,
+      }}
+    >
+      {icon}
+    </Tag>
+  )
+}
+
+const COLUMNAS = [
+  { key: 'numero',  label: 'N° Contrato' },
+  { key: 'nombre',  label: 'Trabajador' },
+  { key: 'cc',      label: 'CC' },
+  { key: 'fecha',   label: 'Fecha Inicio' },
+  { key: 'sueldo',  label: 'Sueldo Bruto', num: true },
+  { key: 'jornada', label: 'Jornada' },
+  { key: 'estado',  label: 'Estado' },
 ]
 
+function valorOrden(c, cc, key) {
+  switch (key) {
+    case 'numero':  return c.numero_contrato || `#${c.id}`
+    case 'nombre':  return `${c.empleado?.apellido_paterno || ''} ${c.empleado?.nombres || ''}`
+    case 'cc':      return cc ? cc.codigo : ''
+    case 'fecha':   return c.fecha_inicio || ''
+    case 'sueldo':  return Number(c.sueldo_bruto) || 0
+    case 'jornada': return c.jornada || ''
+    case 'estado':  return c.estado || ''
+    default:        return ''
+  }
+}
+
 export default function Contratos() {
+  const { usuario } = useAuth()
   const [contratos, setContratos]       = useState([])
   const [estado, setEstado]             = useState('vigente')
   const [centroCosto, setCentroCosto]   = useState('')
-  const [orden, setOrden]               = useState('numero_asc')
+  const [buscar, setBuscar]             = useState('')
+  const [orden, setOrden]               = useState({ key: 'numero', dir: 1 })
   const [centrosCosto, setCentrosCosto] = useState([])
   const [loading, setLoading]           = useState(true)
 
@@ -37,11 +72,26 @@ export default function Contratos() {
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 
+  const eliminarContrato = async (c) => {
+    const nombreEmp = c.empleado ? `${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `#${c.id_empleado}`
+    if (!confirm(`¿Eliminar el contrato ${c.numero_contrato || '#' + c.id} de ${nombreEmp}? Esta acción no se puede deshacer.`)) return
+    try {
+      await contratosApi.delete(c.id)
+      setContratos(prev => prev.filter(x => x.id !== c.id))
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar el contrato')
+    }
+  }
+
   const diasParaVencer = (c) => {
     if (c.estado !== 'vigente' || !c.fecha_termino_pactada) return null
     const hoy = new Date(); hoy.setHours(0,0,0,0)
     const fin = new Date(c.fecha_termino_pactada + 'T00:00:00')
     return Math.round((fin - hoy) / 86400000)
+  }
+
+  const ordenarPor = (key) => {
+    setOrden(o => o.key === key ? { key, dir: -o.dir } : { key, dir: 1 })
   }
 
   const lista = useMemo(() => {
@@ -50,22 +100,27 @@ export default function Contratos() {
     // Filtro centro de costo (client-side)
     if (centroCosto) r = r.filter(c => String(c.id_centro_costo) === centroCosto)
 
+    // Búsqueda por trabajador / RUT / N° contrato (client-side)
+    if (buscar.trim()) {
+      const term = buscar.trim().toLowerCase()
+      r = r.filter(c => {
+        const nombre = `${c.empleado?.nombres || ''} ${c.empleado?.apellido_paterno || ''} ${c.empleado?.apellido_materno || ''}`.toLowerCase()
+        const rut = (c.empleado?.rut || '').toLowerCase()
+        const numero = (c.numero_contrato || '').toLowerCase()
+        return nombre.includes(term) || rut.includes(term) || numero.includes(term)
+      })
+    }
+
     // Ordenar
     r.sort((a, b) => {
-      switch (orden) {
-        case 'numero_asc':  return (a.numero_contrato || '').localeCompare(b.numero_contrato || '')
-        case 'numero_desc': return (b.numero_contrato || '').localeCompare(a.numero_contrato || '')
-        case 'nombre_asc':  return `${a.empleado?.apellido_paterno}`.localeCompare(`${b.empleado?.apellido_paterno}`)
-        case 'nombre_desc': return `${b.empleado?.apellido_paterno}`.localeCompare(`${a.empleado?.apellido_paterno}`)
-        case 'fecha_asc':   return (a.fecha_inicio || '').localeCompare(b.fecha_inicio || '')
-        case 'fecha_desc':  return (b.fecha_inicio || '').localeCompare(a.fecha_inicio || '')
-        case 'sueldo_asc':  return Number(a.sueldo_bruto) - Number(b.sueldo_bruto)
-        case 'sueldo_desc': return Number(b.sueldo_bruto) - Number(a.sueldo_bruto)
-        default: return 0
-      }
+      const ccA = centrosCosto.find(x => x.id === a.id_centro_costo)
+      const ccB = centrosCosto.find(x => x.id === b.id_centro_costo)
+      const va = valorOrden(a, ccA, orden.key), vb = valorOrden(b, ccB, orden.key)
+      const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+      return cmp * orden.dir
     })
     return r
-  }, [contratos, centroCosto, orden])
+  }, [contratos, centroCosto, buscar, orden, centrosCosto])
 
   return (
     <div>
@@ -75,6 +130,9 @@ export default function Contratos() {
       </div>
 
       <div className="search-bar" style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+        <input className="input" placeholder="Buscar por trabajador, RUT o N° contrato…" value={buscar}
+          onChange={e => setBuscar(e.target.value)} style={{maxWidth:260}} />
+
         <select className="input" value={estado} onChange={e => setEstado(e.target.value)} style={{maxWidth:200}}>
           <option value="">Todos los estados</option>
           <option value="vigente">Vigente</option>
@@ -89,13 +147,9 @@ export default function Contratos() {
           ))}
         </select>
 
-        <select className="input" value={orden} onChange={e => setOrden(e.target.value)} style={{maxWidth:200}}>
-          {ORDEN_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-
-        {(centroCosto || estado !== 'vigente') && (
+        {(centroCosto || buscar || estado !== 'vigente') && (
           <button className="btn btn-outline btn-sm" style={{alignSelf:'center'}}
-            onClick={() => { setEstado('vigente'); setCentroCosto('') }}>
+            onClick={() => { setEstado('vigente'); setCentroCosto(''); setBuscar('') }}>
             ✕ Limpiar filtros
           </button>
         )}
@@ -111,13 +165,11 @@ export default function Contratos() {
           <table>
             <thead>
               <tr>
-                <th>N° Contrato</th>
-                <th>Empleado</th>
-                <th>Centro de Costo</th>
-                <th>Fecha Inicio</th>
-                <th>Sueldo Bruto</th>
-                <th>Jornada</th>
-                <th>Estado</th>
+                {COLUMNAS.map(c => (
+                  <th key={c.key} onClick={() => ordenarPor(c.key)} style={{cursor:'pointer', userSelect:'none'}}>
+                    {c.label}{orden.key === c.key ? (orden.dir === 1 ? ' ▲' : ' ▼') : ''}
+                  </th>
+                ))}
                 <th></th>
               </tr>
             </thead>
@@ -128,20 +180,20 @@ export default function Contratos() {
               {!loading && lista.length === 0 && (
                 <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--gray-500)'}}>Sin resultados</td></tr>
               )}
-              {lista.map(c => {
+              {lista.map((c, i) => {
                 const dias = diasParaVencer(c)
                 const cc = centrosCosto.find(x => x.id === c.id_centro_costo)
                 return (
-                <tr key={c.id}>
-                  <td>{c.numero_contrato || `#${c.id}`}</td>
-                  <td className="text-muted">
-                    {c.empleado ? `${c.empleado.codigo || '#' + c.empleado.id} — ${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Empleado #${c.id_empleado}`}
+                <tr key={c.id} style={{background: i % 2 === 1 ? 'var(--gray-50)' : 'transparent'}}>
+                  <td style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.numero_contrato || `#${c.id}`}</td>
+                  <td className="text-muted" style={{padding:'7px 14px'}}>
+                    {c.empleado ? `${c.empleado.nombres} ${c.empleado.apellido_paterno}` : `Trabajador #${c.id_empleado}`}
                   </td>
-                  <td className="text-muted">{cc ? `${cc.codigo} — ${cc.nombre}` : '—'}</td>
-                  <td className="text-muted">{c.fecha_inicio}</td>
-                  <td>{fmt(c.sueldo_bruto)}</td>
-                  <td>{c.jornada}</td>
-                  <td>
+                  <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}} title={cc?.nombre || ''}>{cc?.codigo || '—'}</td>
+                  <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.fecha_inicio}</td>
+                  <td style={{padding:'7px 14px'}}>{fmt(c.sueldo_bruto)}</td>
+                  <td style={{padding:'7px 14px'}}>{c.jornada}</td>
+                  <td style={{padding:'7px 14px'}}>
                     <span className={`badge ${ESTADO_BADGE[c.estado] || 'badge-gray'}`}>{c.estado}</span>
                     {dias !== null && dias <= 7 && (
                       <span className={`badge ${dias <= 1 ? 'badge-red' : 'badge-orange'}`} style={{marginLeft:6}}>
@@ -149,8 +201,13 @@ export default function Contratos() {
                       </span>
                     )}
                   </td>
-                  <td>
-                    <Link to={`/contratos/${c.id}`} className="btn btn-outline btn-sm">Ver</Link>
+                  <td style={{padding:'7px 14px', display:'flex', gap:6}}>
+                    <IconBtn as={Link} to={`/contratos/${c.id}`} icon="👁️" title="Ver contrato" />
+                    <IconBtn as={Link} to={`/contratos/nuevo?id_empleado=${c.id_empleado}&duplicar_de=${c.id}`}
+                      icon="⧉" title="Duplicar: crear un nuevo contrato para este trabajador (ej. otra obra), copiando los mismos datos salvo obra y fechas" />
+                    {usuario?.rol === 'SUPERADMIN' && (
+                      <IconBtn icon="✕" danger title="Eliminar contrato" onClick={() => eliminarContrato(c)} />
+                    )}
                   </td>
                 </tr>
               )})}

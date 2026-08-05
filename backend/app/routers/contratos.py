@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
@@ -94,7 +94,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
     """
     empleado = await db.get(Empleado, data["id_empleado"])
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     id_empresa = empleado.id_empresa
 
     # Regla 1: la empresa debe tener al menos un cargo
@@ -131,7 +131,7 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
             continue
         entidad = await db.get(modelo, valor)
         if entidad is None or entidad.id_empresa != id_empresa:
-            raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del empleado")
+            raise HTTPException(400, f"{etiqueta} no pertenece a la misma empresa del trabajador")
 
 
 @router.get("/{id}", response_model=ContratoOut)
@@ -176,7 +176,7 @@ async def descargar_contrato_word(id: int, db: AsyncSession = Depends(get_db)):
     contrato = await _get_contrato_or_404(id, db)
     empleado = await db.get(Empleado, contrato.id_empleado)
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     empresa = await db.get(Empresa, empleado.id_empresa)
     cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
     obra = await db.get(Obra, contrato.id_obra) if contrato.id_obra else None
@@ -239,6 +239,20 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
                     "La empresa no tiene obras registradas. Crea al menos una obra antes de generar un contrato por Obra o Faena."
                 )
 
+    # Regla 3: evitar altas duplicadas del mismo trabajador (ej. doble clic en "Generar Contrato")
+    rut_normalizado = data.rut.replace(".", "").replace("-", "").upper()
+    rut_normalizado_sql = func.upper(func.replace(func.replace(Empleado.rut, ".", ""), "-", ""))
+    ya_existe = (await db.execute(
+        select(func.count()).select_from(Empleado)
+        .where(Empleado.id_empresa == id_empresa, rut_normalizado_sql == rut_normalizado)
+    )).scalar_one()
+    if ya_existe:
+        raise HTTPException(
+            400,
+            f"Ya existe un trabajador con RUT {data.rut} en esta empresa. "
+            "Si necesitas registrar un nuevo contrato para él, hazlo desde su ficha existente."
+        )
+
     payload = data.model_dump()
     campos_empleado = {
         "id_empresa", "rut", "nombres", "apellido_paterno", "apellido_materno",
@@ -251,6 +265,8 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
     datos_empleado = {k: v for k, v in payload.items() if k in campos_empleado}
     datos_empleado["fecha_ingreso"] = data.fecha_inicio
     datos_empleado["sueldo_base"] = data.sueldo_bruto
+    datos_empleado["colacion"] = data.colacion
+    datos_empleado["movilizacion"] = data.movilizacion
     datos_empleado["id_cargo"] = data.id_cargo
     datos_empleado["id_centro_costo"] = data.id_centro_costo
     datos_empleado["id_obra"] = data.id_obra
@@ -264,7 +280,7 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
     datos_contrato = {
         "id_tipo_contrato", "id_obra", "id_centro_costo", "id_cargo",
         "fecha_contrato", "fecha_inicio", "fecha_termino_pactada",
-        "sueldo_bruto", "horas_semanales", "jornada", "horario_detalle",
+        "sueldo_bruto", "colacion", "movilizacion", "horas_semanales", "jornada", "horario_detalle",
     }
     numero_contrato = await siguiente_codigo(db, data.id_empresa, "CT")
     contrato = Contrato(
@@ -284,13 +300,25 @@ async def crear_contrato_con_trabajador(data: ContratoConTrabajadorCreate, db: A
 async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db)):
     payload = data.model_dump()
     await _validar_consistencia_empresa(payload, db)
+    empleado = await db.get(Empleado, data.id_empleado)
     if not payload.get("numero_contrato"):
-        empleado = await db.get(Empleado, data.id_empleado)
         payload["numero_contrato"] = await siguiente_codigo(db, empleado.id_empresa, "CT")
     contrato = Contrato(**payload)
     db.add(contrato)
+    # Un contrato nuevo (ej. recontratación) pasa a ser la condición operativa
+    # vigente del trabajador: se refleja en su ficha igual que en el alta inicial.
+    empleado.id_tipo_contrato = data.id_tipo_contrato
+    empleado.sueldo_base = data.sueldo_bruto
+    empleado.colacion = data.colacion
+    empleado.movilizacion = data.movilizacion
+    if data.id_cargo:
+        empleado.id_cargo = data.id_cargo
+    if data.id_centro_costo:
+        empleado.id_centro_costo = data.id_centro_costo
+    if data.id_obra:
+        empleado.id_obra = data.id_obra
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -309,9 +337,37 @@ async def actualizar_contrato(id: int, data: ContratoUpdate, db: AsyncSession = 
         await _validar_consistencia_empresa(datos_validacion, db)
     for field, value in cambios.items():
         setattr(contrato, field, value)
+    # Sincronizar tipo contrato en perfil del empleado si cambió
+    if "id_tipo_contrato" in cambios:
+        empleado = await db.get(Empleado, contrato.id_empleado)
+        if empleado:
+            empleado.id_tipo_contrato = cambios["id_tipo_contrato"]
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
+
+
+@router.delete("/{id}", status_code=204,
+                dependencies=[Depends(require_roles("SUPERADMIN"))])
+async def eliminar_contrato(id: int, db: AsyncSession = Depends(get_db)):
+    """Elimina un contrato y sus registros asociados (anexos, documentos,
+    entregas de EPP, requisitos de obra, pactos de horas extra). No toca al
+    Empleado ni a otros contratos suyos. Reservado a SUPERADMIN: pensado para
+    corregir altas erróneas (ej. contrato duplicado por error), no para bajas
+    reales de trabajadores (que deben registrarse vía Finiquito)."""
+    contrato = await _get_contrato_or_404(id, db)
+    try:
+        await db.execute(delete(ContratoDocumento).where(ContratoDocumento.id_contrato == id))
+        await db.execute(delete(EntregaEpp).where(EntregaEpp.id_contrato == id))
+        await db.execute(delete(ContratoRequisitoObra).where(ContratoRequisitoObra.id_contrato == id))
+        await db.execute(delete(AnexoContrato).where(AnexoContrato.id_contrato == id))
+        await db.execute(delete(PactoHorasExtra).where(PactoHorasExtra.id_contrato == id))
+        await db.execute(update(Contrato).where(Contrato.id_contrato_origen == id).values(id_contrato_origen=None))
+        await db.delete(contrato)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"No se pudo eliminar el contrato: {exc}")
 
 
 @router.post("/{id}/finiquitar", response_model=ContratoOut,
@@ -329,7 +385,7 @@ async def finiquitar_contrato(
     contrato.id_motivo_termino = id_motivo_termino
     contrato.fecha_termino_real = fecha_termino_real if isinstance(fecha_termino_real, date) else date.fromisoformat(str(fecha_termino_real))
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -346,7 +402,7 @@ async def ratificar_finiquito(id: int, data: FiniquitoRatificacionCreate, db: As
     contrato.finiquito_fecha_ratificacion = data.fecha_ratificacion
     contrato.finiquito_ministro_fe = data.ministro_fe
     await db.commit()
-    await db.refresh(contrato)
+    await db.refresh(contrato, ["empleado"])
     return contrato
 
 
@@ -372,7 +428,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
 
     empleado = await db.get(Empleado, contrato.id_empleado)
     if empleado is None:
-        raise HTTPException(404, "Empleado no encontrado")
+        raise HTTPException(404, "Trabajador no encontrado")
     empresa = await db.get(Empresa, empleado.id_empresa)
     cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
 
@@ -425,6 +481,30 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
         payload["valor_nuevo"] = {"id_tipo_contrato": tipo_indefinido.id}
         contrato.id_tipo_contrato = tipo_indefinido.id
         contrato.fecha_termino_pactada = None
+        empleado.id_tipo_contrato = tipo_indefinido.id
+
+    elif tipo_anexo.codigo == "MOD_REMUNER":
+        # Actualiza únicamente el contrato vigente y el perfil actual del
+        # empleado. No modifica anexos ni contratos anteriores: esos quedan
+        # como registro histórico de lo que regía en su momento.
+        if not data.nuevo_sueldo:
+            raise HTTPException(400, "Debe indicar el nuevo sueldo bruto")
+        payload["valor_anterior"] = {"sueldo_bruto": str(contrato.sueldo_bruto)}
+        payload["valor_nuevo"] = {"sueldo_bruto": str(data.nuevo_sueldo)}
+        contrato.sueldo_bruto = data.nuevo_sueldo
+        empleado.sueldo_base = data.nuevo_sueldo
+
+    elif tipo_anexo.codigo == "MOD_CARGO":
+        if not data.id_nuevo_cargo:
+            raise HTTPException(400, "Debe indicar el nuevo cargo")
+        nuevo_cargo = await db.get(Cargo, data.id_nuevo_cargo)
+        if nuevo_cargo is None or nuevo_cargo.id_empresa != empleado.id_empresa:
+            raise HTTPException(400, "El cargo indicado no pertenece a la misma empresa del trabajador")
+        payload["valor_anterior"] = {"id_cargo": contrato.id_cargo}
+        payload["valor_nuevo"] = {"id_cargo": nuevo_cargo.id}
+        payload["nuevo_cargo"] = nuevo_cargo.nombre
+        contrato.id_cargo = nuevo_cargo.id
+        empleado.id_cargo = nuevo_cargo.id
 
     anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)
@@ -858,7 +938,7 @@ async def descargar_finiquito_word(
     cargo    = await db.get(Cargo, empleado.id_cargo) if (empleado and empleado.id_cargo) else None
 
     if not empresa or not empleado:
-        raise HTTPException(status_code=400, detail="Contrato sin empresa o empleado")
+        raise HTTPException(status_code=400, detail="Contrato sin empresa o trabajador")
 
     sueldo       = Decimal(str(contrato.sueldo_bruto or 0))
     colacion     = Decimal(str(colacion_mensual))

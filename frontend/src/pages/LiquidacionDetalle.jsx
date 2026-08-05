@@ -25,7 +25,13 @@ export default function LiquidacionDetalle() {
       a.href = url; a.download = nombre
       document.body.appendChild(a); a.click(); a.remove()
       URL.revokeObjectURL(url)
-    } catch { setMsg('Error al generar el Word') }
+    } catch(err) {
+      let msg = 'Error al generar el Word'
+      if (err.response?.data instanceof Blob) {
+        try { const t = await err.response.data.text(); msg = JSON.parse(t).detail || msg } catch {}
+      }
+      setMsg(msg)
+    }
   }
 
   const pagar = async () => {
@@ -57,10 +63,11 @@ export default function LiquidacionDetalle() {
       </div>
 
       {msg && <div style={{padding:'10px 14px',borderRadius:6,marginBottom:12,
-        background:'#dcfce7',color:'#15803d'}}>{msg}</div>}
+        background: msg.startsWith('✅') ? '#dcfce7' : '#fee2e2',
+        color:      msg.startsWith('✅') ? '#15803d' : '#b91c1c'}}>{msg}</div>}
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
-        {[['Empleado',`#${liq.id_empleado}`],['Período',liq.periodo],
+        {[['Trabajador', liq.nombre_empleado || `#${liq.id_empleado}`],['Período',liq.periodo],
           ['Días Trabajados',liq.dias_trabajados],['UF',liq.valor_uf&&`$${Number(liq.valor_uf).toLocaleString('es-CL',{minimumFractionDigits:2})}`]
         ].map(([k,v])=>(
           <div key={k} style={{background:'var(--gray-50)',borderRadius:6,padding:'10px 14px'}}>

@@ -14,8 +14,6 @@ export default function EmpleadoDetalle() {
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
   const [departamentos, setDepartamentos] = useState([])
-  const [cargos, setCargos] = useState([])
-  const [centrosCosto, setCentrosCosto] = useState([])
 
   const cargar = () => {
     setErrorCarga('')
@@ -27,8 +25,6 @@ export default function EmpleadoDetalle() {
     cargar()
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
     catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
-    catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
-    catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
     departamentosApi.list().then(r => setDepartamentos(r.data)).catch(() => {})
   }, [id])
 
@@ -49,8 +45,12 @@ export default function EmpleadoDetalle() {
     return nombre !== 'fonasa' && nombre !== '—'
   }
 
+  const isapreSeleccionada = isapres.find(i => i.id === Number(form?.id_isapre))
+  const esIsapreForm = isapreSeleccionada && isapreSeleccionada.nombre.toLowerCase() !== 'fonasa'
+
   const abrirEdicion = () => {
     setForm({
+      // Nombres/apellidos se muestran solo de referencia (deshabilitados): no son editables aquí.
       nombres: emp.nombres || '',
       apellido_paterno: emp.apellido_paterno || '',
       apellido_materno: emp.apellido_materno || '',
@@ -61,26 +61,29 @@ export default function EmpleadoDetalle() {
       comuna: emp.comuna || '',
       ciudad: emp.ciudad || '',
       id_departamento: emp.id_departamento || '',
-      id_cargo: emp.id_cargo || '',
-      id_centro_costo: emp.id_centro_costo || '',
-      sueldo_base: emp.sueldo_base || '',
       id_afp: emp.id_afp || '',
       id_isapre: emp.id_isapre || '',
       valor_isapre_uf: emp.valor_isapre_uf || '',
+      colacion: emp.colacion ?? '',
+      movilizacion: emp.movilizacion ?? '',
     })
     setError('')
     setEditando(true)
   }
 
   const guardar = async () => {
+    if (esIsapreForm && !form.valor_isapre_uf) {
+      setError('Debes indicar el valor en UF del plan al seleccionar una Isapre')
+      return
+    }
     setGuardando(true); setError('')
     try {
+      const { nombres, apellido_paterno, apellido_materno, ...formEditable } = form
       const payload = {
-        ...form,
+        ...formEditable,
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
-        id_cargo: form.id_cargo ? Number(form.id_cargo) : null,
-        id_centro_costo: form.id_centro_costo ? Number(form.id_centro_costo) : null,
-        sueldo_base: form.sueldo_base ? Number(form.sueldo_base) : null,
+        colacion: Number(form.colacion) || 0,
+        movilizacion: Number(form.movilizacion) || 0,
       }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
@@ -92,9 +95,6 @@ export default function EmpleadoDetalle() {
       setError(err.response?.data?.detail || 'Error al guardar los cambios')
     } finally { setGuardando(false) }
   }
-
-  const isapreSeleccionada = isapres.find(i => i.id === Number(form?.id_isapre))
-  const esIsapreForm = isapreSeleccionada && isapreSeleccionada.nombre.toLowerCase() !== 'fonasa'
 
   return (
     <div>
@@ -128,15 +128,15 @@ export default function EmpleadoDetalle() {
             </div>
             <div className="form-group">
               <label className="form-label">Nombres</label>
-              <input className="input" value={form.nombres} onChange={e => setForm(f => ({ ...f, nombres: e.target.value }))} />
+              <input className="input" value={form.nombres} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Paterno</label>
-              <input className="input" value={form.apellido_paterno} onChange={e => setForm(f => ({ ...f, apellido_paterno: e.target.value }))} />
+              <input className="input" value={form.apellido_paterno} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Materno</label>
-              <input className="input" value={form.apellido_materno} onChange={e => setForm(f => ({ ...f, apellido_materno: e.target.value }))} />
+              <input className="input" value={form.apellido_materno} disabled />
             </div>
             <div className="form-group">
               <label className="form-label">Teléfono</label>
@@ -165,7 +165,7 @@ export default function EmpleadoDetalle() {
           </div>
 
           <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Datos Laborales</h4>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:8}}>
             <div className="form-group">
               <label className="form-label">Departamento</label>
               <select className="input" value={form.id_departamento} onChange={e => setForm(f => ({ ...f, id_departamento: e.target.value }))}>
@@ -174,24 +174,20 @@ export default function EmpleadoDetalle() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Cargo</label>
-              <select className="input" value={form.id_cargo} onChange={e => setForm(f => ({ ...f, id_cargo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
+              <label className="form-label">Colación (CLP)</label>
+              <input className="input" type="number" value={form.colacion}
+                onChange={e => setForm(f => ({ ...f, colacion: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label className="form-label">Centro de Costo</label>
-              <select className="input" value={form.id_centro_costo} onChange={e => setForm(f => ({ ...f, id_centro_costo: e.target.value }))}>
-                <option value="">Sin asignar</option>
-                {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Sueldo Base</label>
-              <input className="input" type="number" value={form.sueldo_base} onChange={e => setForm(f => ({ ...f, sueldo_base: e.target.value }))} />
+              <label className="form-label">Movilización (CLP)</label>
+              <input className="input" type="number" value={form.movilizacion}
+                onChange={e => setForm(f => ({ ...f, movilizacion: e.target.value }))} />
             </div>
           </div>
+          <p className="text-muted" style={{fontSize:12, marginBottom:16}}>
+            Cargo, Centro de Costo y Sueldo Base se definen en el Contrato vigente del trabajador
+            y solo cambian con un nuevo Contrato o un Anexo de contrato.
+          </p>
 
           <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>Previsión</h4>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16}}>
@@ -247,6 +243,8 @@ export default function EmpleadoDetalle() {
             ['Centro de Costo', emp.centro_costo ? `${emp.centro_costo.codigo} — ${emp.centro_costo.nombre}` : null],
             ['Fecha Ingreso', emp.fecha_ingreso],
             ['Sueldo Base', fmt(emp.sueldo_base)],
+            ['Colación', fmt(emp.colacion)],
+            ['Movilización', fmt(emp.movilizacion)],
             ['AFP', afpNombre(emp.id_afp)],
             ['Salud', isapreNombre(emp.id_isapre)],
             ...(esIsapre(emp.id_isapre) ? [['Valor Plan Isapre', emp.valor_isapre_uf ? `${emp.valor_isapre_uf} UF` : '—']] : []),
@@ -260,7 +258,13 @@ export default function EmpleadoDetalle() {
       )}
 
       <div className="card mt-4">
-        <h3 style={{marginBottom:12, fontWeight:600}}>Contratos ({emp.contratos?.length || 0})</h3>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          <h3 style={{fontWeight:600}}>
+            Contratos ({emp.contratos?.length || 0})
+            {' · '}Anexos ({emp.contratos?.reduce((acc, c) => acc + (c.n_anexos || 0), 0) || 0})
+          </h3>
+          <Link to={`/contratos/nuevo?id_empleado=${emp.id}`} className="btn btn-outline btn-sm">+ Nuevo Contrato</Link>
+        </div>
         {(!emp.contratos || emp.contratos.length === 0)
           ? <p className="text-muted">Sin contratos registrados</p>
           : emp.contratos.map(c => (
@@ -269,6 +273,7 @@ export default function EmpleadoDetalle() {
                 <span>
                   Contrato {c.numero_contrato || `#${c.id}`} — Desde {c.fecha_inicio}
                   {' '}<span className={`badge ${c.estado === 'vigente' ? 'badge-green' : 'badge-gray'}`}>{c.estado}</span>
+                  {c.n_anexos > 0 && <span className="badge badge-gray" style={{marginLeft:6}}>{c.n_anexos} anexo{c.n_anexos > 1 ? 's' : ''}</span>}
                 </span>
                 <span style={{fontSize:13, color:'var(--gray-600)'}}>
                   Sueldo {fmt(c.sueldo_bruto)}

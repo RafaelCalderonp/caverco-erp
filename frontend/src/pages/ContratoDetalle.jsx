@@ -33,6 +33,20 @@ function descargarBlob(blob, nombre) {
   URL.revokeObjectURL(url)
 }
 
+// Con responseType:'blob', el error real (JSON {detail:...} de FastAPI) llega
+// como Blob en err.response.data en vez de objeto — hay que leerlo aparte.
+async function detalleErrorBlob(err, fallback) {
+  const data = err?.response?.data
+  if (data instanceof Blob) {
+    try {
+      const texto = await data.text()
+      const json = JSON.parse(texto)
+      if (json?.detail) return json.detail
+    } catch { /* no era JSON, usar fallback */ }
+  }
+  return err?.response?.data?.detail || fallback
+}
+
 function sumarUnDia(fechaStr) {
   const fecha = new Date(fechaStr + 'T00:00:00')
   fecha.setDate(fecha.getDate() + 1)
@@ -210,6 +224,14 @@ export default function ContratoDetalle() {
     setDespidoExpandido(false)
   }
 
+  // Autoguardado: evita perder los datos si se genera el Word sin apretar "Guardar" antes.
+  useEffect(() => {
+    if (formDespido.causal_codigo && formDespido.fecha_termino) {
+      localStorage.setItem(DESPIDO_KEY, JSON.stringify(formDespido))
+      setDespidoGuardado(true)
+    }
+  }, [formDespido, DESPIDO_KEY])
+
   // Auto-cargar colación/movilización del contrato solo si no hay datos guardados
   useEffect(() => {
     if (contrato && !localStorage.getItem(DESPIDO_KEY)) {
@@ -309,6 +331,8 @@ export default function ContratoDetalle() {
 
   const esPlazoFijo = tiposContrato.find(t => t.id === Number(formContrato?.id_tipo_contrato))?.codigo === 'PLAZO_FIJO'
   const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
+  const esModRemuner = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_REMUNER'
+  const esModCargo = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_CARGO'
   const yaProrrogado = anexos.some(a => tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo === 'PRORROGA_PLAZO')
 
   const abrirEdicion = async () => {
@@ -393,13 +417,6 @@ export default function ContratoDetalle() {
           id_cargo: f.id_cargo ? Number(f.id_cargo) : null,
         }),
         empleadosApi.update(contrato.id_empleado, {
-          nombres: f.nombres,
-          apellido_paterno: f.apellido_paterno,
-          apellido_materno: f.apellido_materno || null,
-          fecha_nacimiento: f.fecha_nacimiento || null,
-          genero: f.genero || null,
-          estado_civil: f.estado_civil || null,
-          nacionalidad: f.nacionalidad || null,
           telefono: f.telefono || null,
           email_personal: f.email_personal || null,
           email_corporativo: f.email_corporativo || null,
@@ -430,16 +447,25 @@ export default function ContratoDetalle() {
       setErrorAnexo('Tipo de anexo y fecha son obligatorios')
       return
     }
+    if (esModRemuner && !formAnexo.nuevo_sueldo) {
+      setErrorAnexo('Debes indicar el nuevo sueldo bruto')
+      return
+    }
+    if (esModCargo && !formAnexo.id_nuevo_cargo) {
+      setErrorAnexo('Debes indicar el nuevo cargo')
+      return
+    }
     setGuardandoAnexo(true); setErrorAnexo('')
     try {
       const { plazo_dias, ...formSinPlazo } = formAnexo
-      const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
       await contratosApi.anexos.create(id, {
         ...formSinPlazo,
         id_tipo_anexo: Number(formAnexo.id_tipo_anexo),
         nueva_fecha_termino: esProrroga && formAnexo.fecha_anexo
           ? calcularFechaTermino(formAnexo.fecha_anexo, plazo_dias)
           : null,
+        nuevo_sueldo: esModRemuner ? Number(formAnexo.nuevo_sueldo) : null,
+        id_nuevo_cargo: esModCargo ? Number(formAnexo.id_nuevo_cargo) : null,
       })
       setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
       setMostrarFormAnexo(false)
@@ -510,7 +536,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.reglamento.word(id, fechaReglamento)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Reglamento_Interno_${id}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoReglamento(false) }
   }
 
@@ -519,7 +545,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Certificado_Antiguedad_${id}.docx`))
-    } catch { alert('Error al generar certificado') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar certificado')) }
     finally { setDescargandoCertificado(false) }
   }
 
@@ -543,7 +569,7 @@ export default function ContratoDetalle() {
         relator_cargo: formIrl.relator_cargo,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `IRL_${nombre.replace(/ /g, '_')}.docx`))
-    } catch { alert('Error al generar IRL') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar IRL')) }
     finally { setDescargandoIrl(false) }
   }
 
@@ -553,7 +579,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.amonestacion.word(id, formAmon.motivo, formAmon.descripcion, formAmon.fecha)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Amonestacion_${id}.docx`))
-    } catch { alert('Error al generar amonestación') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar amonestación')) }
     finally { setDescargandoAmon(false) }
   }
 
@@ -661,7 +687,7 @@ export default function ContratoDetalle() {
         descripcion_adicional: formDespido.descripcion_adicional,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Carta_Despido_${id}.docx`))
-    } catch { alert('Error al generar carta de despido') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar carta de despido')) }
     finally { setDescargandoDespido(false) }
   }
 
@@ -681,7 +707,7 @@ export default function ContratoDetalle() {
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
-    } catch { alert('Error al generar finiquito') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar finiquito')) }
     finally { setDescargandoFiniquito(false) }
   }
 
@@ -690,7 +716,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.entregasEpp.word(id, eppId)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `EntregaEPP_${eppId}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoEpp(null) }
   }
 
@@ -739,7 +765,7 @@ export default function ContratoDetalle() {
     try {
       const res = await contratosApi.pactosHorasExtra.word(id, pactoId)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Pacto_Horas_Extra_${pactoId}.docx`))
-    } catch { alert('Error al generar Word') }
+    } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar Word')) }
     finally { setDescargandoPactoId(null) }
   }
 
@@ -812,45 +838,33 @@ export default function ContratoDetalle() {
             {pasoEdicion === 1 && (
               <>
                 <h4 style={{fontWeight:600,marginBottom:16,color:'var(--primary)'}}>👤 Datos del Trabajador</h4>
+                <p className="text-muted" style={{fontSize:12, marginBottom:12}}>
+                  Identidad y datos civiles no son editables aquí: son datos maestros del trabajador.
+                </p>
                 <div className="form-grid">
                   <Campo label="RUT">
                     <input className="input" value={formatearRut(formContrato.rut)} disabled />
                   </Campo>
                   <Campo label="Nombres">
-                    <input className="input" value={formContrato.nombres}
-                      onChange={e => setFormContrato(f => ({ ...f, nombres: e.target.value }))} />
+                    <input className="input" value={formContrato.nombres} disabled />
                   </Campo>
                   <Campo label="Apellido Paterno">
-                    <input className="input" value={formContrato.apellido_paterno}
-                      onChange={e => setFormContrato(f => ({ ...f, apellido_paterno: e.target.value }))} />
+                    <input className="input" value={formContrato.apellido_paterno} disabled />
                   </Campo>
                   <Campo label="Apellido Materno">
-                    <input className="input" value={formContrato.apellido_materno}
-                      onChange={e => setFormContrato(f => ({ ...f, apellido_materno: e.target.value }))} />
+                    <input className="input" value={formContrato.apellido_materno} disabled />
                   </Campo>
                   <Campo label="Fecha de Nacimiento">
-                    <input className="input" type="date" value={formContrato.fecha_nacimiento}
-                      onChange={e => setFormContrato(f => ({ ...f, fecha_nacimiento: e.target.value }))} />
+                    <input className="input" type="date" value={formContrato.fecha_nacimiento} disabled />
                   </Campo>
                   <Campo label="Género">
-                    <select className="select" value={formContrato.genero}
-                      onChange={e => setFormContrato(f => ({ ...f, genero: e.target.value }))}>
-                      <option value="">Seleccionar…</option>
-                      <option value="M">Masculino</option>
-                      <option value="F">Femenino</option>
-                      <option value="O">Otro</option>
-                    </select>
+                    <input className="input" value={{M:'Masculino',F:'Femenino',O:'Otro'}[formContrato.genero] || '—'} disabled />
                   </Campo>
                   <Campo label="Estado Civil">
-                    <select className="select" value={formContrato.estado_civil}
-                      onChange={e => setFormContrato(f => ({ ...f, estado_civil: e.target.value }))}>
-                      <option value="">Seleccionar…</option>
-                      {['Soltero','Casado','Conviviente civil','Divorciado','Viudo'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                    <input className="input" value={formContrato.estado_civil || '—'} disabled />
                   </Campo>
                   <Campo label="Nacionalidad">
-                    <input className="input" value={formContrato.nacionalidad}
-                      onChange={e => setFormContrato(f => ({ ...f, nacionalidad: e.target.value }))} />
+                    <input className="input" value={formContrato.nacionalidad} disabled />
                   </Campo>
                   <Campo label="Teléfono">
                     <input className="input" value={formContrato.telefono}
@@ -1082,7 +1096,7 @@ export default function ContratoDetalle() {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <div className="card">
           <h3 style={{marginBottom:16, fontWeight:600}}>Datos del Contrato</h3>
-          {[['Empleado', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
+          {[['Trabajador', contrato.empleado ? `${contrato.empleado.codigo || '#' + contrato.empleado.id} — ${contrato.empleado.nombres} ${contrato.empleado.apellido_paterno}` : `#${contrato.id_empleado}`],
             ['Teléfono', contrato.empleado?.telefono],
             ['Correo', contrato.empleado?.email_corporativo],
             ['Tipo de Contrato', tiposContrato.find(t => t.id === contrato.id_tipo_contrato)?.nombre || (contrato.id_tipo_contrato ? `#${contrato.id_tipo_contrato}` : '—')],
@@ -1438,6 +1452,27 @@ export default function ContratoDetalle() {
                       Nuevo vencimiento: {calcularFechaTermino(formAnexo.fecha_anexo, formAnexo.plazo_dias)}
                     </span>
                   )}
+                </div>
+              )}
+              {esModRemuner && (
+                <div className="form-group">
+                  <label className="form-label">Nuevo Sueldo Bruto<span style={{color:'var(--danger)'}}> *</span></label>
+                  <input className="input" type="number" value={formAnexo.nuevo_sueldo || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, nuevo_sueldo: e.target.value }))} />
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>Actual: {fmt(contrato.sueldo_bruto)}</span>
+                </div>
+              )}
+              {esModCargo && (
+                <div className="form-group">
+                  <label className="form-label">Nuevo Cargo<span style={{color:'var(--danger)'}}> *</span></label>
+                  <select className="select" value={formAnexo.id_nuevo_cargo || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, id_nuevo_cargo: e.target.value }))}>
+                    <option value="">Seleccionar…</option>
+                    {cargos.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+                  </select>
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>
+                    Actual: {cargos.find(c => c.id === contrato.id_cargo)?.nombre || '—'}
+                  </span>
                 </div>
               )}
             </div>

@@ -13,9 +13,10 @@ registro de la fuente (`fuente` = API_GATEWAY / FALLBACK).
 import logging
 from decimal import Decimal
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.rrhh import Empleado, ValorUfUtm, TramoImpuestoUnico
+from app.models.rrhh import Empleado, ValorUfUtm, TramoImpuestoUnico, Contrato
 from sqlalchemy import delete
 from app.services.liquidaciones import IndicadoresPrevired, TRAMOS_IU_2026, calcular_tramos_desde_utm
 from app.services.previred import get_previred_service
@@ -117,8 +118,26 @@ async def construir_indicadores(db: AsyncSession, emp: Empleado, periodo: str) -
     tramos       = [(t.desde, t.hasta, t.factor, t.monto_rebaja) for t in tramos_rows]
 
     tasa_afp = emp.afp_rel.tasa if emp.afp_rel else Decimal("0.1144")
-    afc_emp  = emp.tipo_contrato_rel.afc_empleador if emp.tipo_contrato_rel else Decimal("0.030")
-    afc_trab = emp.tipo_contrato_rel.afc_trabajador if emp.tipo_contrato_rel else Decimal("0")
+
+    # Tasas AFC: primero desde el perfil del empleado, sino desde el contrato vigente
+    afc_emp  = emp.tipo_contrato_rel.afc_empleador  if emp.tipo_contrato_rel else None
+    afc_trab = emp.tipo_contrato_rel.afc_trabajador if emp.tipo_contrato_rel else None
+
+    if afc_emp is None or afc_trab is None:
+        contrato_res = await db.execute(
+            select(Contrato)
+            .options(selectinload(Contrato.tipo_contrato_rel))
+            .where(Contrato.id_empleado == emp.id, Contrato.estado == "vigente")
+            .order_by(Contrato.fecha_inicio.desc())
+            .limit(1)
+        )
+        contrato = contrato_res.scalar_one_or_none()
+        if contrato and contrato.tipo_contrato_rel:
+            afc_emp  = contrato.tipo_contrato_rel.afc_empleador  or Decimal("0.030")
+            afc_trab = contrato.tipo_contrato_rel.afc_trabajador or Decimal("0")
+        else:
+            afc_emp  = Decimal("0.030")
+            afc_trab = Decimal("0")
 
     return IndicadoresPrevired(
         periodo=periodo,

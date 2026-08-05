@@ -9,7 +9,7 @@ const NAV = [
   { to: '/empresas',      icon: '🏛️', label: 'Empresas' },
   { to: '/dashboard',     icon: '📊', label: 'Dashboard' },
   { section: 'RRHH' },
-  { to: '/empleados',     icon: '👥', label: 'Empleados' },
+  { to: '/empleados',     icon: '👥', label: 'Trabajadores' },
   { to: '/catalogos',     icon: '⚙️', label: 'Operación' },
   { to: '/licencias',     icon: '📋', label: 'Licencias' },
   { to: '/capacitaciones', icon: '🎓', label: 'Capacitaciones' },
@@ -20,13 +20,17 @@ const NAV = [
   { to: '/plan-cuentas',       icon: '📒', label: 'Plan de Cuentas' },
   { to: '/libro-diario',       icon: '📓', label: 'Libro Diario' },
   { to: '/balance-8-columnas',        icon: '⚖️', label: 'Balance 8 Col.' },
+  { to: '/estado-resultados',        icon: '📈', label: 'Estado de Resultados' },
+  { to: '/balance-clasificado',      icon: '🏦', label: 'Balance Clasificado' },
+  { to: '/renta-liquida',            icon: '🧾', label: 'Propuesta BI / RLI' },
+  { to: '/config-asientos-remuneraciones', icon: '🔗', label: 'Config. Asientos Remun.' },
   { to: '/plantillas-contabilizacion', icon: '🗂️', label: 'Plantillas' },
   { section: null },
   { to: '/usuarios',      icon: '🛡️', label: 'Usuarios', roles: ['SUPERADMIN', 'ADMIN'] },
   { to: '/configuracion', icon: '🔑', label: 'Configuración' },
 ]
 
-const REQUIERE_EMPRESA = ['/empleados', '/catalogos', '/licencias', '/capacitaciones', '/contratos', '/liquidaciones', '/contabilidad', '/libro-diario', '/balance-8-columnas', '/plantillas-contabilizacion']
+const REQUIERE_EMPRESA = ['/empleados', '/catalogos', '/licencias', '/capacitaciones', '/contratos', '/liquidaciones', '/contabilidad', '/libro-diario', '/balance-8-columnas', '/estado-resultados', '/balance-clasificado', '/renta-liquida', '/plantillas-contabilizacion', '/config-asientos-remuneraciones']
 const STORAGE_KEY = 'sidebarColapsado'
 
 export default function Layout() {
@@ -92,8 +96,10 @@ export default function Layout() {
           <h2>{pageTitle}</h2>
           <div className="topbar-right">
             {empresaActual && location.pathname !== '/seleccionar-empresa' && (
-              <button className="btn btn-outline btn-sm" onClick={() => navigate('/seleccionar-empresa')}>
-                🏢 {empresaActual.razon_social} · Cambiar
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('/seleccionar-empresa')}
+                style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                <img src={empresaActual.logo_url || logo} alt="" style={{height:18, objectFit:'contain'}} />
+                {empresaActual.razon_social} · Cambiar
               </button>
             )}
             <div className="avatar">{(usuario?.username || '??').slice(0, 2).toUpperCase()}</div>

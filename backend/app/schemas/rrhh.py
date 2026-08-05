@@ -1,7 +1,14 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
+from typing import List, Optional
 from datetime import date, datetime
 from decimal import Decimal
+
+REGIMENES_TRIBUTARIOS = {"14A", "14D_N3", "14D_N8", "RENTA_PRESUNTA"}
+
+def _validar_regimen_tributario(v):
+    if v is not None and v not in REGIMENES_TRIBUTARIOS:
+        raise ValueError(f"regimen_tributario debe ser uno de: {', '.join(sorted(REGIMENES_TRIBUTARIOS))}")
+    return v
 
 # ---- Empresa ----
 class EmpresaBase(BaseModel):
@@ -22,6 +29,12 @@ class EmpresaBase(BaseModel):
     rut_representante_legal: str
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
+    regimen_tributario: Optional[str] = None
+
+    @field_validator("regimen_tributario")
+    @classmethod
+    def _regimen_tributario_valido(cls, v):
+        return _validar_regimen_tributario(v)
 
 class EmpresaCreate(EmpresaBase): pass
 
@@ -42,7 +55,13 @@ class EmpresaUpdate(BaseModel):
     rut_representante_legal: Optional[str] = None
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
+    regimen_tributario: Optional[str] = None
     activa: Optional[bool] = None
+
+    @field_validator("regimen_tributario")
+    @classmethod
+    def _regimen_tributario_valido(cls, v):
+        return _validar_regimen_tributario(v)
 
 class EmpresaOut(EmpresaBase):
     id: int
@@ -156,6 +175,8 @@ class EmpleadoBase(BaseModel):
     id_centro_costo: Optional[int] = None
     fecha_ingreso: date
     sueldo_base: Optional[Decimal] = None
+    colacion: Optional[Decimal] = Decimal("0")
+    movilizacion: Optional[Decimal] = Decimal("0")
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
     valor_isapre_uf: Optional[Decimal] = None
@@ -187,6 +208,8 @@ class EmpleadoUpdate(BaseModel):
     id_cargo: Optional[int] = None
     id_centro_costo: Optional[int] = None
     sueldo_base: Optional[Decimal] = None
+    colacion: Optional[Decimal] = None
+    movilizacion: Optional[Decimal] = None
     id_afp: Optional[int] = None
     id_isapre: Optional[int] = None
     valor_isapre_uf: Optional[Decimal] = None
@@ -198,6 +221,20 @@ class EmpleadoUpdate(BaseModel):
     activo: Optional[bool] = None
     fecha_egreso: Optional[date] = None
 
+class ContratoResumenOut(BaseModel):
+    """Resumen de un Contrato para listarlo dentro de la ficha del Empleado."""
+    id: int
+    numero_contrato: Optional[str] = None
+    fecha_inicio: date
+    fecha_termino_pactada: Optional[date] = None
+    fecha_termino_real: Optional[date] = None
+    estado: str
+    sueldo_bruto: Decimal
+    colacion: Decimal = Decimal("0")
+    movilizacion: Decimal = Decimal("0")
+    n_anexos: int = 0
+    model_config = {"from_attributes": True}
+
 class EmpleadoOut(EmpleadoBase):
     id: int
     codigo: Optional[str] = None
@@ -207,6 +244,7 @@ class EmpleadoOut(EmpleadoBase):
     departamento: Optional[DepartamentoOut] = None
     cargo: Optional[CargoOut] = None
     centro_costo: Optional[CentroCostoOut] = None
+    contratos: List[ContratoResumenOut] = []
     model_config = {"from_attributes": True}
 
 class EmpleadoListOut(BaseModel):
@@ -223,6 +261,7 @@ class EmpleadoListOut(BaseModel):
     sueldo_base: Optional[Decimal] = None
     departamento: Optional[DepartamentoOut] = None
     cargo: Optional[CargoOut] = None
+    centro_costo: Optional[CentroCostoOut] = None
     model_config = {"from_attributes": True}
 
 # ---- Contrato ----
@@ -368,6 +407,7 @@ class AnexoContratoCreate(BaseModel):
     nuevo_sueldo: Optional[Decimal] = None
     id_nueva_obra: Optional[int] = None
     nuevo_cargo: Optional[str] = None
+    id_nuevo_cargo: Optional[int] = None
     nueva_jornada: Optional[str] = None
     nueva_fecha_termino: Optional[date] = None
     valor_anterior: Optional[dict] = None

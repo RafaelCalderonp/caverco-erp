@@ -12,10 +12,13 @@ const api = axios.create({ baseURL: BASE_URL, timeout: 60000 })
 
 // ── Cache en memoria para catálogos estáticos (dura la sesión) ───────────────
 const _cache = new Map()
+function scopedKey(key) { return `${key}:${localStorage.getItem('empresaActualId') || ''}` }
 function cached(key, fn) {
-  if (_cache.has(key)) return Promise.resolve({ data: _cache.get(key) })
-  return fn().then(res => { _cache.set(key, res.data); return res })
+  const cacheKey = scopedKey(key)
+  if (_cache.has(cacheKey)) return Promise.resolve({ data: _cache.get(cacheKey) })
+  return fn().then(res => { _cache.set(cacheKey, res.data); return res })
 }
+function invalidate(key) { _cache.delete(scopedKey(key)) }
 export function invalidarCatalogos() { _cache.clear() }
 
 const SIN_SCOPE_EMPRESA = [
@@ -78,7 +81,6 @@ export const empleadosApi = {
   list:   (params) => api.get('/empleados', { params }),
   stats:  ()       => api.get('/empleados/stats'),
   get:    (id)     => api.get(`/empleados/${id}`),
-  create: (data)   => api.post('/empleados', data),
   update: (id, d)  => api.patch(`/empleados/${id}`, d),
   delete: (id)     => api.delete(`/empleados/${id}`),
   eliminarDefinitivo: (id) => api.delete(`/empleados/${id}/definitivo`),
@@ -109,14 +111,15 @@ export const liquidacionesApi = {
   getAsistencia: (periodo, centro_costo_id) => api.get(`/liquidaciones/asistencia/${periodo}`, { params: centro_costo_id ? { centro_costo_id } : {} }),
   patchAsistencia: (periodo, id_empleado, dia, estado) => api.patch(`/liquidaciones/asistencia/${periodo}/celda`, { id_empleado, dia, estado }),
   guardarAsistencia: (periodo, celdas) => api.post(`/liquidaciones/asistencia/${periodo}/guardar`, { celdas }),
-  exportarPrevired:            (periodo, idEmpresa) =>
-    api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
-  exportarLibroRemuneraciones: (periodo, idEmpresa) =>
-    api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { params: { id_empresa: idEmpresa }, responseType: 'blob' }),
+  exportarPrevired:            (periodo) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/previred`, { responseType: 'blob' }),
+  exportarLibroRemuneraciones: (periodo) =>
+    api.get(`/liquidaciones/periodo/${periodo}/export/libro-remuneraciones`, { responseType: 'blob' }),
   cerrarPeriodo:   (periodo) => api.post(`/liquidaciones/periodo/${periodo}/cerrar`),
   reabrirPeriodo:  (periodo) => api.post(`/liquidaciones/periodo/${periodo}/reabrir`),
   calcularFiniquito: (data) => api.post('/liquidaciones/finiquito/calcular', data),
   descargarWord: (id) => api.get(`/liquidaciones/${id}/word`, { responseType: 'blob' }),
+  descargarWordCC: (periodo, ccId) => api.get(`/liquidaciones/periodo/${periodo}/cc/${ccId}/word`, { responseType: 'blob' }),
 }
 
 export const contratosApi = {
@@ -126,6 +129,7 @@ export const contratosApi = {
   create:      (data)          => api.post('/contratos', data),
   crearConTrabajador: (data)   => api.post('/contratos/con-trabajador', data),
   update:      (id, d)         => api.patch(`/contratos/${id}`, d),
+  delete:      (id)            => api.delete(`/contratos/${id}`),
   finiquitar:  (id, params)    => api.post(`/contratos/${id}/finiquitar`, null, { params }),
   descargarWord: (id)          => api.get(`/contratos/${id}/word`, { responseType: 'blob' }),
   anexos: {
@@ -190,17 +194,17 @@ export const catalogosApi = {
   motivosTermino: () => cached('motivos-termino', () => api.get('/catalogos/motivos-termino')),
   tiposAnexo:     () => cached('tipos-anexo',     () => api.get('/catalogos/tipos-anexo')),
   obras:          () => cached('obras',            () => api.get('/catalogos/obras')),
-  crearObra:      (d) => api.post('/catalogos/obras', d).then(r => { _cache.delete('obras'); return r }),
-  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d).then(r => { _cache.delete('obras'); return r }),
-  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`).then(r => { _cache.delete('obras'); return r }),
+  crearObra:      (d) => api.post('/catalogos/obras', d).then(r => { invalidate('obras'); return r }),
+  actualizarObra: (id, d) => api.patch(`/catalogos/obras/${id}`, d).then(r => { invalidate('obras'); return r }),
+  eliminarObra:   (id) => api.delete(`/catalogos/obras/${id}`).then(r => { invalidate('obras'); return r }),
   cargos:         () => cached('cargos',           () => api.get('/catalogos/cargos')),
-  crearCargo:      (d) => api.post('/catalogos/cargos', d).then(r => { _cache.delete('cargos'); return r }),
-  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d).then(r => { _cache.delete('cargos'); return r }),
-  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`).then(r => { _cache.delete('cargos'); return r }),
+  crearCargo:      (d) => api.post('/catalogos/cargos', d).then(r => { invalidate('cargos'); return r }),
+  actualizarCargo: (id, d) => api.patch(`/catalogos/cargos/${id}`, d).then(r => { invalidate('cargos'); return r }),
+  eliminarCargo:   (id) => api.delete(`/catalogos/cargos/${id}`).then(r => { invalidate('cargos'); return r }),
   centrosCosto:   () => cached('centros-costo',    () => api.get('/catalogos/centros-costo')),
-  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d).then(r => { _cache.delete('centros-costo'); return r }),
-  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d).then(r => { _cache.delete('centros-costo'); return r }),
-  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { _cache.delete('centros-costo'); return r }),
+  crearCentroCosto:      (d) => api.post('/catalogos/centros-costo', d).then(r => { invalidate('centros-costo'); return r }),
+  actualizarCentroCosto: (id, d) => api.patch(`/catalogos/centros-costo/${id}`, d).then(r => { invalidate('centros-costo'); return r }),
+  eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { invalidate('centros-costo'); return r }),
   afp:            () => cached('afp',              () => api.get('/catalogos/afp')),
   isapre:         () => cached('isapre',           () => api.get('/catalogos/isapre')),
 }
@@ -224,7 +228,12 @@ export const capacitacionesApi = {
 }
 
 export const planCuentasApi = {
-  list: () => api.get('/plan-cuentas'),
+  list:      (idEmpresa, incluirInactivas) =>
+    api.get(`/empresas/${idEmpresa}/plan-cuentas`, { params: incluirInactivas ? { incluir_inactivas: true } : {} }),
+  crear:     (idEmpresa, data) => api.post(`/empresas/${idEmpresa}/plan-cuentas`, data),
+  actualizar:(idEmpresa, id, data) => api.put(`/empresas/${idEmpresa}/plan-cuentas/${id}`, data),
+  activar:   (idEmpresa, id, activa) => api.patch(`/empresas/${idEmpresa}/plan-cuentas/${id}/activar`, null, { params: { activa } }),
+  eliminar:  (idEmpresa, id) => api.delete(`/empresas/${idEmpresa}/plan-cuentas/${id}`),
 }
 
 export const plantillasApi = {
@@ -257,6 +266,27 @@ export const libroDiarioApi = {
     api.get(`/empresas/${idEmpresa}/libro-diario/balance-8-columnas`, {
       params: { periodo, periodo_hasta: periodoHasta },
     }),
+  estadoResultados:(idEmpresa, periodo, periodoHasta) =>
+    api.get(`/empresas/${idEmpresa}/libro-diario/estado-resultados`, {
+      params: { periodo, periodo_hasta: periodoHasta },
+    }),
+  balanceClasificado:(idEmpresa, periodo) =>
+    api.get(`/empresas/${idEmpresa}/libro-diario/balance-clasificado`, { params: { periodo } }),
+  rentaLiquida:(idEmpresa, anio) =>
+    api.get(`/empresas/${idEmpresa}/libro-diario/renta-liquida`, { params: { anio } }),
+}
+
+export const remuneracionesContabilidadApi = {
+  obtenerConfig: (idEmpresa) =>
+    api.get(`/empresas/${idEmpresa}/remuneraciones-contabilidad/config`),
+  guardarConfig: (idEmpresa, data) =>
+    api.put(`/empresas/${idEmpresa}/remuneraciones-contabilidad/config`, data),
+  estadoPeriodo: (idEmpresa, periodo) =>
+    api.get(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}`),
+  generarProvision: (idEmpresa, periodo) =>
+    api.post(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}/generar-provision`),
+  generarPago: (idEmpresa, periodo) =>
+    api.post(`/empresas/${idEmpresa}/remuneraciones-contabilidad/periodo/${periodo}/generar-pago`),
 }
 
 export const contabilidadApi = {
@@ -274,4 +304,8 @@ export const contabilidadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  libro: (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro`, { params: { periodo, operacion } }),
+  exportarLibro: (idEmpresa, periodo, operacion) =>
+    api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro/export`, { params: { periodo, operacion }, responseType: 'blob' }),
 }

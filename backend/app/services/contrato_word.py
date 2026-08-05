@@ -384,6 +384,23 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
             "presente Anexo. En todo lo no modificado por el presente instrumento, se mantienen plenamente "
             "vigentes las demás cláusulas y condiciones del contrato original.",
         ])
+    elif tipo_anexo_codigo == "MOD_REMUNER":
+        _parrafo(doc, [("PRIMERO: Modificación de Remuneración: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes acuerdan modificar la remuneración pactada, '
+            'la que a contar de esta fecha será de ', (_clp(anexo.nuevo_sueldo), True),
+            ' bruto mensual."',
+        ])
+        if anexo.observacion:
+            _parrafo(doc, [("SEGUNDO: Observaciones: ", True), (anexo.observacion, True)])
+    elif tipo_anexo_codigo == "MOD_CARGO":
+        _parrafo(doc, [("PRIMERO: Modificación de Cargo: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes acuerdan modificar el cargo desempeñado por EL TRABAJADOR, '
+            'quien a contar de esta fecha se desempeñará como ', (anexo.nuevo_cargo or "", True), '."',
+        ])
+        if anexo.observacion:
+            _parrafo(doc, [("SEGUNDO: Observaciones: ", True), (anexo.observacion, True)])
     else:
         _parrafo(doc, [("PRIMERO: ", True), (anexo.observacion or "", True)])
 
@@ -1171,22 +1188,6 @@ def generar_finiquito_docx(
         "ante la Inspección del Trabajo o Tribunales de Justicia es de 60 días hábiles desde la "
         "separación (Art. 168 CT).",
     ], space_after=12)
-
-    _parrafo(doc, [("RATIFICACIÓN ANTE MINISTRO DE FE", True)], align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
-    rat = doc.add_table(rows=1, cols=2)
-    _set_table_light_borders(rat)
-    _cell_text(rat.rows[0].cells[0],
-               "Ministro de fe: ___________________________\n"
-               "Cargo / Institución: _______________________\n"
-               "Fecha: ____________   Firma: _______________",
-               size=10)
-    _cell_text(rat.rows[0].cells[1],
-               "N° folio / Timbre: _________________________\n"
-               "Lugar: ____________________________________\n\n",
-               size=10)
-    rat.columns[0].width = Cm(8.75)
-    rat.columns[1].width = Cm(8.75)
-    doc.add_paragraph()
 
     _parrafo(doc, [
         "Para constancia firman las partes en dos ejemplares del mismo tenor y fecha, "

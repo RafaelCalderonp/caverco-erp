@@ -9,8 +9,7 @@ from app.models.rrhh import (
     Empleado, Departamento, Cargo, CentroCosto, Contrato, AnexoContrato, ContratoDocumento,
     ContratoRequisitoObra, EntregaEpp, PactoHorasExtra, Licencia, Liquidacion, Usuario,
 )
-from app.schemas.rrhh import EmpleadoCreate, EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
-from app.services.correlativos import siguiente_codigo
+from app.schemas.rrhh import EmpleadoUpdate, EmpleadoOut, EmpleadoListOut
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
 
@@ -26,7 +25,8 @@ async def listar_empleados(
 ):
     q = select(Empleado).options(
         selectinload(Empleado.departamento),
-        selectinload(Empleado.cargo)
+        selectinload(Empleado.cargo),
+        selectinload(Empleado.centro_costo),
     )
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)
@@ -61,12 +61,15 @@ async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
         select(Empleado)
         .options(selectinload(Empleado.departamento), selectinload(Empleado.cargo),
                  selectinload(Empleado.centro_costo),
-                 selectinload(Empleado.contratos), selectinload(Empleado.licencias))
+                 selectinload(Empleado.contratos).selectinload(Contrato.anexos),
+                 selectinload(Empleado.licencias))
         .where(Empleado.id == id)
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
+    for c in emp.contratos:
+        c.n_anexos = len(c.anexos)
     return emp
 
 async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
@@ -77,25 +80,14 @@ async def _validar_consistencia_empresa(data: dict, db: AsyncSession) -> None:
             continue
         entidad = await db.get(modelo, valor)
         if entidad is None or entidad.id_empresa != data["id_empresa"]:
-            raise HTTPException(status_code=400, detail=f"{etiqueta} no pertenece a la misma empresa del empleado")
-
-@router.post("", response_model=EmpleadoOut, status_code=201)
-async def crear_empleado(data: EmpleadoCreate, db: AsyncSession = Depends(get_db)):
-    payload = data.model_dump()
-    await _validar_consistencia_empresa(payload, db)
-    payload["codigo"] = await siguiente_codigo(db, data.id_empresa, "EMP")
-    emp = Empleado(**payload)
-    db.add(emp)
-    await db.flush()
-    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
-    return emp
+            raise HTTPException(status_code=400, detail=f"{etiqueta} no pertenece a la misma empresa del trabajador")
 
 @router.patch("/{id}", response_model=EmpleadoOut)
 async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Empleado).where(Empleado.id == id))
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     cambios = data.model_dump(exclude_none=True)
     if {"id_departamento", "id_cargo", "id_centro_costo"} & cambios.keys():
         await _validar_consistencia_empresa({
@@ -107,7 +99,15 @@ async def actualizar_empleado(id: int, data: EmpleadoUpdate, db: AsyncSession = 
     for k, v in cambios.items():
         setattr(emp, k, v)
     await db.flush()
-    await db.refresh(emp, ["departamento", "cargo", "centro_costo"])
+    await db.refresh(emp, ["departamento", "cargo", "centro_costo", "contratos"])
+    if emp.contratos:
+        conteos = dict((await db.execute(
+            select(AnexoContrato.id_contrato, func.count())
+            .where(AnexoContrato.id_contrato.in_([c.id for c in emp.contratos]))
+            .group_by(AnexoContrato.id_contrato)
+        )).all())
+        for c in emp.contratos:
+            c.n_anexos = conteos.get(c.id, 0)
     return emp
 
 @router.delete("/{id}", status_code=204)
@@ -115,7 +115,7 @@ async def desactivar_empleado(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Empleado).where(Empleado.id == id))
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     emp.activo = False
 
 
@@ -127,7 +127,7 @@ async def eliminar_empleado_definitivo(id: int, db: AsyncSession = Depends(get_d
     no para bajas reales (que deben quedar registradas vía desactivación)."""
     emp = await db.get(Empleado, id)
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
     try:
         result = await db.execute(select(Contrato.id).where(Contrato.id_empleado == id))
@@ -171,7 +171,7 @@ async def exportar_datos_personales(id: int, db: AsyncSession = Depends(get_db))
     )
     emp = result.scalar_one_or_none()
     if not emp:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
     datos_personales = {
         "rut": emp.rut, "nombres": emp.nombres,

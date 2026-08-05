@@ -29,6 +29,8 @@ class Empresa(Base):
     rut_representante_legal = Column(String(15))
     logo_url            = Column(Text)
     prefijo             = Column(String(10))
+    # 14A | 14D_N3 (Pro Pyme General) | 14D_N8 (Pro Pyme Transparente) | RENTA_PRESUNTA
+    regimen_tributario  = Column(String(20))
     activa              = Column(Boolean, default=True)
     created_at          = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at          = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
@@ -135,6 +137,8 @@ class Empleado(Base):
     fecha_egreso      = Column(Date)
     activo            = Column(Boolean, default=True)
     sueldo_base       = Column(Numeric(12, 2))
+    colacion          = Column(Numeric(12, 2), nullable=False, default=0)
+    movilizacion      = Column(Numeric(12, 2), nullable=False, default=0)
     id_afp            = Column(Integer, ForeignKey("erp.afp.id"))
     id_isapre         = Column(Integer, ForeignKey("erp.isapre.id"))
     id_tipo_contrato  = Column(Integer, ForeignKey("erp.tipo_contrato.id"))
@@ -185,7 +189,8 @@ class Contrato(Base):
     finiquito_ministro_fe      = Column(String(100))  # notario, inspector del trabajo, presidente de sindicato, etc.
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
-    empleado = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
+    empleado          = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
+    tipo_contrato_rel = relationship("TipoContrato")
     anexos = relationship("AnexoContrato", back_populates="contrato")
     documentos = relationship("ContratoDocumento", back_populates="contrato")
     requisitos_obra = relationship("ContratoRequisitoObra", back_populates="contrato")
@@ -223,6 +228,7 @@ class AnexoContrato(Base):
     nuevo_sueldo  = Column(Numeric(12, 2))
     id_nueva_obra = Column(Integer, ForeignKey("erp.obras.id"))
     nuevo_cargo   = Column(String(100))
+    id_nuevo_cargo = Column(Integer, ForeignKey("erp.cargos.id"))
     nueva_jornada = Column(String(30))
     nueva_fecha_termino = Column(Date)
     valor_anterior = Column(JSONB)

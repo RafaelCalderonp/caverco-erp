@@ -49,8 +49,9 @@ export default function LibroDiario() {
   useEffect(() => { cargar() }, [cargar])
 
   useEffect(() => {
-    planCuentasApi.list().then(r => setCuentas(r.data)).catch(() => {})
-  }, [])
+    if (!empresaActual) return
+    planCuentasApi.list(empresaActual.id).then(r => setCuentas(r.data)).catch(() => {})
+  }, [empresaActual])
 
   // totales del form
   const totalDebe  = form.lineas.reduce((s, l) => s + (parseFloat(l.debe)  || 0), 0)
