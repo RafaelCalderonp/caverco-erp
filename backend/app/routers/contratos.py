@@ -871,7 +871,7 @@ async def descargar_carta_despido_word(
         meses_enteros = floor(meses)
         fraccion = meses - meses_enteros
         meses_con_fraccion = meses_enteros + (1 if fraccion * 30.4375 > 15 else 0)
-        indem_tiempo_servido = int(base_indem / 30 * 2.5 * meses_con_fraccion)
+        indem_tiempo_servido = int(base_indem / 30 * Decimal("2.5") * meses_con_fraccion)
     else:
         indem_tiempo_servido = 0
 
