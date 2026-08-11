@@ -88,6 +88,8 @@ class LiquidacionOut(BaseModel):
     estado: str
     observacion: Optional[str] = None
     nombre_empleado: Optional[str] = None   # enriquecido en el endpoint de lista
+    cc_codigo: Optional[str] = None         # enriquecido en el endpoint de lista
+    cc_nombre: Optional[str] = None         # enriquecido en el endpoint de lista
     model_config = {"from_attributes": True}
 
 
@@ -394,22 +396,29 @@ async def listar_por_periodo(
     id_empresa: Optional[int] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista todas las liquidaciones de un período (YYYY-MM), enriquecidas con nombre del empleado."""
+    """Lista todas las liquidaciones de un período (YYYY-MM), enriquecidas con nombre del empleado y CC."""
     q = select(Liquidacion).where(Liquidacion.periodo == periodo)
     if id_empresa:
         q = q.where(Liquidacion.id_empresa == id_empresa)
     result = await db.execute(q.order_by(Liquidacion.id_empleado))
     liquidaciones = result.scalars().all()
 
-    # Enriquecer con nombres
+    # Enriquecer con nombres y centro de costo
     if liquidaciones:
         ids = [l.id_empleado for l in liquidaciones]
-        emp_res = await db.execute(select(Empleado).where(Empleado.id.in_(ids)))
-        emp_map = {e.id: f"{e.nombres} {e.apellido_paterno}" for e in emp_res.scalars().all()}
+        emp_res = await db.execute(
+            select(Empleado).options(selectinload(Empleado.centro_costo)).where(Empleado.id.in_(ids))
+        )
+        empleados = emp_res.scalars().all()
+        emp_map = {e.id: f"{e.nombres} {e.apellido_paterno}" for e in empleados}
+        cc_map = {e.id: e.centro_costo for e in empleados}
         out = []
         for liq in liquidaciones:
             d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
-            d["nombre_empleado"] = emp_map.get(liq.id_empleado, f"Empleado #{liq.id_empleado}")
+            d["nombre_empleado"] = emp_map.get(liq.id_empleado, f"Trabajador #{liq.id_empleado}")
+            cc = cc_map.get(liq.id_empleado)
+            d["cc_codigo"] = cc.codigo if cc else None
+            d["cc_nombre"] = cc.nombre if cc else None
             out.append(d)
         return out
     return []

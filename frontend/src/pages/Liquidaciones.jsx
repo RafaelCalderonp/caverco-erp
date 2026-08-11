@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { liquidacionesApi, empleadosApi, catalogosApi, remuneracionesContabilidadApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
@@ -18,6 +18,13 @@ const fmt2 = n => { const [int, dec] = Number(n).toFixed(2).split('.'); return `
 const estadoBadge = e => ({
   BORRADOR: 'badge-gray', EMITIDA: 'badge-blue', PAGADA: 'badge-green'
 }[e] || 'badge-gray')
+
+// Estilos compactos de la tabla "lista" de liquidaciones
+const thLiqStyle    = { padding: '5px 6px', whiteSpace: 'nowrap' }
+const tdLiqStyle     = { padding: '3px 6px' }
+const tdFiltroStyle  = { padding: '2px 6px', background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-200)' }
+const inpFiltroStyle = { fontSize: 10.5, padding: '2px 4px', height: 22, width: '100%', boxSizing: 'border-box' }
+const btnLiqStyle    = { fontSize: 10.5, padding: '2px 6px' }
 
 // Ciclo de estados al hacer clic: VERDE → ROJO → AUSENTE → VERDE
 const CICLO = { VERDE: 'ROJO', ROJO: 'AUSENTE', AUSENTE: 'VERDE' }
@@ -224,6 +231,11 @@ export default function Liquidaciones() {
   const [generandoAsiento, setGenerandoAsiento] = useState(false)
 
   const [msg, setMsg] = useState('')
+
+  // Filtros tipo Excel de la tabla "lista"
+  const [filtroTrabajador, setFiltroTrabajador] = useState('')
+  const [filtroCC, setFiltroCC]                 = useState('')
+  const [filtroEstado, setFiltroEstado]         = useState('')
 
   // Calcular tab
   const [calcData, setCalcData]     = useState(null)
@@ -481,6 +493,23 @@ export default function Liquidaciones() {
     } finally { setEmitiendo(false) }
   }
 
+  const ccOpciones = useMemo(() => {
+    const map = new Map()
+    for (const l of lista) if (l.cc_codigo) map.set(l.cc_codigo, l.cc_nombre)
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [lista])
+
+  const estadoOpciones = useMemo(() => [...new Set(lista.map(l => l.estado))].sort(), [lista])
+
+  const listaFiltrada = useMemo(() => {
+    return lista.filter(l => {
+      if (filtroTrabajador && !(l.nombre_empleado || '').toLowerCase().includes(filtroTrabajador.toLowerCase())) return false
+      if (filtroCC && l.cc_codigo !== filtroCC) return false
+      if (filtroEstado && l.estado !== filtroEstado) return false
+      return true
+    })
+  }, [lista, filtroTrabajador, filtroCC, filtroEstado])
+
   return (
     <div>
       <div className="page-header">
@@ -703,37 +732,80 @@ export default function Liquidaciones() {
       {tab === 'lista' && (
         <div className="card" style={{padding:0}}>
           <div className="table-wrap">
-            <table>
+            <table style={{fontSize:11}}>
               <thead>
                 <tr>
-                  <th>Trabajador</th><th>Período</th><th>Total Imponible</th>
-                  <th>Total Haberes</th><th>Desc. Legales</th>
-                  <th>Líquido a Pagar</th><th>Estado</th><th></th>
+                  <th style={thLiqStyle}>CC</th>
+                  <th style={thLiqStyle}>Trabajador</th>
+                  <th style={thLiqStyle}>Período</th>
+                  <th style={thLiqStyle}>Total Imponible</th>
+                  <th style={thLiqStyle}>Total Haberes</th>
+                  <th style={thLiqStyle}>Desc. Legales</th>
+                  <th style={thLiqStyle}>Líquido a Pagar</th>
+                  <th style={thLiqStyle}>Estado</th>
+                  <th style={thLiqStyle}></th>
+                </tr>
+                <tr>
+                  <td style={tdFiltroStyle}>
+                    <select className="input" style={inpFiltroStyle} value={filtroCC} onChange={e => setFiltroCC(e.target.value)}>
+                      <option value="">Todos</option>
+                      {ccOpciones.map(([cod, nom]) => <option key={cod} value={cod} title={nom}>{cod}</option>)}
+                    </select>
+                  </td>
+                  <td style={tdFiltroStyle}>
+                    <input className="input" style={inpFiltroStyle} placeholder="Filtrar…"
+                      value={filtroTrabajador} onChange={e => setFiltroTrabajador(e.target.value)} />
+                  </td>
+                  <td style={tdFiltroStyle}></td>
+                  <td style={tdFiltroStyle}></td>
+                  <td style={tdFiltroStyle}></td>
+                  <td style={tdFiltroStyle}></td>
+                  <td style={tdFiltroStyle}></td>
+                  <td style={tdFiltroStyle}>
+                    <select className="input" style={inpFiltroStyle} value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
+                      <option value="">Todos</option>
+                      {estadoOpciones.map(es => <option key={es} value={es}>{es}</option>)}
+                    </select>
+                  </td>
+                  <td style={tdFiltroStyle}>
+                    {(filtroCC || filtroTrabajador || filtroEstado) && (
+                      <button className="btn btn-outline btn-sm" style={{fontSize:10,padding:'2px 6px'}}
+                        onClick={() => { setFiltroCC(''); setFiltroTrabajador(''); setFiltroEstado('') }}>✕</button>
+                    )}
+                  </td>
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>Cargando…</td></tr>}
+                {loading && <tr><td colSpan={9} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>Cargando…</td></tr>}
                 {!loading && lista.length === 0 && (
-                  <tr><td colSpan={8} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>
+                  <tr><td colSpan={9} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>
                     Sin liquidaciones para {periodo}. <button className="btn btn-primary btn-sm" style={{marginLeft:8}} onClick={()=>{ setTab('calcular'); if (centroCostoId) cargarCalcData(centroCostoId) }}>Crear liquidaciones</button>
                   </td></tr>
                 )}
+                {!loading && lista.length > 0 && listaFiltrada.length === 0 && (
+                  <tr><td colSpan={9} style={{textAlign:'center',padding:28,color:'var(--gray-500)'}}>Sin resultados para los filtros aplicados.</td></tr>
+                )}
                 {!loading && lista.length > 0 && (
-                  <tr><td colSpan={8} style={{textAlign:'right',padding:'8px 12px',borderTop:'1px solid var(--gray-100)'}}>
+                  <tr><td colSpan={9} style={{textAlign:'right',padding:'6px 10px',borderTop:'1px solid var(--gray-100)'}}>
                     <button className="btn btn-outline btn-sm" onClick={()=>{ setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Agregar más liquidaciones</button>
                   </td></tr>
                 )}
-                {lista.map(l => (
+                {listaFiltrada.map(l => (
                   <tr key={l.id}>
-                    <td>{l.nombre_empleado || `Trabajador #${l.id_empleado}`}</td>
-                    <td>{l.periodo}</td>
-                    <td style={{textAlign:'right'}}>{fmt(l.total_imponible)}</td>
-                    <td style={{textAlign:'right'}}>{fmt(l.total_haberes)}</td>
-                    <td style={{textAlign:'right',color:'var(--danger)'}}>{fmt(l.total_desc_legales)}</td>
-                    <td style={{textAlign:'right',fontWeight:700}}>{fmt(l.liquido_a_pagar)}</td>
-                    <td><span className={`badge ${estadoBadge(l.estado)}`}>{l.estado}</span></td>
-                    <td>
-                      <Link to={`/liquidaciones/${l.id}`} className="btn btn-outline btn-sm">Ver</Link>
+                    <td style={tdLiqStyle} title={l.cc_nombre || ''}>{l.cc_codigo || '—'}</td>
+                    <td style={tdLiqStyle}>{l.nombre_empleado || `Trabajador #${l.id_empleado}`}</td>
+                    <td style={tdLiqStyle}>{l.periodo}</td>
+                    <td style={{...tdLiqStyle,textAlign:'right'}}>{fmt(l.total_imponible)}</td>
+                    <td style={{...tdLiqStyle,textAlign:'right'}}>{fmt(l.total_haberes)}</td>
+                    <td style={{...tdLiqStyle,textAlign:'right',color:'var(--danger)'}}>{fmt(l.total_desc_legales)}</td>
+                    <td style={{...tdLiqStyle,textAlign:'right',fontWeight:700}}>{fmt(l.liquido_a_pagar)}</td>
+                    <td style={tdLiqStyle}><span className={`badge ${estadoBadge(l.estado)}`} style={{fontSize:10,padding:'1px 6px'}}>{l.estado}</span></td>
+                    <td style={{...tdLiqStyle,whiteSpace:'nowrap'}}>
+                      <Link to={`/liquidaciones/${l.id}`} className="btn btn-outline btn-sm" style={btnLiqStyle}>Ver</Link>
+                      <button className="btn btn-outline btn-sm" style={{...btnLiqStyle,marginLeft:4}}
+                        onClick={() => descargar(() => liquidacionesApi.descargarWord(l.id), `liquidacion_${l.periodo}_${l.nombre_empleado || l.id_empleado}.docx`)}>
+                        ⬇️ Word
+                      </button>
                     </td>
                   </tr>
                 ))}
