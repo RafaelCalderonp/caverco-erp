@@ -22,9 +22,79 @@ const estadoBadge = e => ({
 // Estilos compactos de la tabla "lista" de liquidaciones
 const thLiqStyle    = { padding: '5px 6px', whiteSpace: 'nowrap' }
 const tdLiqStyle     = { padding: '3px 6px' }
-const tdFiltroStyle  = { padding: '2px 6px', background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-200)' }
-const inpFiltroStyle = { fontSize: 10.5, padding: '2px 4px', height: 22, width: '100%', boxSizing: 'border-box' }
 const btnLiqStyle    = { fontSize: 10.5, padding: '2px 6px' }
+
+// ── Filtro tipo Excel (dropdown: ordenar A-Z/Z-A + checklist de valores) ──
+function ExcelColumnFilter({ label, valores, seleccionados, onCambiarSeleccion, onOrdenar }) {
+  const [abierto, setAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    const onClickFuera = e => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false) }
+    document.addEventListener('mousedown', onClickFuera)
+    return () => document.removeEventListener('mousedown', onClickFuera)
+  }, [abierto])
+
+  const activo = seleccionados !== null && seleccionados.size < valores.length
+  const visibles = busqueda ? valores.filter(v => v.toLowerCase().includes(busqueda.toLowerCase())) : valores
+  const todosMarcados = visibles.length > 0 && visibles.every(v => seleccionados === null || seleccionados.has(v))
+
+  function aplicar(set) {
+    onCambiarSeleccion(set.size === valores.length ? null : set)
+  }
+  function toggleTodo() {
+    const base = seleccionados === null ? new Set(valores) : new Set(seleccionados)
+    if (todosMarcados) visibles.forEach(v => base.delete(v))
+    else visibles.forEach(v => base.add(v))
+    aplicar(base)
+  }
+  function toggleValor(v) {
+    const base = seleccionados === null ? new Set(valores) : new Set(seleccionados)
+    if (base.has(v)) base.delete(v); else base.add(v)
+    aplicar(base)
+  }
+
+  return (
+    <div ref={ref} style={{position:'relative', display:'inline-block'}}>
+      <button type="button" onClick={() => setAbierto(o => !o)}
+        title={`Filtrar / ordenar ${label}`}
+        style={{
+          border:'1px solid var(--gray-300)', borderRadius:3, background: activo ? 'var(--primary-lt,#dbeafe)' : '#fff',
+          color: activo ? 'var(--primary,#1a56db)' : 'var(--gray-500)', cursor:'pointer',
+          fontSize:9, lineHeight:1, padding:'2px 3px', marginLeft:4, verticalAlign:'middle',
+        }}>▾</button>
+      {abierto && (
+        <div style={{
+          position:'absolute', top:'100%', left:0, zIndex:50, background:'#fff',
+          border:'1px solid var(--gray-300)', borderRadius:6, boxShadow:'0 4px 16px rgba(0,0,0,.15)',
+          padding:8, width:190, textAlign:'left', fontWeight:400, textTransform:'none', letterSpacing:'normal',
+        }}>
+          <button type="button" onClick={() => { onOrdenar(1); setAbierto(false) }} style={popupItemStyle}>A→Z Ordenar de A a Z</button>
+          <button type="button" onClick={() => { onOrdenar(-1); setAbierto(false) }} style={popupItemStyle}>Z→A Ordenar de Z a A</button>
+          <div style={{borderTop:'1px solid var(--gray-200)', margin:'6px 0'}} />
+          <input placeholder="Buscar…" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+            style={{...inpFiltroStyle, width:'100%', marginBottom:6}} />
+          <label style={{...popupItemStyle, display:'flex', alignItems:'center', gap:6, fontWeight:600}}>
+            <input type="checkbox" checked={todosMarcados} onChange={toggleTodo} /> (Seleccionar todo)
+          </label>
+          <div style={{maxHeight:160, overflowY:'auto'}}>
+            {visibles.map(v => (
+              <label key={v} style={{...popupItemStyle, display:'flex', alignItems:'center', gap:6}}>
+                <input type="checkbox" checked={seleccionados === null || seleccionados.has(v)} onChange={() => toggleValor(v)} />
+                {v}
+              </label>
+            ))}
+            {visibles.length === 0 && <div style={{fontSize:11, color:'var(--gray-500)', padding:'4px 2px'}}>Sin coincidencias</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+const inpFiltroStyle = { fontSize: 10.5, padding: '3px 5px', boxSizing: 'border-box', border:'1px solid var(--gray-300)', borderRadius:4 }
+const popupItemStyle = { display:'block', width:'100%', textAlign:'left', background:'none', border:'none', cursor:'pointer', fontSize:12, padding:'3px 2px', borderRadius:3 }
 
 // Ciclo de estados al hacer clic: VERDE → ROJO → AUSENTE → VERDE
 const CICLO = { VERDE: 'ROJO', ROJO: 'AUSENTE', AUSENTE: 'VERDE' }
@@ -232,10 +302,11 @@ export default function Liquidaciones() {
 
   const [msg, setMsg] = useState('')
 
-  // Filtros tipo Excel de la tabla "lista"
-  const [filtroTrabajador, setFiltroTrabajador] = useState('')
-  const [filtroCC, setFiltroCC]                 = useState('')
-  const [filtroEstado, setFiltroEstado]         = useState('')
+  // Filtros tipo Excel de la tabla "lista": null = todos seleccionados (sin filtro)
+  const [selCC, setSelCC]               = useState(null)
+  const [selTrabajador, setSelTrabajador] = useState(null)
+  const [selEstado, setSelEstado]       = useState(null)
+  const [ordenLiq, setOrdenLiq]         = useState({ key: null, dir: 1 })
 
   // Calcular tab
   const [calcData, setCalcData]     = useState(null)
@@ -493,22 +564,28 @@ export default function Liquidaciones() {
     } finally { setEmitiendo(false) }
   }
 
-  const ccOpciones = useMemo(() => {
-    const map = new Map()
-    for (const l of lista) if (l.cc_codigo) map.set(l.cc_codigo, l.cc_nombre)
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [lista])
+  const valorLiq = (l, key) => ({
+    cc: l.cc_codigo || '(Sin CC)',
+    trabajador: l.nombre_empleado || `Trabajador #${l.id_empleado}`,
+    periodo: l.periodo,
+    estado: l.estado,
+  }[key])
 
-  const estadoOpciones = useMemo(() => [...new Set(lista.map(l => l.estado))].sort(), [lista])
+  const opcionesCC         = useMemo(() => [...new Set(lista.map(l => valorLiq(l, 'cc')))].sort(), [lista])
+  const opcionesTrabajador = useMemo(() => [...new Set(lista.map(l => valorLiq(l, 'trabajador')))].sort(), [lista])
+  const opcionesEstado     = useMemo(() => [...new Set(lista.map(l => valorLiq(l, 'estado')))].sort(), [lista])
 
   const listaFiltrada = useMemo(() => {
-    return lista.filter(l => {
-      if (filtroTrabajador && !(l.nombre_empleado || '').toLowerCase().includes(filtroTrabajador.toLowerCase())) return false
-      if (filtroCC && l.cc_codigo !== filtroCC) return false
-      if (filtroEstado && l.estado !== filtroEstado) return false
-      return true
-    })
-  }, [lista, filtroTrabajador, filtroCC, filtroEstado])
+    let r = lista.filter(l =>
+      (selCC === null || selCC.has(valorLiq(l, 'cc'))) &&
+      (selTrabajador === null || selTrabajador.has(valorLiq(l, 'trabajador'))) &&
+      (selEstado === null || selEstado.has(valorLiq(l, 'estado')))
+    )
+    if (ordenLiq.key) {
+      r = [...r].sort((a, b) => String(valorLiq(a, ordenLiq.key)).localeCompare(String(valorLiq(b, ordenLiq.key))) * ordenLiq.dir)
+    }
+    return r
+  }, [lista, selCC, selTrabajador, selEstado, ordenLiq])
 
   return (
     <div>
@@ -735,44 +812,33 @@ export default function Liquidaciones() {
             <table style={{fontSize:11}}>
               <thead>
                 <tr>
-                  <th style={thLiqStyle}>CC</th>
-                  <th style={thLiqStyle}>Trabajador</th>
+                  <th style={thLiqStyle}>
+                    CC
+                    <ExcelColumnFilter label="CC" valores={opcionesCC} seleccionados={selCC}
+                      onCambiarSeleccion={setSelCC} onOrdenar={dir => setOrdenLiq({ key: 'cc', dir })} />
+                  </th>
+                  <th style={thLiqStyle}>
+                    Trabajador
+                    <ExcelColumnFilter label="Trabajador" valores={opcionesTrabajador} seleccionados={selTrabajador}
+                      onCambiarSeleccion={setSelTrabajador} onOrdenar={dir => setOrdenLiq({ key: 'trabajador', dir })} />
+                  </th>
                   <th style={thLiqStyle}>Período</th>
                   <th style={thLiqStyle}>Total Imponible</th>
                   <th style={thLiqStyle}>Total Haberes</th>
                   <th style={thLiqStyle}>Desc. Legales</th>
                   <th style={thLiqStyle}>Líquido a Pagar</th>
-                  <th style={thLiqStyle}>Estado</th>
-                  <th style={thLiqStyle}></th>
-                </tr>
-                <tr>
-                  <td style={tdFiltroStyle}>
-                    <select className="input" style={inpFiltroStyle} value={filtroCC} onChange={e => setFiltroCC(e.target.value)}>
-                      <option value="">Todos</option>
-                      {ccOpciones.map(([cod, nom]) => <option key={cod} value={cod} title={nom}>{cod}</option>)}
-                    </select>
-                  </td>
-                  <td style={tdFiltroStyle}>
-                    <input className="input" style={inpFiltroStyle} placeholder="Filtrar…"
-                      value={filtroTrabajador} onChange={e => setFiltroTrabajador(e.target.value)} />
-                  </td>
-                  <td style={tdFiltroStyle}></td>
-                  <td style={tdFiltroStyle}></td>
-                  <td style={tdFiltroStyle}></td>
-                  <td style={tdFiltroStyle}></td>
-                  <td style={tdFiltroStyle}></td>
-                  <td style={tdFiltroStyle}>
-                    <select className="input" style={inpFiltroStyle} value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
-                      <option value="">Todos</option>
-                      {estadoOpciones.map(es => <option key={es} value={es}>{es}</option>)}
-                    </select>
-                  </td>
-                  <td style={tdFiltroStyle}>
-                    {(filtroCC || filtroTrabajador || filtroEstado) && (
+                  <th style={thLiqStyle}>
+                    Estado
+                    <ExcelColumnFilter label="Estado" valores={opcionesEstado} seleccionados={selEstado}
+                      onCambiarSeleccion={setSelEstado} onOrdenar={dir => setOrdenLiq({ key: 'estado', dir })} />
+                  </th>
+                  <th style={thLiqStyle}>
+                    {(selCC || selTrabajador || selEstado || ordenLiq.key) && (
                       <button className="btn btn-outline btn-sm" style={{fontSize:10,padding:'2px 6px'}}
-                        onClick={() => { setFiltroCC(''); setFiltroTrabajador(''); setFiltroEstado('') }}>✕</button>
+                        title="Quitar filtros y orden"
+                        onClick={() => { setSelCC(null); setSelTrabajador(null); setSelEstado(null); setOrdenLiq({ key: null, dir: 1 }) }}>✕</button>
                     )}
-                  </td>
+                  </th>
                 </tr>
               </thead>
               <tbody>
