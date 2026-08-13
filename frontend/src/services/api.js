@@ -106,6 +106,7 @@ export const liquidacionesApi = {
   listarEmpleado:  (idEmp)        => api.get(`/liquidaciones/empleado/${idEmp}`),
   get:             (id)           => api.get(`/liquidaciones/${id}`),
   marcarPagada:    (id)           => api.patch(`/liquidaciones/${id}/pagar`),
+  eliminar:        (id)           => api.delete(`/liquidaciones/${id}`),
   indicadores:     (periodo)      => api.get(`/liquidaciones/indicadores/${periodo}`),
   refrescarIndicadores: (periodo) => api.post(`/liquidaciones/indicadores/${periodo}/refrescar`),
   getAsistencia: (periodo, centro_costo_id) => api.get(`/liquidaciones/asistencia/${periodo}`, { params: centro_costo_id ? { centro_costo_id } : {} }),

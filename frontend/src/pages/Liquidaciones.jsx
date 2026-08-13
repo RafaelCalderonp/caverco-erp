@@ -430,6 +430,17 @@ export default function Liquidaciones() {
     finally { setCalcLoading(false) }
   }
 
+  const eliminarLiquidacion = async (l) => {
+    const nombre = l.nombre_empleado || `Trabajador #${l.id_empleado}`
+    if (!confirm(`¿Eliminar la liquidación de ${nombre} (${l.periodo})? Esta acción no se puede deshacer.`)) return
+    try {
+      await liquidacionesApi.eliminar(l.id)
+      setLista(prev => prev.filter(x => x.id !== l.id))
+    } catch (e) {
+      alert(e.response?.data?.detail || 'No se pudo eliminar la liquidación')
+    }
+  }
+
   const desactivarTrabajador = async (emp) => {
     if (!confirm(`¿Desactivar a ${emp.nombre}? Ya no aparecerá en el listado de este centro de costo para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
     try {
@@ -884,6 +895,12 @@ export default function Liquidaciones() {
                         onClick={() => descargar(() => liquidacionesApi.descargarWord(l.id), `liquidacion_${l.periodo}_${l.nombre_empleado || l.id_empleado}.docx`)}>
                         ⬇️ Word
                       </button>
+                      {l.estado !== 'PAGADA' && (
+                        <button className="btn btn-outline btn-sm" style={{...btnLiqStyle,marginLeft:4,color:'var(--danger)'}}
+                          title="Eliminar liquidación" onClick={() => eliminarLiquidacion(l)}>
+                          🗑️
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -674,6 +674,19 @@ async def marcar_pagada(id: int, db: AsyncSession = Depends(get_db)):
     return liq
 
 
+@router.delete("/{id}", status_code=204,
+               dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
+async def eliminar_liquidacion(id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Liquidacion).where(Liquidacion.id == id))
+    liq = result.scalar_one_or_none()
+    if not liq:
+        raise HTTPException(404, "Liquidación no encontrada")
+    if liq.estado == "PAGADA":
+        raise HTTPException(400, "No se puede eliminar una liquidación ya PAGADA")
+    await _verificar_periodo_abierto(liq.periodo, db)
+    await db.delete(liq)
+
+
 @router.post("/periodo/{periodo}/cerrar", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN"))])
 async def cerrar_periodo(periodo: str, db: AsyncSession = Depends(get_db)):
     """Cierra un período: bloquea nuevas emisiones y pagos de liquidaciones para ese YYYY-MM."""
