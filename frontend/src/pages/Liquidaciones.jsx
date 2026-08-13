@@ -430,6 +430,18 @@ export default function Liquidaciones() {
     finally { setCalcLoading(false) }
   }
 
+  const desactivarTrabajador = async (emp) => {
+    if (!confirm(`¿Desactivar a ${emp.nombre}? Ya no aparecerá en el listado de este centro de costo para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
+    try {
+      await empleadosApi.delete(emp.id)
+      setCalcData(cd => cd && ({...cd, empleados: cd.empleados.filter(e => e.id !== emp.id)}))
+      setCalcMsg(`✅ ${emp.nombre} desactivado`)
+      setTimeout(() => setCalcMsg(m => m.startsWith('✅') ? '' : m), 3000)
+    } catch {
+      alert('No se pudo desactivar al trabajador')
+    }
+  }
+
   const setEF = (empId, patch) =>
     setEmpleadoForms(f => ({...f, [empId]: {...f[empId], ...patch}}))
 
@@ -951,7 +963,14 @@ export default function Liquidaciones() {
                     )}
                     {emitOk && <span style={{fontSize:12,color:'#16a34a'}}>✔ Calculado: {fmt(prev.resultado.liquido_a_pagar)}</span>}
                   </div>
-                  <span style={{fontSize:11,color:'var(--gray-500)'}}>{ef.expanded ? '▲' : '▼'}</span>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <button type="button" title="Desactivar trabajador (ya no está activo)"
+                      onClick={e => { e.stopPropagation(); desactivarTrabajador(emp) }}
+                      style={{background:'none',border:'none',cursor:'pointer',fontSize:14,color:'var(--danger,#dc2626)',padding:2,lineHeight:1}}>
+                      🗑️
+                    </button>
+                    <span style={{fontSize:11,color:'var(--gray-500)'}}>{ef.expanded ? '▲' : '▼'}</span>
+                  </div>
                 </div>
 
                 {ef.expanded && (
