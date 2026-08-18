@@ -311,14 +311,22 @@ export const contabilidadApi = {
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro/export`, { params: { periodo, operacion }, responseType: 'blob' }),
 }
 
-export const solicitudesContratoApi = {
-  listar:  (idEmpresa) => api.get(`/empresas/${idEmpresa}/solicitudes-contrato`),
-  crear:   (idEmpresa, nombreReferencia) =>
-    api.post(`/empresas/${idEmpresa}/solicitudes-contrato`, { nombre_referencia: nombreReferencia || undefined }),
-  eliminar: (idEmpresa, idSolicitud) =>
-    api.delete(`/empresas/${idEmpresa}/solicitudes-contrato/${idSolicitud}`),
-  marcarConvertida: (idEmpresa, idSolicitud, idEmpleado) =>
-    api.post(`/empresas/${idEmpresa}/solicitudes-contrato/${idSolicitud}/marcar-convertida`, null, { params: { id_empleado: idEmpleado } }),
+export const enlacesPostulacionApi = {
+  listar:    (idEmpresa) => api.get(`/empresas/${idEmpresa}/solicitudes-contrato/enlaces`),
+  crear:     (idEmpresa, nombreReferencia) =>
+    api.post(`/empresas/${idEmpresa}/solicitudes-contrato/enlaces`, { nombre_referencia: nombreReferencia || undefined }),
+  actualizar: (idEmpresa, idEnlace, activo) =>
+    api.patch(`/empresas/${idEmpresa}/solicitudes-contrato/enlaces/${idEnlace}`, { activo }),
+  eliminar:  (idEmpresa, idEnlace) =>
+    api.delete(`/empresas/${idEmpresa}/solicitudes-contrato/enlaces/${idEnlace}`),
+}
+
+export const postulacionesContratoApi = {
+  listar:  (idEmpresa) => api.get(`/empresas/${idEmpresa}/solicitudes-contrato/postulaciones`),
+  eliminar: (idEmpresa, idPostulacion) =>
+    api.delete(`/empresas/${idEmpresa}/solicitudes-contrato/postulaciones/${idPostulacion}`),
+  marcarConvertida: (idEmpresa, idPostulacion, idEmpleado) =>
+    api.post(`/empresas/${idEmpresa}/solicitudes-contrato/postulaciones/${idPostulacion}/marcar-convertida`, null, { params: { id_empleado: idEmpleado } }),
 }
 
 export const postulacionApi = {

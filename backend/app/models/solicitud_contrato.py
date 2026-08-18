@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, CHAR, Numeric, SmallInteger, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, String, Date, CHAR, Numeric, SmallInteger, Boolean, ForeignKey, CheckConstraint
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -6,23 +6,34 @@ from app.core.database import Base
 TIMESTAMPTZ = TIMESTAMP(timezone=True)
 
 
-class SolicitudContrato(Base):
+class EnlacePostulacion(Base):
     """
-    Enlace público ligado a una sola empresa para que un futuro trabajador
-    complete sus datos personales desde afuera del sistema, sin poder ver ni
-    cambiar la empresa. Desde el ERP esos datos precargan "Nuevo Contrato".
+    Enlace reutilizable ligado a una sola empresa: quien lo recibe puede
+    completar el formulario público sin poder ver ni cambiar la empresa.
+    Un mismo enlace puede recibir varias postulaciones (una por persona).
     """
-    __tablename__ = "solicitudes_contrato"
-    __table_args__ = (
-        CheckConstraint("estado IN ('PENDIENTE', 'ENVIADA', 'CONVERTIDA')", name="chk_solicitudes_contrato_estado"),
-        {"schema": "erp"},
-    )
+    __tablename__ = "enlaces_postulacion"
+    __table_args__ = {"schema": "erp"}
 
     id                = Column(Integer, primary_key=True)
     id_empresa        = Column(Integer, ForeignKey("erp.empresas.id", ondelete="CASCADE"), nullable=False)
     token             = Column(String(64), nullable=False, unique=True)
     nombre_referencia = Column(String(150))
-    estado            = Column(String(20), nullable=False, default="PENDIENTE")
+    activo            = Column(Boolean, nullable=False, default=True)
+    created_at        = Column(TIMESTAMPTZ, server_default=func.now())
+
+
+class PostulacionContrato(Base):
+    """Una fila por cada persona que completó el formulario público de un enlace."""
+    __tablename__ = "postulaciones_contrato"
+    __table_args__ = (
+        CheckConstraint("estado IN ('ENVIADA', 'CONVERTIDA')", name="chk_postulaciones_contrato_estado"),
+        {"schema": "erp"},
+    )
+
+    id        = Column(Integer, primary_key=True)
+    id_enlace = Column(Integer, ForeignKey("erp.enlaces_postulacion.id", ondelete="CASCADE"), nullable=False)
+    estado    = Column(String(20), nullable=False, default="ENVIADA")
 
     rut               = Column(String(12))
     nombres           = Column(String(100))
@@ -51,5 +62,4 @@ class SolicitudContrato(Base):
     id_empleado_generado = Column(Integer, ForeignKey("erp.empleados.id"))
 
     created_at    = Column(TIMESTAMPTZ, server_default=func.now())
-    enviado_at    = Column(TIMESTAMPTZ)
     convertido_at = Column(TIMESTAMPTZ)

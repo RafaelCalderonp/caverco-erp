@@ -35,15 +35,7 @@ export default function PostulacionPublica() {
 
   useEffect(() => {
     postulacionApi.obtener(token)
-      .then(r => {
-        setDatosLink(r.data)
-        if (r.data.datos) {
-          setForm(f => ({
-            ...f,
-            ...Object.fromEntries(Object.entries(r.data.datos).map(([k, v]) => [k, v ?? f[k]])),
-          }))
-        }
-      })
+      .then(r => setDatosLink(r.data))
       .catch(e => setError(e.response?.status === 404 ? 'Este enlace no es válido o ya no está disponible.' : 'No se pudo cargar el formulario.'))
       .finally(() => setCargando(false))
   }, [token])
@@ -85,15 +77,26 @@ export default function PostulacionPublica() {
   if (cargando) return <div style={wrap}><p>Cargando…</p></div>
   if (error && !datosLink) return <div style={wrap}><p style={{color:'red'}}>{error}</p></div>
 
-  if (enviadoOk || datosLink?.estado === 'CONVERTIDA') {
+  if (datosLink && !datosLink.activo && !enviadoOk) {
     return (
       <div style={wrap}>
         <div className="card" style={{textAlign:'center', padding:32}}>
-          <h2 style={{marginBottom:8}}>{datosLink?.estado === 'CONVERTIDA' ? '✅ Postulación ya procesada' : '✅ ¡Datos enviados!'}</h2>
+          <h2 style={{marginBottom:8}}>Enlace no disponible</h2>
           <p style={{color:'var(--gray-500)'}}>
-            {datosLink?.estado === 'CONVERTIDA'
-              ? `${datosLink?.empresa?.razon_social} ya generó tu contrato con estos datos.`
-              : `Gracias. ${datosLink?.empresa?.razon_social} recibió tus datos y se pondrá en contacto contigo.`}
+            Este enlace de {datosLink?.empresa?.razon_social} ya no está activo. Solicita uno nuevo a la empresa.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (enviadoOk) {
+    return (
+      <div style={wrap}>
+        <div className="card" style={{textAlign:'center', padding:32}}>
+          <h2 style={{marginBottom:8}}>✅ ¡Datos enviados!</h2>
+          <p style={{color:'var(--gray-500)'}}>
+            Gracias. {datosLink?.empresa?.razon_social} recibió tus datos y se pondrá en contacto contigo.
           </p>
         </div>
       </div>

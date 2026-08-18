@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi, departamentosApi, empleadosApi, solicitudesContratoApi } from '../services/api'
+import { contratosApi, catalogosApi, departamentosApi, empleadosApi, postulacionesContratoApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 import { formatearRut, validarRut } from '../utils/rut'
@@ -56,7 +56,7 @@ export default function ContratoNuevo() {
   const [searchParams] = useSearchParams()
   const idEmpleadoRecontratacion = searchParams.get('id_empleado')
   const idContratoDuplicar = searchParams.get('duplicar_de')
-  const idSolicitud = searchParams.get('solicitud_id')
+  const idPostulacion = searchParams.get('postulacion_id')
 
   const [step, setStep] = useState(idEmpleadoRecontratacion ? 2 : 1)
   const [form, setForm] = useState(EMPTY)
@@ -82,9 +82,9 @@ export default function ContratoNuevo() {
 
   // Precargar los datos personales enviados por el postulante en el enlace público
   useEffect(() => {
-    if (idSolicitud && empresaActual) {
-      solicitudesContratoApi.listar(empresaActual.id).then(r => {
-        const s = r.data.find(x => String(x.id) === String(idSolicitud))
+    if (idPostulacion && empresaActual) {
+      postulacionesContratoApi.listar(empresaActual.id).then(r => {
+        const s = r.data.find(x => String(x.id) === String(idPostulacion))
         if (!s) return
         setForm(f => ({
           ...f,
@@ -110,10 +110,10 @@ export default function ContratoNuevo() {
           tipo_cuenta: s.tipo_cuenta || f.tipo_cuenta,
           numero_cuenta: s.numero_cuenta || f.numero_cuenta,
         }))
-        setSolicitudMsg(`Datos precargados desde la solicitud enviada por ${s.nombres} ${s.apellido_paterno}. Revisa y completa el resto antes de guardar.`)
+        setSolicitudMsg(`Datos precargados desde la postulación de ${s.nombres} ${s.apellido_paterno}. Revisa y completa el resto antes de guardar.`)
       }).catch(() => {})
     }
-  }, [idSolicitud, empresaActual])
+  }, [idPostulacion, empresaActual])
 
   // Duplicar un contrato existente: copia todo salvo Obra y fechas (lo único
   // que cambia normalmente al reasignar a un trabajador a otra obra).
@@ -244,8 +244,8 @@ export default function ContratoNuevo() {
         n_cargas: Number(form.n_cargas),
       }
       const r = await contratosApi.crearConTrabajador(payload)
-      if (idSolicitud && empresaActual) {
-        solicitudesContratoApi.marcarConvertida(empresaActual.id, idSolicitud, r.data.id_empleado).catch(() => {})
+      if (idPostulacion && empresaActual) {
+        postulacionesContratoApi.marcarConvertida(empresaActual.id, idPostulacion, r.data.id_empleado).catch(() => {})
       }
       nav(`/contratos/${r.data.id_contrato}`)
     } catch (err) {
