@@ -22,7 +22,7 @@ function invalidate(key) { _cache.delete(scopedKey(key)) }
 export function invalidarCatalogos() { _cache.clear() }
 
 const SIN_SCOPE_EMPRESA = [
-  '/empresas', '/auth',
+  '/empresas', '/auth', '/postulacion',
   '/catalogos/tipos-contrato', '/catalogos/motivos-termino', '/catalogos/tipos-anexo',
   '/catalogos/afp', '/catalogos/isapre',
 ]
@@ -43,7 +43,7 @@ api.interceptors.response.use(
   err => {
     if (err.response?.status === 401) {
       localStorage.removeItem('token')
-      if (!location.pathname.startsWith('/login')) location.href = '/login'
+      if (!location.pathname.startsWith('/login') && !location.pathname.startsWith('/postulacion')) location.href = '/login'
     }
     return Promise.reject(err)
   }
@@ -309,4 +309,19 @@ export const contabilidadApi = {
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro`, { params: { periodo, operacion } }),
   exportarLibro: (idEmpresa, periodo, operacion) =>
     api.get(`/empresas/${idEmpresa}/contabilidad/rcv/libro/export`, { params: { periodo, operacion }, responseType: 'blob' }),
+}
+
+export const solicitudesContratoApi = {
+  listar:  (idEmpresa) => api.get(`/empresas/${idEmpresa}/solicitudes-contrato`),
+  crear:   (idEmpresa, nombreReferencia) =>
+    api.post(`/empresas/${idEmpresa}/solicitudes-contrato`, { nombre_referencia: nombreReferencia || undefined }),
+  eliminar: (idEmpresa, idSolicitud) =>
+    api.delete(`/empresas/${idEmpresa}/solicitudes-contrato/${idSolicitud}`),
+  marcarConvertida: (idEmpresa, idSolicitud, idEmpleado) =>
+    api.post(`/empresas/${idEmpresa}/solicitudes-contrato/${idSolicitud}/marcar-convertida`, null, { params: { id_empleado: idEmpleado } }),
+}
+
+export const postulacionApi = {
+  obtener: (token) => api.get(`/postulacion/${token}`),
+  enviar:  (token, datos) => api.post(`/postulacion/${token}`, datos),
 }

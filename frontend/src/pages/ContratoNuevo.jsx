@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { contratosApi, catalogosApi, departamentosApi, empleadosApi } from '../services/api'
+import { contratosApi, catalogosApi, departamentosApi, empleadosApi, solicitudesContratoApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
 import { REGIONES, COMUNAS_POR_REGION } from '../data/chile'
 import { formatearRut, validarRut } from '../utils/rut'
@@ -56,6 +56,7 @@ export default function ContratoNuevo() {
   const [searchParams] = useSearchParams()
   const idEmpleadoRecontratacion = searchParams.get('id_empleado')
   const idContratoDuplicar = searchParams.get('duplicar_de')
+  const idSolicitud = searchParams.get('solicitud_id')
 
   const [step, setStep] = useState(idEmpleadoRecontratacion ? 2 : 1)
   const [form, setForm] = useState(EMPTY)
@@ -71,12 +72,48 @@ export default function ContratoNuevo() {
   const [afps, setAfps] = useState([])
   const [isapres, setIsapres] = useState([])
   const [empleadoRecontratacion, setEmpleadoRecontratacion] = useState(null)
+  const [solicitudMsg, setSolicitudMsg] = useState('')
 
   useEffect(() => {
     if (idEmpleadoRecontratacion) {
       empleadosApi.get(idEmpleadoRecontratacion).then(r => setEmpleadoRecontratacion(r.data)).catch(() => {})
     }
   }, [idEmpleadoRecontratacion])
+
+  // Precargar los datos personales enviados por el postulante en el enlace público
+  useEffect(() => {
+    if (idSolicitud && empresaActual) {
+      solicitudesContratoApi.listar(empresaActual.id).then(r => {
+        const s = r.data.find(x => String(x.id) === String(idSolicitud))
+        if (!s) return
+        setForm(f => ({
+          ...f,
+          rut: s.rut || f.rut,
+          nombres: s.nombres || f.nombres,
+          apellido_paterno: s.apellido_paterno || f.apellido_paterno,
+          apellido_materno: s.apellido_materno || f.apellido_materno,
+          fecha_nacimiento: s.fecha_nacimiento || f.fecha_nacimiento,
+          genero: s.genero || f.genero,
+          estado_civil: s.estado_civil || f.estado_civil,
+          nacionalidad: s.nacionalidad || f.nacionalidad,
+          direccion: s.direccion || f.direccion,
+          comuna: s.comuna || f.comuna,
+          region: s.region || f.region,
+          ciudad: s.ciudad || f.ciudad,
+          telefono: s.telefono || f.telefono,
+          email_personal: s.email_personal || f.email_personal,
+          id_afp: s.id_afp || f.id_afp,
+          id_isapre: s.id_isapre || f.id_isapre,
+          valor_isapre_uf: s.valor_isapre_uf || f.valor_isapre_uf,
+          n_cargas: s.n_cargas ?? f.n_cargas,
+          banco: s.banco || f.banco,
+          tipo_cuenta: s.tipo_cuenta || f.tipo_cuenta,
+          numero_cuenta: s.numero_cuenta || f.numero_cuenta,
+        }))
+        setSolicitudMsg(`Datos precargados desde la solicitud enviada por ${s.nombres} ${s.apellido_paterno}. Revisa y completa el resto antes de guardar.`)
+      }).catch(() => {})
+    }
+  }, [idSolicitud, empresaActual])
 
   // Duplicar un contrato existente: copia todo salvo Obra y fechas (lo único
   // que cambia normalmente al reasignar a un trabajador a otra obra).
@@ -207,6 +244,9 @@ export default function ContratoNuevo() {
         n_cargas: Number(form.n_cargas),
       }
       const r = await contratosApi.crearConTrabajador(payload)
+      if (idSolicitud && empresaActual) {
+        solicitudesContratoApi.marcarConvertida(empresaActual.id, idSolicitud, r.data.id_empleado).catch(() => {})
+      }
       nav(`/contratos/${r.data.id_contrato}`)
     } catch (err) {
       const detalle = err.response?.data?.detail
@@ -260,6 +300,11 @@ export default function ContratoNuevo() {
           </h1>
         </div>
       </div>
+      {solicitudMsg && (
+        <p style={{fontSize:13, marginBottom:12, background:'#e3f2fd', color:'#1565c0', padding:'8px 12px', borderRadius:6}}>
+          ✓ {solicitudMsg}
+        </p>
+      )}
       {idContratoDuplicar && (
         <p className="text-muted" style={{fontSize:13, marginBottom:12}}>
           Se copiaron sueldo, cargo, centro de costo, jornada y horario del contrato original.

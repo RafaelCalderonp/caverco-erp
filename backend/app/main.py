@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.migrations import run_pending_migrations
-from app.routers import auth, empleados, departamentos, licencias, liquidaciones, integraciones, contratos, catalogos, empresas, contabilidad, plan_cuentas, libro_diario, plantillas_contabilizacion, capacitaciones, remuneraciones_contabilidad
+from app.routers import auth, empleados, departamentos, licencias, liquidaciones, integraciones, contratos, catalogos, empresas, contabilidad, plan_cuentas, libro_diario, plantillas_contabilizacion, capacitaciones, remuneraciones_contabilidad, solicitudes_contrato, postulacion_publica
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -65,6 +65,8 @@ app.include_router(libro_diario.router,                prefix="/api/v1")
 app.include_router(plantillas_contabilizacion.router,  prefix="/api/v1")
 app.include_router(capacitaciones.router,              prefix="/api/v1")
 app.include_router(remuneraciones_contabilidad.router,  prefix="/api/v1")
+app.include_router(solicitudes_contrato.router,          prefix="/api/v1")
+app.include_router(postulacion_publica.router,           prefix="/api/v1")
 
 @app.get("/")
 def root():

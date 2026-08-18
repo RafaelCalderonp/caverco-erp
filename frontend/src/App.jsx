@@ -27,6 +27,8 @@ import PlantillasContabilizacion from './pages/PlantillasContabilizacion'
 import Capacitaciones from './pages/Capacitaciones'
 import Configuracion from './pages/Configuracion'
 import Usuarios from './pages/Usuarios'
+import SolicitudesContrato from './pages/SolicitudesContrato'
+import PostulacionPublica from './pages/PostulacionPublica'
 import { useAuth } from './context/AuthContext'
 import { useEmpresa } from './context/EmpresaContext'
 
@@ -49,6 +51,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/postulacion/:token" element={<PostulacionPublica />} />
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"          element={<RequireEmpresa><Dashboard /></RequireEmpresa>} />
@@ -64,6 +67,7 @@ export default function App() {
         <Route path="contratos"          element={<RequireEmpresa><Contratos /></RequireEmpresa>} />
         <Route path="contratos/nuevo"    element={<RequireEmpresa><ContratoNuevo /></RequireEmpresa>} />
         <Route path="contratos/:id"      element={<RequireEmpresa><ContratoDetalle /></RequireEmpresa>} />
+        <Route path="solicitudes-contrato" element={<RequireEmpresa><SolicitudesContrato /></RequireEmpresa>} />
         <Route path="liquidaciones"      element={<RequireEmpresa><Liquidaciones /></RequireEmpresa>} />
         <Route path="liquidaciones/:id"  element={<RequireEmpresa><LiquidacionDetalle /></RequireEmpresa>} />
         <Route path="liquidaciones/:id/boleta" element={<RequireEmpresa><LiquidacionBoleta /></RequireEmpresa>} />
