@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEmpresa } from '../context/EmpresaContext'
 import { capacitacionesApi, catalogosApi } from '../services/api'
 import api from '../services/api'
@@ -38,6 +38,81 @@ function descargarBlob(blob, nombre) {
   URL.revokeObjectURL(url)
 }
 
+// Selector de trabajadores por centro de costo, con checklist múltiple
+function SelectorTrabajadoresPorCC({ empleados, centrosCosto, asistentesActuales, addEmpleadoCap }) {
+  const [abierto, setAbierto] = useState(false)
+  const [cc, setCc] = useState('')
+  const [seleccionados, setSeleccionados] = useState(new Set())
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    const onClickFuera = e => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false) }
+    document.addEventListener('mousedown', onClickFuera)
+    return () => document.removeEventListener('mousedown', onClickFuera)
+  }, [abierto])
+
+  const rutsYaAgregados = new Set(asistentesActuales.map(a => a.rut).filter(Boolean))
+  const disponibles = empleados
+    .filter(e => !cc || String(e.centro_costo?.id) === cc)
+    .filter(e => !rutsYaAgregados.has(e.rut))
+
+  function toggle(id) {
+    setSeleccionados(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function agregarSeleccionados() {
+    disponibles.filter(e => seleccionados.has(e.id)).forEach(addEmpleadoCap)
+    setSeleccionados(new Set())
+    setAbierto(false)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button type="button" className="btn btn-outline btn-sm" onClick={() => setAbierto(o => !o)}>
+        + Desde trabajadores...
+      </button>
+      {abierto && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, zIndex: 50, background: '#fff',
+          border: '1px solid var(--gray-300)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,.15)',
+          padding: 10, width: 320, textAlign: 'left', fontWeight: 400,
+        }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Centro de Costo</label>
+          <select className="form-control" style={{ width: '100%', marginBottom: 8, fontSize: 12 }}
+            value={cc} onChange={e => { setCc(e.target.value); setSeleccionados(new Set()) }}>
+            <option value="">Todos los centros de costo</option>
+            {centrosCosto.map(c => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+          </select>
+
+          <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--gray-200)', borderRadius: 4 }}>
+            {disponibles.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--gray-500)', padding: 10 }}>Sin trabajadores disponibles.</div>
+            )}
+            {disponibles.map(e => (
+              <label key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '5px 8px', borderBottom: '1px solid var(--gray-100)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={seleccionados.has(e.id)} onChange={() => toggle(e.id)} />
+                {e.nombres} {e.apellido_paterno} — {e.rut}
+              </label>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setAbierto(false)}>Cancelar</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={seleccionados.size === 0} onClick={agregarSeleccionados}>
+              Agregar seleccionados ({seleccionados.size})
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 export default function Capacitaciones() {
   const { empresaActual } = useEmpresa()
@@ -51,6 +126,7 @@ export default function Capacitaciones() {
   const [error, setError] = useState('')
 
   const [obras, setObras] = useState([])
+  const [centrosCosto, setCentrosCosto] = useState([])
   const [mostrarFormCap, setMostrarFormCap] = useState(false)
   const [formCap, setFormCap] = useState(CAP_EMPTY)
   const [guardandoCap, setGuardandoCap] = useState(false)
@@ -67,16 +143,18 @@ export default function Capacitaciones() {
     if (!empresaActual) return
     setCargando(true); setError('')
     try {
-      const [capRes, procRes, empRes, obrasRes] = await Promise.all([
+      const [capRes, procRes, empRes, obrasRes, ccRes] = await Promise.all([
         capacitacionesApi.list(empresaActual.id),
         capacitacionesApi.procedimientos(esArchimet ? empresaActual.rut : null),
         api.get('/empleados').catch(() => ({ data: [] })),
         api.get('/catalogos/obras', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
+        api.get('/catalogos/centros-costo', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
       ])
       setCapacitaciones(capRes.data)
       setProcedimientos(procRes.data)
       setEmpleados(empRes.data)
       setObras(obrasRes.data)
+      setCentrosCosto(ccRes.data)
     } catch (err) {
       const msg = err?.response?.status === 500
         ? 'Error del servidor. Verifica que la migración 30_capacitaciones_archimet.sql fue ejecutada.'
@@ -255,6 +333,7 @@ export default function Capacitaciones() {
               procedimientos={procedimientosGlobales}
               empleados={empleados}
               obras={obras}
+              centrosCosto={centrosCosto}
               onProcChange={onProcChange}
               addAsistente={addAsistente}
               addEmpleadoCap={addEmpleadoCap}
@@ -317,6 +396,7 @@ export default function Capacitaciones() {
                 procedimientos={[]}
                 empleados={empleados}
                 obras={obras}
+                centrosCosto={centrosCosto}
                 onProcChange={() => {}}
                 addAsistente={addAsistente}
                 addEmpleadoCap={addEmpleadoCap}
@@ -348,7 +428,7 @@ export default function Capacitaciones() {
 
 // ─── Componente formulario ────────────────────────────────────────────────────
 
-function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], onProcChange,
+function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], centrosCosto = [], onProcChange,
   addAsistente, addEmpleadoCap, updateAsistente, guardar, guardando, cancelar, esArchimet, editando }) {
 
   const labelCargo = esArchimet ? 'Cargo del Relator' : 'Área del Relator'
@@ -479,15 +559,12 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
               {!esArchimet && (
                 <button type="button" className="btn btn-outline btn-sm" onClick={addAsistente}>+ Manual</button>
               )}
-              <select className="form-control" style={{ width: 'auto', fontSize: 12 }}
-                onChange={e => { const emp = empleados.find(x => String(x.id) === e.target.value); if (emp) addEmpleadoCap(emp); e.target.value = '' }}>
-                <option value="">+ Desde trabajadores...</option>
-                {empleados.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.nombres} {emp.apellido_paterno} — {emp.rut}
-                  </option>
-                ))}
-              </select>
+              <SelectorTrabajadoresPorCC
+                empleados={empleados}
+                centrosCosto={centrosCosto}
+                asistentesActuales={form.asistentes}
+                addEmpleadoCap={addEmpleadoCap}
+              />
             </div>
           </div>
 
