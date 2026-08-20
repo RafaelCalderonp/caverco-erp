@@ -423,7 +423,7 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
     if anexo is None or anexo.id_contrato != id:
         raise HTTPException(404, "Anexo no encontrado")
     tipo_anexo = await db.get(TipoAnexo, anexo.id_tipo_anexo)
-    if tipo_anexo is None or tipo_anexo.codigo not in ("PRORROGA_PLAZO", "CONV_INDEFINIDO"):
+    if tipo_anexo is None:
         raise HTTPException(400, "No hay un documento Word disponible para este tipo de anexo")
 
     empleado = await db.get(Empleado, contrato.id_empleado)
