@@ -268,7 +268,7 @@ export default function ContratoDetalle() {
       const nombre = nombreDesdeHeader(r.headers['content-disposition'] || '', `Anexo_${idAnexo}.docx`)
       descargarBlob(new Blob([r.data]), nombre)
     } catch (err) {
-      alert('No se pudo generar el documento Word de este anexo')
+      alert(await detalleErrorBlob(err, 'No se pudo generar el documento Word de este anexo'))
     } finally { setDescargandoAnexoId(null) }
   }
 
@@ -1492,16 +1492,12 @@ export default function ContratoDetalle() {
         {anexos.length === 0
           ? <p className="text-muted">Sin anexos registrados</p>
           : anexos.map(a => {
-            const codigoTipoAnexo = tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo
-            const tieneWord = codigoTipoAnexo === 'PRORROGA_PLAZO' || codigoTipoAnexo === 'CONV_INDEFINIDO'
             return (
               <div key={a.id} style={{padding:'8px 0', borderBottom:'1px solid var(--gray-100)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <span>{a.fecha_anexo} — {a.observacion || 'Sin observación'}</span>
-                {tieneWord && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => descargarAnexoWord(a.id)} disabled={descargandoAnexoId === a.id}>
-                    {descargandoAnexoId === a.id ? 'Generando…' : 'Descargar Word'}
-                  </button>
-                )}
+                <button className="btn btn-secondary btn-sm" onClick={() => descargarAnexoWord(a.id)} disabled={descargandoAnexoId === a.id}>
+                  {descargandoAnexoId === a.id ? 'Generando…' : 'Descargar Word'}
+                </button>
               </div>
             )
           })
