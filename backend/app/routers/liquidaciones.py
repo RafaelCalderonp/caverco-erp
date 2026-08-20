@@ -17,7 +17,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, TipoContrato, RegistroAsistencia
+from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, Isapre, TipoContrato, RegistroAsistencia
 from app.utils.feriados import es_habil
 from app.services.liquidaciones import (
     EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
@@ -439,6 +439,118 @@ async def _liquidaciones_y_empleados(periodo: str, id_empresa: int, db: AsyncSes
     )
     empleados_por_id = {emp.id: emp for emp in result.scalars().all()}
     return liquidaciones, empleados_por_id
+
+
+# ── Resumen de descuentos y aportes (por CC/trabajador y por institución) ──────
+
+class ResumenTrabajadorOut(BaseModel):
+    id_liquidacion: int
+    cc_codigo: Optional[str] = None
+    cc_nombre: Optional[str] = None
+    nombre_empleado: str
+    afp_nombre: Optional[str] = None
+    isapre_nombre: Optional[str] = None
+    descuento_afp: Decimal
+    descuento_salud: Decimal
+    adicional_salud: Decimal
+    afc_trabajador: Decimal
+    impuesto_unico: Decimal
+    total_desc_legales: Decimal
+    afc_empleador: Decimal
+    sis_empleador: Decimal
+    aporte_empleador_afp: Decimal
+    seguro_social_empleador: Decimal
+    total_aportes_patronales: Decimal
+    liquido_a_pagar: Decimal
+
+
+class ResumenInstitucionOut(BaseModel):
+    cc_codigo: Optional[str] = None
+    cc_nombre: Optional[str] = None
+    tipo: str            # AFP | SALUD | AFC | SII
+    institucion: str
+    monto: Decimal
+
+
+class ResumenDescuentosOut(BaseModel):
+    por_trabajador: List[ResumenTrabajadorOut]
+    por_institucion: List[ResumenInstitucionOut]
+
+
+@router.get("/periodo/{periodo}/resumen-descuentos", response_model=ResumenDescuentosOut)
+async def resumen_descuentos(
+    periodo: str,
+    id_empresa: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Desglose de descuentos legales (AFP/Salud/AFC/Impuesto Único) y aportes
+    patronales por CC y trabajador, más un resumen agrupado por CC e
+    institución (AFP/Isapre/AFC/SII) para hacer los pagos previsionales.
+    """
+    q = select(Liquidacion).where(Liquidacion.periodo == periodo)
+    if id_empresa:
+        q = q.where(Liquidacion.id_empresa == id_empresa)
+    liquidaciones = (await db.execute(q.order_by(Liquidacion.id_empleado))).scalars().all()
+
+    if not liquidaciones:
+        return ResumenDescuentosOut(por_trabajador=[], por_institucion=[])
+
+    ids_empleado = [liq.id_empleado for liq in liquidaciones]
+    empleados = (await db.execute(
+        select(Empleado)
+        .options(selectinload(Empleado.centro_costo), selectinload(Empleado.afp_rel), selectinload(Empleado.isapre_rel))
+        .where(Empleado.id.in_(ids_empleado))
+    )).scalars().all()
+    emp_map = {e.id: e for e in empleados}
+
+    por_trabajador: List[ResumenTrabajadorOut] = []
+    inst_totales: dict[tuple, Decimal] = {}
+
+    def _sumar(cc_codigo, cc_nombre, tipo, institucion, monto):
+        if not monto:
+            return
+        clave = (cc_codigo, tipo, institucion)
+        if clave not in inst_totales:
+            inst_totales[clave] = {"cc_codigo": cc_codigo, "cc_nombre": cc_nombre, "tipo": tipo, "institucion": institucion, "monto": Decimal("0")}
+        inst_totales[clave]["monto"] += monto
+
+    for liq in liquidaciones:
+        emp = emp_map.get(liq.id_empleado)
+        cc = emp.centro_costo if emp else None
+        cc_codigo = cc.codigo if cc else None
+        cc_nombre = cc.nombre if cc else None
+        afp_nombre = emp.afp_rel.nombre if emp and emp.afp_rel else None
+        isapre_nombre = emp.isapre_rel.nombre if emp and emp.isapre_rel else None
+        nombre_empleado = f"{emp.nombres} {emp.apellido_paterno}" if emp else f"Trabajador #{liq.id_empleado}"
+
+        total_aportes = (liq.afc_empleador or 0) + (liq.sis_empleador or 0) + (liq.aporte_empleador_afp or 0) + (liq.seguro_social_empleador or 0)
+
+        por_trabajador.append(ResumenTrabajadorOut(
+            id_liquidacion=liq.id, cc_codigo=cc_codigo, cc_nombre=cc_nombre, nombre_empleado=nombre_empleado,
+            afp_nombre=afp_nombre, isapre_nombre=isapre_nombre,
+            descuento_afp=liq.descuento_afp, descuento_salud=liq.descuento_salud, adicional_salud=liq.adicional_salud,
+            afc_trabajador=liq.afc_trabajador, impuesto_unico=liq.impuesto_unico, total_desc_legales=liq.total_desc_legales,
+            afc_empleador=liq.afc_empleador, sis_empleador=liq.sis_empleador, aporte_empleador_afp=liq.aporte_empleador_afp,
+            seguro_social_empleador=liq.seguro_social_empleador, total_aportes_patronales=total_aportes,
+            liquido_a_pagar=liq.liquido_a_pagar,
+        ))
+
+        # AFP/SIS/Seguro Social se enteran juntos vía Previred a la AFP del trabajador
+        monto_afp = (liq.descuento_afp or 0) + (liq.aporte_empleador_afp or 0) + (liq.sis_empleador or 0) + (liq.seguro_social_empleador or 0)
+        _sumar(cc_codigo, cc_nombre, "AFP", afp_nombre or "Sin AFP", monto_afp)
+        monto_salud = (liq.descuento_salud or 0) + (liq.adicional_salud or 0)
+        _sumar(cc_codigo, cc_nombre, "SALUD", isapre_nombre or "Sin Isapre/Fonasa", monto_salud)
+        monto_afc = (liq.afc_trabajador or 0) + (liq.afc_empleador or 0)
+        _sumar(cc_codigo, cc_nombre, "AFC", "AFC Chile", monto_afc)
+        _sumar(cc_codigo, cc_nombre, "SII", "Impuesto Único (SII)", liq.impuesto_unico)
+
+    por_institucion = [
+        ResumenInstitucionOut(**v) for v in sorted(
+            inst_totales.values(), key=lambda v: (v["cc_codigo"] or "", v["tipo"], v["institucion"])
+        )
+    ]
+    return ResumenDescuentosOut(por_trabajador=por_trabajador, por_institucion=por_institucion)
 
 
 @router.get("/periodo/{periodo}/export/previred")

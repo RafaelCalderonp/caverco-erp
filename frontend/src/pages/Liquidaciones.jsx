@@ -308,6 +308,19 @@ export default function Liquidaciones() {
   const [selEstado, setSelEstado]       = useState(null)
   const [ordenLiq, setOrdenLiq]         = useState({ key: null, dir: 1 })
 
+  // Resumen tab
+  const [resumen, setResumen]         = useState(null)
+  const [resumenLoading, setResumenLoading] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'resumen') return
+    setResumenLoading(true)
+    liquidacionesApi.resumenDescuentos(periodo)
+      .then(r => setResumen(r.data))
+      .catch(() => setResumen({ por_trabajador: [], por_institucion: [] }))
+      .finally(() => setResumenLoading(false))
+  }, [tab, periodo])
+
   // Calcular tab
   const [calcData, setCalcData]     = useState(null)
   const [calcLoading, setCalcLoading] = useState(false)
@@ -623,6 +636,8 @@ export default function Liquidaciones() {
             onClick={() => setTab('lista')}>📋 Lista</button>
           <button className={`btn ${tab==='calcular'?'btn-primary':'btn-outline'}`}
             onClick={() => { setTab('calcular'); if (centroCostoId && !calcData) cargarCalcData(centroCostoId) }}>➕ Nueva</button>
+          <button className={`btn ${tab==='resumen'?'btn-primary':'btn-outline'}`}
+            onClick={() => setTab('resumen')}>📊 Resumen</button>
           <button className="btn btn-outline"
             onClick={() => descargar(() => liquidacionesApi.exportarPrevired(periodo), `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
@@ -907,6 +922,108 @@ export default function Liquidaciones() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ── Resumen de descuentos y aportes ── */}
+      {tab === 'resumen' && (
+        <div>
+          {resumenLoading && <p style={{color:'var(--gray-500)'}}>Cargando…</p>}
+          {!resumenLoading && resumen && resumen.por_trabajador.length === 0 && (
+            <p style={{color:'var(--gray-500)'}}>Sin liquidaciones para {periodo}.</p>
+          )}
+          {!resumenLoading && resumen && resumen.por_trabajador.length > 0 && (
+            <>
+              <h3 style={{fontSize:15, margin:'0 0 8px'}}>Descuentos legales y aportes patronales por trabajador</h3>
+              <div className="card" style={{padding:0, marginBottom:24}}>
+                <div className="table-wrap">
+                  <table style={{fontSize:11}}>
+                    <thead>
+                      <tr>
+                        <th style={thLiqStyle}>CC</th>
+                        <th style={thLiqStyle}>Trabajador</th>
+                        <th style={thLiqStyle}>AFP</th>
+                        <th style={thLiqStyle}>Salud (Isapre/Fonasa)</th>
+                        <th style={thLiqStyle}>AFC Trab.</th>
+                        <th style={thLiqStyle}>Impuesto Único</th>
+                        <th style={thLiqStyle}>Total Desc. Trab.</th>
+                        <th style={thLiqStyle}>Aportes Patronales</th>
+                        <th style={thLiqStyle}>Líquido a Pagar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumen.por_trabajador.map(r => (
+                        <tr key={r.id_liquidacion}>
+                          <td style={tdLiqStyle} title={r.cc_nombre || ''}>{r.cc_codigo || '—'}</td>
+                          <td style={tdLiqStyle}>{r.nombre_empleado}</td>
+                          <td style={tdLiqStyle} title={r.afp_nombre || ''}>{fmt(r.descuento_afp)}</td>
+                          <td style={tdLiqStyle} title={r.isapre_nombre || ''}>{fmt(Number(r.descuento_salud) + Number(r.adicional_salud))}</td>
+                          <td style={tdLiqStyle}>{fmt(r.afc_trabajador)}</td>
+                          <td style={tdLiqStyle}>{fmt(r.impuesto_unico)}</td>
+                          <td style={{...tdLiqStyle, fontWeight:700, color:'var(--danger)'}}>{fmt(r.total_desc_legales)}</td>
+                          <td style={tdLiqStyle}>{fmt(r.total_aportes_patronales)}</td>
+                          <td style={{...tdLiqStyle, fontWeight:700}}>{fmt(r.liquido_a_pagar)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{fontWeight:700, borderTop:'2px solid var(--gray-300)'}}>
+                        <td colSpan={2} style={{...tdLiqStyle, textAlign:'right'}}>Totales</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.descuento_afp),0))}</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.descuento_salud)+Number(r.adicional_salud),0))}</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.afc_trabajador),0))}</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.impuesto_unico),0))}</td>
+                        <td style={{...tdLiqStyle, color:'var(--danger)'}}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.total_desc_legales),0))}</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.total_aportes_patronales),0))}</td>
+                        <td style={tdLiqStyle}>{fmt(resumen.por_trabajador.reduce((s,r)=>s+Number(r.liquido_a_pagar),0))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <h3 style={{fontSize:15, margin:'0 0 8px'}}>Resumen para pago a instituciones, por Centro de Costo</h3>
+              {Object.entries(
+                resumen.por_institucion.reduce((acc, r) => {
+                  const key = `${r.cc_codigo || '—'}|${r.cc_nombre || ''}`
+                  ;(acc[key] = acc[key] || []).push(r)
+                  return acc
+                }, {})
+              ).map(([key, filas]) => {
+                const [cc_codigo, cc_nombre] = key.split('|')
+                const totalCC = filas.reduce((s, r) => s + Number(r.monto), 0)
+                return (
+                  <div key={key} className="card" style={{padding:0, marginBottom:16}}>
+                    <div style={{padding:'10px 14px', fontWeight:600, fontSize:13, borderBottom:'1px solid var(--gray-100)'}}>
+                      {cc_codigo} {cc_nombre && `— ${cc_nombre}`}
+                    </div>
+                    <div className="table-wrap">
+                      <table style={{fontSize:12}}>
+                        <thead>
+                          <tr><th style={thLiqStyle}>Tipo</th><th style={thLiqStyle}>Institución</th><th style={{...thLiqStyle, textAlign:'right'}}>Monto</th></tr>
+                        </thead>
+                        <tbody>
+                          {filas.map((r, i) => (
+                            <tr key={i}>
+                              <td style={tdLiqStyle}>{r.tipo}</td>
+                              <td style={tdLiqStyle}>{r.institucion}</td>
+                              <td style={{...tdLiqStyle, textAlign:'right'}}>{fmt(r.monto)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{fontWeight:700, borderTop:'1px solid var(--gray-300)'}}>
+                            <td colSpan={2} style={{...tdLiqStyle, textAlign:'right'}}>Total {cc_codigo}</td>
+                            <td style={{...tdLiqStyle, textAlign:'right'}}>{fmt(totalCC)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </div>
       )}
 

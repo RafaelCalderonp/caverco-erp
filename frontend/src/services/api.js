@@ -110,6 +110,7 @@ export const liquidacionesApi = {
   indicadores:     (periodo)      => api.get(`/liquidaciones/indicadores/${periodo}`),
   refrescarIndicadores: (periodo) => api.post(`/liquidaciones/indicadores/${periodo}/refrescar`),
   getAsistencia: (periodo, centro_costo_id) => api.get(`/liquidaciones/asistencia/${periodo}`, { params: centro_costo_id ? { centro_costo_id } : {} }),
+  resumenDescuentos: (periodo) => api.get(`/liquidaciones/periodo/${periodo}/resumen-descuentos`),
   patchAsistencia: (periodo, id_empleado, dia, estado) => api.patch(`/liquidaciones/asistencia/${periodo}/celda`, { id_empleado, dia, estado }),
   guardarAsistencia: (periodo, celdas) => api.post(`/liquidaciones/asistencia/${periodo}/guardar`, { celdas }),
   exportarPrevired:            (periodo) =>
