@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEmpresa } from '../context/EmpresaContext'
 import logoCaverco from '../assets/caverco-logo.png'
 
 export default function SeleccionarEmpresa() {
-  const { empresas, cargando, seleccionarEmpresa } = useEmpresa()
+  const { empresas, cargando, seleccionarEmpresa, salirDeEmpresa } = useEmpresa()
   const navigate = useNavigate()
   const [idElegida, setIdElegida] = useState('')
+
+  // Al llegar a esta pantalla el menú queda bloqueado hasta presionar "Ingresar",
+  // aunque haya una empresa activa de una sesión anterior guardada en localStorage.
+  useEffect(() => { salirDeEmpresa() }, [])
 
   const empresaElegida = empresas.find(e => e.id === Number(idElegida))
 
