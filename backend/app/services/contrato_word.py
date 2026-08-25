@@ -212,11 +212,12 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         "El EMPLEADOR se compromete a remunerar los servicios del TRABAJADOR con un sueldo base mensual de ",
         (_clp(contrato.sueldo_bruto), True), " ",
     ])
-    _parrafo(doc, [
-        "Además, la Empresa pagará al trabajador una gratificación equivalente a un 25% de las remuneraciones. "
-        "La gratificación indicada se pagará mensualmente en sustitución a la señalada en el Art. 47 del "
-        "Código del Trabajo, según establece el Art. 50 del cuerpo legal.",
-    ])
+    if tipo_contrato_codigo != "AUTOCONTRATACION":
+        _parrafo(doc, [
+            "Además, la Empresa pagará al trabajador una gratificación equivalente a un 25% de las remuneraciones. "
+            "La gratificación indicada se pagará mensualmente en sustitución a la señalada en el Art. 47 del "
+            "Código del Trabajo, según establece el Art. 50 del cuerpo legal.",
+        ])
     _parrafo(doc, [
         "Las remuneraciones se pagarán, dentro de la hora siguiente del término de la jornada laboral, en "
         "moneda nacional, el día cinco hábil del mes siguiente al que se devengaron las remuneraciones "
