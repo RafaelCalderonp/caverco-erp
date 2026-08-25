@@ -72,7 +72,7 @@ export default function App() {
         <Route path="liquidaciones/:id"  element={<RequireEmpresa><LiquidacionDetalle /></RequireEmpresa>} />
         <Route path="liquidaciones/:id/boleta" element={<RequireEmpresa><LiquidacionBoleta /></RequireEmpresa>} />
         <Route path="contabilidad"       element={<RequireEmpresa><Contabilidad /></RequireEmpresa>} />
-        <Route path="plan-cuentas"        element={<PlanCuentas />} />
+        <Route path="plan-cuentas"        element={<RequireEmpresa><PlanCuentas /></RequireEmpresa>} />
         <Route path="libro-diario"        element={<RequireEmpresa><LibroDiario /></RequireEmpresa>} />
         <Route path="balance-8-columnas"       element={<RequireEmpresa><Balance8Columnas /></RequireEmpresa>} />
         <Route path="estado-resultados"        element={<RequireEmpresa><EstadoResultados /></RequireEmpresa>} />
