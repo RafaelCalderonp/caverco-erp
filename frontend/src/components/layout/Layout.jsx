@@ -41,6 +41,7 @@ export default function Layout() {
   const { empresaActual, cargando: cargandoEmpresas, errorConexion, recargarEmpresas } = useEmpresa()
   const [colapsado, setColapsado] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
   const pageTitle = NAV.find(n => n.to && location.pathname.startsWith(n.to))?.label || 'Caverco ERP'
+  const enSeleccionEmpresa = location.pathname.startsWith('/seleccionar-empresa')
 
   function onLogout() {
     logout()
@@ -72,7 +73,7 @@ export default function Layout() {
                 : null
             }
             const { to, icon, label } = item
-            const disabled = REQUIERE_EMPRESA.includes(to) && !empresaActual
+            const disabled = REQUIERE_EMPRESA.includes(to) && (!empresaActual || enSeleccionEmpresa)
             return disabled ? (
               <span key={to} className="nav-item" style={{ opacity: .4, cursor: 'not-allowed' }} title="Selecciona una empresa primero">
                 <span className="nav-icon">{icon}</span>
