@@ -10,14 +10,9 @@ export default function SeleccionarEmpresa() {
 
   const empresaElegida = empresas.find(e => e.id === Number(idElegida))
 
-  function elegir(id) {
-    setIdElegida(id)
-    const empresa = empresas.find(e => e.id === Number(id))
-    if (empresa) seleccionarEmpresa(empresa)
-  }
-
   function ingresar() {
     if (!empresaElegida) return
+    seleccionarEmpresa(empresaElegida)
     navigate('/dashboard')
   }
 
@@ -39,7 +34,7 @@ export default function SeleccionarEmpresa() {
         <div className="card" style={{ maxWidth: 460 }}>
           <div className="form-group">
             <label className="form-label">Empresa</label>
-            <select className="select" value={idElegida} onChange={e => elegir(e.target.value)}>
+            <select className="select" value={idElegida} onChange={e => setIdElegida(e.target.value)}>
               <option value="">Seleccionar…</option>
               {empresas.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.razon_social} — {emp.rut}</option>
