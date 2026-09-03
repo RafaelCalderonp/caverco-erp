@@ -391,21 +391,20 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
     r_sel.font.size = Pt(8)
 
     # ── Tabla categorías + resumen ──────────────────────────────────────────
-    # 7 cols: [CATEGORIA] [SSO] [MA] [CAL.] [sep] [RIGHT_LABEL] [RIGHT_VALUE]
+    # 6 cols: [CATEGORIA] [SSO] [MA] [CAL.] [RIGHT_LABEL] [RIGHT_VALUE]
     # 7 rows: header + 6 categorías
-    cat_tbl = doc.add_table(rows=7, cols=7)
+    cat_tbl = doc.add_table(rows=7, cols=6)
     cat_tbl.style = "Table Grid"
 
-    col_w = [5.2, 1.1, 1.1, 1.1, 0.1, 4.5, 3.9]
+    col_w = [5.2, 1.1, 1.1, 1.1, 4.6, 3.9]
 
     # Headers row 0
     _cell_para(cat_tbl.rows[0].cells[0], "CATEGORIA", bold=True, size=8)
     _cell_para(cat_tbl.rows[0].cells[1], "SSO", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_para(cat_tbl.rows[0].cells[2], "MA",  bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_para(cat_tbl.rows[0].cells[3], "CAL.", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
-    _cell_para(cat_tbl.rows[0].cells[4], "", size=8)
-    _cell_para(cat_tbl.rows[0].cells[5], "TOTAL PERSONAL ENTRENADO", bold=True, size=8)
-    _cell_para(cat_tbl.rows[0].cells[6], str(n_asistentes), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(cat_tbl.rows[0].cells[4], "TOTAL PERSONAL ENTRENADO", bold=True, size=8)
+    _cell_para(cat_tbl.rows[0].cells[5], str(n_asistentes), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
 
     right_labels = [
         ("DURACION (horas)", str(duracion)),
@@ -424,10 +423,9 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
         _cell_para(row.cells[1], sso_val, bold=(i == 0), size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
         _cell_para(row.cells[2], "", size=8)
         _cell_para(row.cells[3], "", size=8)
-        _cell_para(row.cells[4], "", size=8)
         lbl, val = right_labels[i]
-        _cell_para(row.cells[5], lbl, bold=bool(lbl), size=8)
-        _cell_para(row.cells[6], val, size=8)
+        _cell_para(row.cells[4], lbl, bold=bool(lbl), size=8)
+        _cell_para(row.cells[5], val, size=8)
 
     for row in cat_tbl.rows:
         for i, w in enumerate(col_w):
