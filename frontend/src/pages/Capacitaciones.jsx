@@ -208,7 +208,7 @@ export default function Capacitaciones() {
     const nombre = `${emp.nombres} ${emp.apellido_paterno} ${emp.apellido_materno || ''}`.trim()
     setFormCap(f => ({
       ...f,
-      asistentes: [...f.asistentes, { nombre, area: emp.cargo_nombre || '', rut: emp.rut || '' }],
+      asistentes: [...f.asistentes, { nombre, area: emp.cargo?.nombre || '', rut: emp.rut || '' }],
     }))
   }
 
