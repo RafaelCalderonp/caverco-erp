@@ -6,11 +6,12 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.rrhh import TipoContrato, MotivoTermino, TipoAnexo, Obra, Cargo, CentroCosto, AFP, Isapre
+from app.models.rrhh import TipoContrato, MotivoTermino, TipoAnexo, Obra, Cargo, CentroCosto, AFP, Isapre, Prevencionista
 from app.schemas.rrhh import (
     CargoCreate, CargoUpdate, CargoOut,
     CentroCostoCreate, CentroCostoUpdate, CentroCostoOut,
     ObraCreate, ObraUpdate, ObraOut,
+    PrevencionistaCreate, PrevencionistaUpdate, PrevencionistaOut,
 )
 from app.services.correlativos import siguiente_codigo
 
@@ -158,6 +159,39 @@ async def eliminar_centro_costo(id: int, db: AsyncSession = Depends(get_db)):
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=400, detail="No se puede eliminar: el centro de costo está en uso por algún trabajador o contrato")
+
+
+@router.get("/prevencionistas", response_model=List[PrevencionistaOut])
+async def listar_prevencionistas(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Prevencionista).where(Prevencionista.activo == True).order_by(Prevencionista.nombre))
+    return result.scalars().all()
+
+
+@router.post("/prevencionistas", response_model=PrevencionistaOut, status_code=201)
+async def crear_prevencionista(data: PrevencionistaCreate, db: AsyncSession = Depends(get_db)):
+    prevencionista = Prevencionista(**data.model_dump())
+    db.add(prevencionista)
+    await db.flush()
+    await db.refresh(prevencionista)
+    return prevencionista
+
+
+@router.patch("/prevencionistas/{id}", response_model=PrevencionistaOut)
+async def actualizar_prevencionista(id: int, data: PrevencionistaUpdate, db: AsyncSession = Depends(get_db)):
+    prevencionista = await db.get(Prevencionista, id)
+    if not prevencionista:
+        raise HTTPException(status_code=404, detail="Prevencionista no encontrado")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(prevencionista, k, v)
+    return prevencionista
+
+
+@router.delete("/prevencionistas/{id}", status_code=204)
+async def eliminar_prevencionista(id: int, db: AsyncSession = Depends(get_db)):
+    prevencionista = await db.get(Prevencionista, id)
+    if not prevencionista:
+        raise HTTPException(status_code=404, detail="Prevencionista no encontrado")
+    prevencionista.activo = False
 
 
 @router.get("/afp")

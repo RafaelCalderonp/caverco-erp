@@ -360,6 +360,15 @@ class Isapre(Base):
     es_fonasa = Column(Boolean, default=False)
     activa    = Column(Boolean, default=True)
 
+class Prevencionista(Base):
+    __tablename__ = "prevencionistas"
+    __table_args__ = {"schema": "erp"}
+    id     = Column(Integer, primary_key=True)
+    nombre = Column(String(200), nullable=False)
+    cargo  = Column(String(200))
+    rut    = Column(String(20))
+    activo = Column(Boolean, nullable=False, default=True)
+
 class TipoContrato(Base):
     __tablename__ = "tipo_contrato"
     __table_args__ = {"schema": "erp"}

@@ -127,6 +127,7 @@ export default function Capacitaciones() {
 
   const [obras, setObras] = useState([])
   const [centrosCosto, setCentrosCosto] = useState([])
+  const [prevencionistas, setPrevencionistas] = useState([])
   const [mostrarFormCap, setMostrarFormCap] = useState(false)
   const [formCap, setFormCap] = useState(CAP_EMPTY)
   const [guardandoCap, setGuardandoCap] = useState(false)
@@ -143,18 +144,20 @@ export default function Capacitaciones() {
     if (!empresaActual) return
     setCargando(true); setError('')
     try {
-      const [capRes, procRes, empRes, obrasRes, ccRes] = await Promise.all([
+      const [capRes, procRes, empRes, obrasRes, ccRes, prevRes] = await Promise.all([
         capacitacionesApi.list(empresaActual.id),
         capacitacionesApi.procedimientos(esArchimet ? empresaActual.rut : null),
         api.get('/empleados').catch(() => ({ data: [] })),
         api.get('/catalogos/obras', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
         api.get('/catalogos/centros-costo', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
+        catalogosApi.prevencionistas().catch(() => ({ data: [] })),
       ])
       setCapacitaciones(capRes.data)
       setProcedimientos(procRes.data)
       setEmpleados(empRes.data)
       setObras(obrasRes.data)
       setCentrosCosto(ccRes.data)
+      setPrevencionistas(prevRes.data)
     } catch (err) {
       const msg = err?.response?.status === 500
         ? 'Error del servidor. Verifica que la migración 30_capacitaciones_archimet.sql fue ejecutada.'
@@ -334,6 +337,7 @@ export default function Capacitaciones() {
               empleados={empleados}
               obras={obras}
               centrosCosto={centrosCosto}
+              prevencionistas={prevencionistas}
               onProcChange={onProcChange}
               addAsistente={addAsistente}
               addEmpleadoCap={addEmpleadoCap}
@@ -397,6 +401,7 @@ export default function Capacitaciones() {
                 empleados={empleados}
                 obras={obras}
                 centrosCosto={centrosCosto}
+                prevencionistas={prevencionistas}
                 onProcChange={() => {}}
                 addAsistente={addAsistente}
                 addEmpleadoCap={addEmpleadoCap}
@@ -428,8 +433,14 @@ export default function Capacitaciones() {
 
 // ─── Componente formulario ────────────────────────────────────────────────────
 
-function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], centrosCosto = [], onProcChange,
+function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = [], centrosCosto = [], prevencionistas = [], onProcChange,
   addAsistente, addEmpleadoCap, updateAsistente, guardar, guardando, cancelar, esArchimet, editando }) {
+
+  const elegirPrevencionista = (id) => {
+    const p = prevencionistas.find(x => x.id === Number(id))
+    if (!p) return
+    setForm(f => ({ ...f, relator_nombre: p.nombre, relator_area: p.cargo || '', relator_rut: p.rut || '' }))
+  }
 
   const labelCargo = esArchimet ? 'Cargo del Relator' : 'Área del Relator'
 
@@ -502,9 +513,15 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
           </div>
 
           <div className="form-group">
-            <label>Nombre del Relator</label>
-            <input type="text" className="form-control" value={form.relator_nombre}
-              onChange={e => setForm(f => ({ ...f, relator_nombre: e.target.value }))} />
+            <label>Relator</label>
+            <select className="form-control"
+              value={prevencionistas.find(p => p.nombre === form.relator_nombre)?.id || ''}
+              onChange={e => elegirPrevencionista(e.target.value)}>
+              <option value="">Seleccionar…</option>
+              {prevencionistas.map(p => (
+                <option key={p.id} value={p.id}>{p.nombre}{p.rut ? ` — ${p.rut}` : ''}</option>
+              ))}
+            </select>
           </div>
 
           <div className="form-group">

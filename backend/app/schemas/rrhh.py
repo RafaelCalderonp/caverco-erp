@@ -85,6 +85,26 @@ class DepartamentoOut(DepartamentoBase):
     activo: bool
     model_config = {"from_attributes": True}
 
+# ---- Prevencionista ----
+class PrevencionistaBase(BaseModel):
+    nombre: str
+    cargo: Optional[str] = None
+    rut: Optional[str] = None
+
+class PrevencionistaCreate(PrevencionistaBase):
+    pass
+
+class PrevencionistaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    cargo: Optional[str] = None
+    rut: Optional[str] = None
+    activo: Optional[bool] = None
+
+class PrevencionistaOut(PrevencionistaBase):
+    id: int
+    activo: bool
+    model_config = {"from_attributes": True}
+
 # ---- Cargo ----
 class CargoBase(BaseModel):
     nombre: str

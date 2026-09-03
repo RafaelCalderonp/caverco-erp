@@ -7,6 +7,7 @@ const TABS = [
   { key: 'obras', label: '🏗️ Obras' },
   { key: 'cargos', label: '💼 Cargos' },
   { key: 'centros-costo', label: '💰 Centros de Costo' },
+  { key: 'prevencionistas', label: '🦺 Prevencionistas' },
 ]
 
 function TablaSimple({ columnas, filas, renderFila }) {
@@ -245,6 +246,111 @@ function PanelCargos({ empresaActual }) {
   )
 }
 
+const VACIO_PREVENCIONISTA = { nombre: '', cargo: '', rut: '' }
+
+function PanelPrevencionistas() {
+  const [lista, setLista] = useState([])
+  const [form, setForm] = useState(VACIO_PREVENCIONISTA)
+  const [editando, setEditando] = useState(null)
+  const [msg, setMsg] = useState('')
+
+  const cargar = () => catalogosApi.prevencionistas().then(r => setLista(r.data)).catch(() => {})
+  useEffect(() => { cargar() }, [])
+
+  const editar = (p) => {
+    setEditando(p.id)
+    setForm({ nombre: p.nombre, cargo: p.cargo || '', rut: p.rut || '' })
+    setMsg('')
+  }
+
+  const cancelar = () => { setEditando(null); setForm(VACIO_PREVENCIONISTA); setMsg('') }
+
+  const guardar = async (ev) => {
+    ev.preventDefault()
+    setMsg('')
+    try {
+      if (editando) {
+        await catalogosApi.actualizarPrevencionista(editando, form)
+      } else {
+        await catalogosApi.crearPrevencionista(form)
+      }
+      cancelar()
+      cargar()
+    } catch (err) {
+      setMsg(err.response?.data?.detail || 'No se pudo guardar el prevencionista')
+    }
+  }
+
+  const desactivar = async (p) => {
+    if (!confirm(`¿Desactivar a ${p.nombre}?`)) return
+    try {
+      await catalogosApi.actualizarPrevencionista(p.id, { activo: false })
+      cargar()
+    } catch {
+      alert('No se pudo desactivar')
+    }
+  }
+
+  const eliminar = async (p) => {
+    if (!confirm(`Esto borrará para siempre a ${p.nombre}. ¿Continuar?`)) return
+    try {
+      await catalogosApi.eliminarPrevencionista(p.id)
+      cargar()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar')
+    }
+  }
+
+  return (
+    <>
+      <form onSubmit={guardar} className="card" style={{marginBottom:16}}>
+        <h3 style={{fontWeight:600,marginBottom:12}}>{editando ? 'Editar Prevencionista' : 'Nuevo Prevencionista'}</h3>
+        <p className="text-muted" style={{fontSize:13,marginTop:-6,marginBottom:12}}>
+          Lista compartida entre todas las empresas: al generar capacitaciones se elige desde aquí, sin escribir a mano.
+        </p>
+        {msg && <div style={{color:'var(--danger)',marginBottom:8,fontSize:13}}>{msg}</div>}
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Nombre <span style={{color:'var(--danger)'}}>*</span></label>
+            <input className="input" required value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Ej: Carol Salazar" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Cargo</label>
+            <input className="input" value={form.cargo} onChange={e=>setForm(f=>({...f,cargo:e.target.value}))} placeholder="Ej: Prevención de riesgos" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">RUT</label>
+            <input className="input" value={form.rut} onChange={e=>setForm(f=>({...f,rut:e.target.value}))} placeholder="Ej: 17.303.205-1" />
+          </div>
+        </div>
+        <div style={{display:'flex', gap:8, marginTop:8}}>
+          <button className="btn btn-primary" type="submit">{editando ? 'Guardar Cambios' : '+ Agregar Prevencionista'}</button>
+          {editando && <button className="btn btn-outline" type="button" onClick={cancelar}>Cancelar</button>}
+        </div>
+      </form>
+
+      <TablaSimple
+        columnas={['Nombre','Cargo','RUT','']}
+        filas={lista}
+        renderFila={p => (
+          <tr key={p.id}>
+            <td style={{fontWeight:500}}>{p.nombre}</td>
+            <td className="text-muted">{p.cargo || '—'}</td>
+            <td className="text-muted">{p.rut || '—'}</td>
+            <td>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-outline btn-sm" onClick={() => editar(p)}>Editar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => desactivar(p)}>Desactivar</button>
+                <button className="btn btn-outline btn-sm" style={{color:'var(--danger)'}} onClick={() => eliminar(p)}>Eliminar</button>
+              </div>
+            </td>
+          </tr>
+        )}
+      />
+    </>
+  )
+}
+
 const VACIO_CENTRO = { codigo: '', nombre: '' }
 
 function PanelCentrosCosto({ empresaActual }) {
@@ -363,6 +469,7 @@ export default function Catalogos() {
       {tab === 'obras' && <PanelObras empresaActual={empresaActual} />}
       {tab === 'cargos' && <PanelCargos empresaActual={empresaActual} />}
       {tab === 'centros-costo' && <PanelCentrosCosto empresaActual={empresaActual} />}
+      {tab === 'prevencionistas' && <PanelPrevencionistas />}
     </div>
   )
 }

@@ -209,6 +209,10 @@ export const catalogosApi = {
   eliminarCentroCosto:   (id) => api.delete(`/catalogos/centros-costo/${id}`).then(r => { invalidate('centros-costo'); return r }),
   afp:            () => cached('afp',              () => api.get('/catalogos/afp')),
   isapre:         () => cached('isapre',           () => api.get('/catalogos/isapre')),
+  prevencionistas:        () => cached('prevencionistas', () => api.get('/catalogos/prevencionistas')),
+  crearPrevencionista:    (d) => api.post('/catalogos/prevencionistas', d).then(r => { invalidate('prevencionistas'); return r }),
+  actualizarPrevencionista: (id, d) => api.patch(`/catalogos/prevencionistas/${id}`, d).then(r => { invalidate('prevencionistas'); return r }),
+  eliminarPrevencionista: (id) => api.delete(`/catalogos/prevencionistas/${id}`).then(r => { invalidate('prevencionistas'); return r }),
 }
 
 export const credencialesApi = {
