@@ -482,12 +482,13 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
     rel_cell.merge(datos_tbl.rows[1].cells[3])
     _cell_para(rel_cell, f"NOMBRE DEL RELATOR :  {capacitacion.relator_nombre or ''}", size=8)
 
-    # Row 2: CARGO + FIRMA (split)
+    # Row 2: CARGO + RUT (split parejo)
     datos_tbl.rows[2].cells[0].merge(datos_tbl.rows[2].cells[1])
     _cell_para(datos_tbl.rows[2].cells[0],
                f"CARGO:  {capacitacion.relator_area or ''}", size=8)
     datos_tbl.rows[2].cells[2].merge(datos_tbl.rows[2].cells[3])
-    _cell_para(datos_tbl.rows[2].cells[2], "FIRMA :", bold=True, size=8)
+    _cell_para(datos_tbl.rows[2].cells[2],
+               f"RUT :  {capacitacion.relator_rut or ''}", bold=True, size=8)
 
     # Row 3: LUGAR
     lug_cell = datos_tbl.rows[3].cells[0]
@@ -501,7 +502,7 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
     _cell_para(mat_cell,
                f"MATERIAL DE APOYO :  {capacitacion.material_apoyo or ''}", size=8)
 
-    col_w_datos = [4.0, 4.0, 4.0, 5.0]
+    col_w_datos = [4.25, 4.25, 4.25, 4.25]
     for row in datos_tbl.rows:
         for i, w in enumerate(col_w_datos):
             row.cells[i].width = Cm(w)
