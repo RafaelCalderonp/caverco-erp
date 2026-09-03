@@ -5,6 +5,30 @@ import api from '../services/api'
 
 const RUT_ARCHIMET = '77.868.358-K'
 
+const DURACIONES = [
+  { value: '0.5', label: '30 minutos' },
+  { value: '1',   label: '1 hora' },
+  { value: '1.5', label: '1 hora 30 minutos' },
+  { value: '2',   label: '2 horas' },
+  { value: '2.5', label: '2 horas 30 minutos' },
+  { value: '3',   label: '3 horas' },
+  { value: '4',   label: '4 horas' },
+  { value: '5',   label: '5 horas' },
+  { value: '6',   label: '6 horas' },
+  { value: '8',   label: '8 horas' },
+]
+
+function calcularHoraTermino(horaInicio, duracionHoras) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((horaInicio || '').trim())
+  const dur = Number(duracionHoras)
+  if (!m || !dur) return null
+  const inicioMin = Number(m[1]) * 60 + Number(m[2])
+  const finMin = inicioMin + Math.round(dur * 60)
+  const h = Math.floor((finMin % 1440) / 60)
+  const min = finMin % 60
+  return `${h}:${String(min).padStart(2, '0')}`
+}
+
 const MOTIVOS = [
   { value: 'CHARLA_INDUCCION', label: 'Charla de Inducción' },
   { value: 'CAPACITACION',     label: 'Capacitación' },
@@ -481,7 +505,10 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
           <div className="form-group">
             <label>Hora Inicio</label>
             <input type="text" className="form-control" placeholder="8:00" value={form.hora_inicio}
-              onChange={e => setForm(f => ({ ...f, hora_inicio: e.target.value }))} />
+              onChange={e => setForm(f => {
+                const hora_termino = calcularHoraTermino(e.target.value, f.duracion_horas)
+                return { ...f, hora_inicio: e.target.value, ...(hora_termino ? { hora_termino } : {}) }
+              })} />
           </div>
 
           <div className="form-group">
@@ -491,9 +518,14 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
           </div>
 
           <div className="form-group">
-            <label>Duración (horas)</label>
-            <input type="number" step="0.5" className="form-control" value={form.duracion_horas}
-              onChange={e => setForm(f => ({ ...f, duracion_horas: e.target.value }))} />
+            <label>Duración</label>
+            <select className="form-control" value={form.duracion_horas}
+              onChange={e => setForm(f => {
+                const hora_termino = calcularHoraTermino(f.hora_inicio, e.target.value)
+                return { ...f, duracion_horas: e.target.value, ...(hora_termino ? { hora_termino } : {}) }
+              })}>
+              {DURACIONES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
           </div>
 
           <div className="form-group">
