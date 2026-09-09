@@ -763,6 +763,7 @@ export default function Liquidaciones() {
               <Chip label="Tope Imponible AFC (135.2 UF)" value={clp(indicadores.renta_tope_afc)} />
               <Chip label="Aporte Empleador AFP" value={pct(indicadores.aporte_empleador_afp)} />
               <Chip label="Seguro Social" value={pct(indicadores.seguro_social,1)} />
+              <Chip label="Rentabilidad Protegida" value={pct(indicadores.rentabilidad_protegida,1)} />
             </div>
 
             {/* Contenido expandido: solo AFP, AFC, Tramos IU */}
@@ -1296,6 +1297,7 @@ export default function Liquidaciones() {
                           <Row label="SIS"              v={prev.costos_empleador.sis} />
                           <Row label="Aporte AFP"       v={prev.costos_empleador.aporte_empleador_afp} />
                           <Row label="Seguro Social"    v={prev.costos_empleador.seguro_social} />
+                          <Row label="Rentabilidad Protegida" v={prev.costos_empleador.rentabilidad_protegida} />
                           <Row label="Total Patronal"   v={prev.costos_empleador.total} bold />
                         </Section>
                       </div>

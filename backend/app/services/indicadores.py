@@ -52,6 +52,7 @@ async def asegurar_indicadores(db: AsyncSession, periodo: str) -> None:
             sis=raw["sis"],
             aporte_empleador_afp=raw.get("aporte_empleador_afp", Decimal("0.001")),
             seguro_social=raw.get("seguro_social", Decimal("0.009")),
+            rentabilidad_protegida=raw.get("rentabilidad_protegida", Decimal("0.009")),
             fuente=fuente,
         ))
         await db.flush()
@@ -86,6 +87,7 @@ async def refrescar_indicadores(db: AsyncSession, periodo: str) -> None:
         existing.sis                = raw["sis"]
         existing.aporte_empleador_afp = raw.get("aporte_empleador_afp", Decimal("0.001"))
         existing.seguro_social      = raw.get("seguro_social", Decimal("0.009"))
+        existing.rentabilidad_protegida = raw.get("rentabilidad_protegida", Decimal("0.009"))
         existing.fuente             = fuente
     else:
         db.add(ValorUfUtm(
@@ -96,6 +98,7 @@ async def refrescar_indicadores(db: AsyncSession, periodo: str) -> None:
             sis=raw["sis"],
             aporte_empleador_afp=raw.get("aporte_empleador_afp", Decimal("0.001")),
             seguro_social=raw.get("seguro_social", Decimal("0.009")),
+            rentabilidad_protegida=raw.get("rentabilidad_protegida", Decimal("0.009")),
             fuente=fuente,
         ))
     await db.flush()
@@ -147,5 +150,6 @@ async def construir_indicadores(db: AsyncSession, emp: Empleado, periodo: str) -
         tasa_afp=tasa_afp, tasa_salud=Decimal("0.07"),
         afc_empleador_tasa=afc_emp, afc_trabajador_tasa=afc_trab,
         aporte_empleador_afp=val.aporte_empleador_afp, seguro_social=val.seguro_social,
+        rentabilidad_protegida=val.rentabilidad_protegida,
         tramos_iu=tramos or TRAMOS_IU_2026,
     )

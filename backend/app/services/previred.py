@@ -47,6 +47,7 @@ FALLBACK_INDICADORES = {
     "renta_tope_afc":      Decimal("5379693"),
     "aporte_empleador_afp": Decimal("0.001"),
     "seguro_social":        Decimal("0.009"),
+    "rentabilidad_protegida": Decimal("0.009"),
     "afc": {
         "indefinido_empleador":  Decimal("0.024"),
         "indefinido_trabajador": Decimal("0.006"),
@@ -132,6 +133,7 @@ class PreviredService:
         sueldo_min = _dec(ind.get("RMITrabDepeInd"), "539000")
         tope_gratif = (sueldo_min * Decimal("4.75") / Decimal("12")).quantize(Decimal("1"))
         seg_social = _dec(ind.get("ExpVida"), "0.9") / 100
+        rent_protegida = _dec(ind.get("RentProtegida"), "0.9") / 100
 
         return {
             "periodo":             periodo,
@@ -146,6 +148,7 @@ class PreviredService:
             "afp":                 afp_tasas,
             "aporte_empleador_afp": Decimal("0.001"),
             "seguro_social":        seg_social,
+            "rentabilidad_protegida": rent_protegida,
         }
 
     def limpiar_cache(self):

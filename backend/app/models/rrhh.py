@@ -417,7 +417,8 @@ class Liquidacion(Base):
     afc_empleador             = Column(Numeric(12,2), nullable=False, default=0)
     sis_empleador             = Column(Numeric(12,2), nullable=False, default=0)
     aporte_empleador_afp      = Column(Numeric(12,2), nullable=False, default=0)   # 0.1%
-    seguro_social_empleador   = Column(Numeric(12,2), nullable=False, default=0)   # 0.9%
+    seguro_social_empleador   = Column(Numeric(12,2), nullable=False, default=0)   # expectativa de vida
+    rentabilidad_protegida_empleador = Column(Numeric(12,2), nullable=False, default=0)
     total_costo_empleador     = Column(Numeric(12,2), nullable=False, default=0)
     dias_trabajados           = Column(SmallInteger, default=30)
     estado               = Column(String(20), default="BORRADOR")
@@ -486,6 +487,7 @@ class ValorUfUtm(Base):
     sis                   = Column(Numeric(6,4), default=Decimal("0.0249"))
     aporte_empleador_afp  = Column(Numeric(6,4), default=Decimal("0.001"))
     seguro_social         = Column(Numeric(6,4), default=Decimal("0.009"))
+    rentabilidad_protegida = Column(Numeric(6,4), default=Decimal("0.009"))
     fuente                = Column(String(40), default="MANUAL")  # MANUAL / API_GATEWAY / FALLBACK
     cerrado               = Column(Boolean, nullable=False, default=False)
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())

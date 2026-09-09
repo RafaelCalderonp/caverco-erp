@@ -156,12 +156,14 @@ async def _totales_periodo(db: AsyncSession, id_empresa: int, periodo: str) -> d
                                     Liquidacion.otros_haberes), 0),
             func.coalesce(func.sum(Liquidacion.colacion + Liquidacion.movilizacion + Liquidacion.viaticos), 0),
             func.coalesce(func.sum(Liquidacion.afc_empleador + Liquidacion.sis_empleador +
-                                    Liquidacion.aporte_empleador_afp + Liquidacion.seguro_social_empleador), 0),
+                                    Liquidacion.aporte_empleador_afp + Liquidacion.seguro_social_empleador +
+                                    Liquidacion.rentabilidad_protegida_empleador), 0),
             # Previred por Pagar: todo lo que se entera junto en la planilla mensual
-            # (AFP + SIS + Seguro Social + AFC + Isapre/Fonasa, trabajador y empleador)
+            # (AFP + SIS + Seguro Social + Rentabilidad Protegida + AFC + Isapre/Fonasa, trabajador y empleador)
             func.coalesce(func.sum(
                 Liquidacion.descuento_afp + Liquidacion.aporte_empleador_afp +
                 Liquidacion.sis_empleador + Liquidacion.seguro_social_empleador +
+                Liquidacion.rentabilidad_protegida_empleador +
                 Liquidacion.afc_trabajador + Liquidacion.afc_empleador +
                 Liquidacion.descuento_salud + Liquidacion.adicional_salud
             ), 0),

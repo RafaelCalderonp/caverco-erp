@@ -20,7 +20,7 @@ from app.core.security import get_current_user, require_roles
 from app.models.rrhh import Empleado, Liquidacion, Empresa, ValorUfUtm, Contrato, AFP, Isapre, TipoContrato, RegistroAsistencia
 from app.utils.feriados import es_habil
 from app.services.liquidaciones import (
-    EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito
+    EntradaLiquidacion, IndicadoresPrevired, calcular_liquidacion, calcular_finiquito, _r
 )
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo, refrescar_indicadores
 from app.services.previred_export import generar_csv_previred
@@ -169,6 +169,7 @@ async def obtener_indicadores_periodo(periodo: str, db: AsyncSession = Depends(g
             "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
             "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
             "seguro_social": float(val.seguro_social),
+            "rentabilidad_protegida": float(val.rentabilidad_protegida),
         },
         "afp": [
             {"nombre": a.nombre, "tasa": float(a.tasa)}
@@ -209,6 +210,7 @@ async def refrescar_indicadores_periodo(periodo: str, db: AsyncSession = Depends
             "renta_tope_afp": float(val.renta_tope_afp), "renta_tope_afc": float(val.renta_tope_afc),
             "sis": float(val.sis), "aporte_empleador_afp": float(val.aporte_empleador_afp),
             "seguro_social": float(val.seguro_social),
+            "rentabilidad_protegida": float(val.rentabilidad_protegida),
         },
         "afp": [{"nombre": a.nombre, "tasa": float(a.tasa)} for a in afps],
         "afc": [{"nombre": tc.nombre, "codigo": tc.codigo,
@@ -220,6 +222,52 @@ async def refrescar_indicadores_periodo(periodo: str, db: AsyncSession = Depends
             for t in tramos
         ],
     }
+
+
+@router.post("/recalcular-aportes-patronales", dependencies=[Depends(require_roles("SUPERADMIN"))])
+async def recalcular_aportes_patronales(
+    periodo: Optional[str] = Query(None, description="Si se omite, recalcula todos los períodos con liquidaciones"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Recalcula SOLO los aportes patronales (SIS, Rentabilidad Protegida,
+    Seguro Social/Expectativa de Vida, aporte 0.1% AFP) de liquidaciones ya
+    emitidas, usando las tasas vigentes de cada período re-obtenidas desde la
+    API de indicadores. No toca sueldo, descuentos del trabajador ni el
+    líquido a pagar — solo el costo empleador (columna "costos_empleador").
+    """
+    if periodo:
+        periodos = [periodo]
+    else:
+        rows = await db.execute(select(Liquidacion.periodo).distinct())
+        periodos = [r[0] for r in rows.all()]
+
+    total_actualizadas = 0
+    detalle = []
+    for p in periodos:
+        val = await obtener_valor_periodo(db, p)
+        if val and val.cerrado:
+            detalle.append({"periodo": p, "actualizadas": 0, "motivo": "período cerrado, se omite"})
+            continue
+        await refrescar_indicadores(db, p)
+        val = await obtener_valor_periodo(db, p)
+
+        liqs = (await db.execute(select(Liquidacion).where(Liquidacion.periodo == p))).scalars().all()
+        for liq in liqs:
+            base = liq.total_imponible or Decimal("0")
+            liq.sis_empleador = _r(base * val.sis)
+            liq.seguro_social_empleador = _r(base * val.seguro_social)
+            liq.rentabilidad_protegida_empleador = _r(base * val.rentabilidad_protegida)
+            liq.aporte_empleador_afp = _r(base * val.aporte_empleador_afp)
+            liq.total_costo_empleador = _r(
+                (liq.afc_empleador or 0) + liq.sis_empleador + liq.aporte_empleador_afp +
+                liq.seguro_social_empleador + liq.rentabilidad_protegida_empleador
+            )
+        total_actualizadas += len(liqs)
+        detalle.append({"periodo": p, "actualizadas": len(liqs)})
+
+    await db.commit()
+    return {"total_actualizadas": total_actualizadas, "detalle": detalle}
 
 
 @router.post("/calcular", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
@@ -274,6 +322,7 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
             "sis":                  int(res.sis_empleador),
             "aporte_empleador_afp": int(res.aporte_empleador_afp),
             "seguro_social":        int(res.seguro_social_empleador),
+            "rentabilidad_protegida": int(res.rentabilidad_protegida_empleador),
             "total":                int(res.total_costo_empleador),
         }
     }
@@ -387,6 +436,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         sis_empleador             = res.sis_empleador,
         aporte_empleador_afp      = res.aporte_empleador_afp,
         seguro_social_empleador   = res.seguro_social_empleador,
+        rentabilidad_protegida_empleador = res.rentabilidad_protegida_empleador,
         total_costo_empleador     = res.total_costo_empleador,
         estado                    = "EMITIDA",
         observacion          = req.observacion,
@@ -474,6 +524,7 @@ class ResumenTrabajadorOut(BaseModel):
     sis_empleador: Decimal
     aporte_empleador_afp: Decimal
     seguro_social_empleador: Decimal
+    rentabilidad_protegida_empleador: Decimal
     total_aportes_patronales: Decimal
     liquido_a_pagar: Decimal
 
@@ -538,7 +589,7 @@ async def resumen_descuentos(
         isapre_nombre = emp.isapre_rel.nombre if emp and emp.isapre_rel else None
         nombre_empleado = f"{emp.nombres} {emp.apellido_paterno}" if emp else f"Trabajador #{liq.id_empleado}"
 
-        total_aportes = (liq.afc_empleador or 0) + (liq.sis_empleador or 0) + (liq.aporte_empleador_afp or 0) + (liq.seguro_social_empleador or 0)
+        total_aportes = (liq.afc_empleador or 0) + (liq.sis_empleador or 0) + (liq.aporte_empleador_afp or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0)
 
         por_trabajador.append(ResumenTrabajadorOut(
             id_liquidacion=liq.id, cc_codigo=cc_codigo, cc_nombre=cc_nombre, nombre_empleado=nombre_empleado,
@@ -546,12 +597,13 @@ async def resumen_descuentos(
             descuento_afp=liq.descuento_afp, descuento_salud=liq.descuento_salud, adicional_salud=liq.adicional_salud,
             afc_trabajador=liq.afc_trabajador, impuesto_unico=liq.impuesto_unico, total_desc_legales=liq.total_desc_legales,
             afc_empleador=liq.afc_empleador, sis_empleador=liq.sis_empleador, aporte_empleador_afp=liq.aporte_empleador_afp,
-            seguro_social_empleador=liq.seguro_social_empleador, total_aportes_patronales=total_aportes,
+            seguro_social_empleador=liq.seguro_social_empleador, rentabilidad_protegida_empleador=liq.rentabilidad_protegida_empleador,
+            total_aportes_patronales=total_aportes,
             liquido_a_pagar=liq.liquido_a_pagar,
         ))
 
-        # AFP/SIS/Seguro Social se enteran juntos vía Previred a la AFP del trabajador
-        monto_afp = (liq.descuento_afp or 0) + (liq.aporte_empleador_afp or 0) + (liq.sis_empleador or 0) + (liq.seguro_social_empleador or 0)
+        # AFP/SIS/Seguro Social/Rentabilidad Protegida se enteran juntos vía Previred a la AFP del trabajador
+        monto_afp = (liq.descuento_afp or 0) + (liq.aporte_empleador_afp or 0) + (liq.sis_empleador or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0)
         _sumar(cc_codigo, cc_nombre, "AFP", afp_nombre or "Sin AFP", monto_afp)
         monto_salud = (liq.descuento_salud or 0) + (liq.adicional_salud or 0)
         _sumar(cc_codigo, cc_nombre, "SALUD", isapre_nombre or "Sin Isapre/Fonasa", monto_salud)
