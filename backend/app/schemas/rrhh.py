@@ -30,6 +30,8 @@ class EmpresaBase(BaseModel):
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
     regimen_tributario: Optional[str] = None
+    mutualidad: Optional[str] = None
+    tasa_mutual: Optional[Decimal] = None
 
     @field_validator("regimen_tributario")
     @classmethod
@@ -56,6 +58,8 @@ class EmpresaUpdate(BaseModel):
     logo_url: Optional[str] = None
     prefijo: Optional[str] = None
     regimen_tributario: Optional[str] = None
+    mutualidad: Optional[str] = None
+    tasa_mutual: Optional[Decimal] = None
     activa: Optional[bool] = None
 
     @field_validator("regimen_tributario")

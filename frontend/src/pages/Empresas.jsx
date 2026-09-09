@@ -9,6 +9,8 @@ const VACIO = {
   contacto: '', telefono_contacto: '', email_contacto: '',
   representante_legal: '', rut_representante_legal: '', telefono: '', email: '', logo_url: '', prefijo: '',
   regimen_tributario: '',
+  mutualidad: '',
+  tasa_mutual: '3.48',
 }
 
 const REGIMENES_TRIBUTARIOS = [
@@ -17,6 +19,8 @@ const REGIMENES_TRIBUTARIOS = [
   { v: '14D_N8',         l: '14D N°8 — Pro Pyme Transparente' },
   { v: 'RENTA_PRESUNTA', l: 'Renta Presunta' },
 ]
+
+const MUTUALIDADES = ['ACHS', 'Mutual de Seguridad CChC', 'IST', 'ISL (Instituto de Seguridad Laboral)']
 
 export default function Empresas() {
   const { usuario } = useAuth()
@@ -44,7 +48,8 @@ export default function Empresas() {
 
   const abrirNueva = () => { setForm(VACIO); setMsg(null); setCredSii(null); setCredForm({ usuario: '', password: '' }); setCredMsg(null); setEditando('nueva') }
   const abrirEditar = (emp) => {
-    setForm({ ...VACIO, ...emp, region: emp.region || 'Metropolitana' })
+    setForm({ ...VACIO, ...emp, region: emp.region || 'Metropolitana',
+      tasa_mutual: emp.tasa_mutual != null ? String(Number(emp.tasa_mutual) * 100) : '3.48' })
     setMsg(null); setCredForm({ usuario: '', password: '' }); setCredMsg(null)
     setEditando(emp.id)
     cargarCredSii(emp.id)
@@ -89,7 +94,12 @@ export default function Empresas() {
     setGuardando(true)
     setMsg(null)
     try {
-      const payload = { ...form, regimen_tributario: form.regimen_tributario || null }
+      const payload = {
+        ...form,
+        regimen_tributario: form.regimen_tributario || null,
+        mutualidad: form.mutualidad || null,
+        tasa_mutual: form.tasa_mutual !== '' ? Number(form.tasa_mutual) / 100 : null,
+      }
       if (editando === 'nueva') {
         await empresasApi.create(payload)
       } else {
@@ -169,6 +179,19 @@ export default function Empresas() {
               <option value="">— sin definir —</option>
               {REGIMENES_TRIBUTARIOS.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
             </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Mutualidad (seguro accidentes del trabajo)</label>
+            <select className="input" value={form.mutualidad || ''}
+              onChange={e => setCampo('mutualidad', e.target.value)}>
+              <option value="">— sin definir —</option>
+              {MUTUALIDADES.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tasa Mutual (%)</label>
+            <input className="input" type="number" step="0.01" value={form.tasa_mutual}
+              onChange={e => setCampo('tasa_mutual', e.target.value)} placeholder="Ej: 3.48" />
           </div>
 
           <h3 style={{marginTop:20, marginBottom:8, fontSize:14, color:'var(--gray-600)'}}>Contacto</h3>

@@ -1323,6 +1323,7 @@ export default function Liquidaciones() {
                           <Row label="Aporte AFP"       v={prev.costos_empleador.aporte_empleador_afp} />
                           <Row label="Seguro Social"    v={prev.costos_empleador.seguro_social} />
                           <Row label="Rentabilidad Protegida" v={prev.costos_empleador.rentabilidad_protegida} />
+                          <Row label="Mutual"           v={prev.costos_empleador.mutual} />
                           <Row label="Total Patronal"   v={prev.costos_empleador.total} bold />
                         </Section>
                       </div>

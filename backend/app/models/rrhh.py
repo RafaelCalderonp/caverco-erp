@@ -31,6 +31,8 @@ class Empresa(Base):
     prefijo             = Column(String(10))
     # 14A | 14D_N3 (Pro Pyme General) | 14D_N8 (Pro Pyme Transparente) | RENTA_PRESUNTA
     regimen_tributario  = Column(String(20))
+    mutualidad          = Column(String(60))  # ACHS / Mutual de Seguridad CChC / IST / ISL
+    tasa_mutual         = Column(Numeric(6,4), default=Decimal("0.0348"))  # tasa básica + adicional por siniestralidad
     activa              = Column(Boolean, default=True)
     created_at          = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at          = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
@@ -419,6 +421,7 @@ class Liquidacion(Base):
     aporte_empleador_afp      = Column(Numeric(12,2), nullable=False, default=0)   # 0.1%
     seguro_social_empleador   = Column(Numeric(12,2), nullable=False, default=0)   # expectativa de vida
     rentabilidad_protegida_empleador = Column(Numeric(12,2), nullable=False, default=0)
+    mutual_empleador          = Column(Numeric(12,2), nullable=False, default=0)  # seguro accidentes del trabajo, Ley 16.744
     total_costo_empleador     = Column(Numeric(12,2), nullable=False, default=0)
     dias_trabajados           = Column(SmallInteger, default=30)
     estado               = Column(String(20), default="BORRADOR")

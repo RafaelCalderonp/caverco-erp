@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.rrhh import Empleado, ValorUfUtm, TramoImpuestoUnico, Contrato
+from app.models.rrhh import Empleado, ValorUfUtm, TramoImpuestoUnico, Contrato, Empresa
 from sqlalchemy import delete
 from app.services.liquidaciones import IndicadoresPrevired, TRAMOS_IU_2026, calcular_tramos_desde_utm
 from app.services.previred import get_previred_service
@@ -122,6 +122,9 @@ async def construir_indicadores(db: AsyncSession, emp: Empleado, periodo: str) -
 
     tasa_afp = emp.afp_rel.tasa if emp.afp_rel else Decimal("0.1144")
 
+    empresa = await db.get(Empresa, emp.id_empresa)
+    tasa_mutual = empresa.tasa_mutual if empresa and empresa.tasa_mutual is not None else Decimal("0.0348")
+
     # Tasas AFC: primero desde el perfil del empleado, sino desde el contrato vigente
     afc_emp  = emp.tipo_contrato_rel.afc_empleador  if emp.tipo_contrato_rel else None
     afc_trab = emp.tipo_contrato_rel.afc_trabajador if emp.tipo_contrato_rel else None
@@ -150,6 +153,6 @@ async def construir_indicadores(db: AsyncSession, emp: Empleado, periodo: str) -
         tasa_afp=tasa_afp, tasa_salud=Decimal("0.07"),
         afc_empleador_tasa=afc_emp, afc_trabajador_tasa=afc_trab,
         aporte_empleador_afp=val.aporte_empleador_afp, seguro_social=val.seguro_social,
-        rentabilidad_protegida=val.rentabilidad_protegida,
+        rentabilidad_protegida=val.rentabilidad_protegida, tasa_mutual=tasa_mutual,
         tramos_iu=tramos or TRAMOS_IU_2026,
     )

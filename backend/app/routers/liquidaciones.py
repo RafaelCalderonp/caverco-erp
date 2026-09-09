@@ -231,10 +231,11 @@ async def recalcular_aportes_patronales(
 ):
     """
     Recalcula SOLO los aportes patronales (SIS, Rentabilidad Protegida,
-    Seguro Social/Expectativa de Vida, aporte 0.1% AFP) de liquidaciones ya
-    emitidas, usando las tasas vigentes de cada período re-obtenidas desde la
-    API de indicadores. No toca sueldo, descuentos del trabajador ni el
-    líquido a pagar — solo el costo empleador (columna "costos_empleador").
+    Seguro Social/Expectativa de Vida, aporte 0.1% AFP, Mutual) de
+    liquidaciones ya emitidas, usando las tasas vigentes de cada período
+    re-obtenidas desde la API de indicadores (más la tasa mutual propia de
+    cada empresa). No toca sueldo, descuentos del trabajador ni el líquido a
+    pagar — solo el costo empleador (columna "costos_empleador").
     """
     if periodo:
         periodos = [periodo]
@@ -253,15 +254,21 @@ async def recalcular_aportes_patronales(
         val = await obtener_valor_periodo(db, p)
 
         liqs = (await db.execute(select(Liquidacion).where(Liquidacion.periodo == p))).scalars().all()
+        ids_empresa = {liq.id_empresa for liq in liqs}
+        empresas = (await db.execute(select(Empresa).where(Empresa.id.in_(ids_empresa)))).scalars().all()
+        empresa_map = {e.id: e for e in empresas}
         for liq in liqs:
             base = liq.total_imponible or Decimal("0")
+            empresa = empresa_map.get(liq.id_empresa)
+            tasa_mutual = empresa.tasa_mutual if empresa and empresa.tasa_mutual is not None else Decimal("0.0348")
             liq.sis_empleador = _r(base * val.sis)
             liq.seguro_social_empleador = _r(base * val.seguro_social)
             liq.rentabilidad_protegida_empleador = _r(base * val.rentabilidad_protegida)
             liq.aporte_empleador_afp = _r(base * val.aporte_empleador_afp)
+            liq.mutual_empleador = _r(base * tasa_mutual)
             liq.total_costo_empleador = _r(
                 (liq.afc_empleador or 0) + liq.sis_empleador + liq.aporte_empleador_afp +
-                liq.seguro_social_empleador + liq.rentabilidad_protegida_empleador
+                liq.seguro_social_empleador + liq.rentabilidad_protegida_empleador + liq.mutual_empleador
             )
         total_actualizadas += len(liqs)
         detalle.append({"periodo": p, "actualizadas": len(liqs)})
@@ -323,6 +330,7 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
             "aporte_empleador_afp": int(res.aporte_empleador_afp),
             "seguro_social":        int(res.seguro_social_empleador),
             "rentabilidad_protegida": int(res.rentabilidad_protegida_empleador),
+            "mutual":               int(res.mutual_empleador),
             "total":                int(res.total_costo_empleador),
         }
     }
@@ -437,6 +445,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         aporte_empleador_afp      = res.aporte_empleador_afp,
         seguro_social_empleador   = res.seguro_social_empleador,
         rentabilidad_protegida_empleador = res.rentabilidad_protegida_empleador,
+        mutual_empleador          = res.mutual_empleador,
         total_costo_empleador     = res.total_costo_empleador,
         estado                    = "EMITIDA",
         observacion          = req.observacion,
@@ -525,6 +534,7 @@ class ResumenTrabajadorOut(BaseModel):
     aporte_empleador_afp: Decimal
     seguro_social_empleador: Decimal
     rentabilidad_protegida_empleador: Decimal
+    mutual_empleador: Decimal
     total_aportes_patronales: Decimal
     liquido_a_pagar: Decimal
 
@@ -569,6 +579,10 @@ async def resumen_descuentos(
     )).scalars().all()
     emp_map = {e.id: e for e in empleados}
 
+    ids_empresa = {liq.id_empresa for liq in liquidaciones}
+    empresas = (await db.execute(select(Empresa).where(Empresa.id.in_(ids_empresa)))).scalars().all()
+    empresa_map = {e.id: e for e in empresas}
+
     por_trabajador: List[ResumenTrabajadorOut] = []
     inst_totales: dict[tuple, Decimal] = {}
 
@@ -588,8 +602,10 @@ async def resumen_descuentos(
         afp_nombre = emp.afp_rel.nombre if emp and emp.afp_rel else None
         isapre_nombre = emp.isapre_rel.nombre if emp and emp.isapre_rel else None
         nombre_empleado = f"{emp.nombres} {emp.apellido_paterno}" if emp else f"Trabajador #{liq.id_empleado}"
+        empresa = empresa_map.get(liq.id_empresa)
+        mutualidad_nombre = (empresa.mutualidad if empresa and empresa.mutualidad else None) or "Mutualidad sin definir"
 
-        total_aportes = (liq.afc_empleador or 0) + (liq.sis_empleador or 0) + (liq.aporte_empleador_afp or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0)
+        total_aportes = (liq.afc_empleador or 0) + (liq.sis_empleador or 0) + (liq.aporte_empleador_afp or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0) + (liq.mutual_empleador or 0)
 
         por_trabajador.append(ResumenTrabajadorOut(
             id_liquidacion=liq.id, cc_codigo=cc_codigo, cc_nombre=cc_nombre, nombre_empleado=nombre_empleado,
@@ -598,6 +614,7 @@ async def resumen_descuentos(
             afc_trabajador=liq.afc_trabajador, impuesto_unico=liq.impuesto_unico, total_desc_legales=liq.total_desc_legales,
             afc_empleador=liq.afc_empleador, sis_empleador=liq.sis_empleador, aporte_empleador_afp=liq.aporte_empleador_afp,
             seguro_social_empleador=liq.seguro_social_empleador, rentabilidad_protegida_empleador=liq.rentabilidad_protegida_empleador,
+            mutual_empleador=liq.mutual_empleador,
             total_aportes_patronales=total_aportes,
             liquido_a_pagar=liq.liquido_a_pagar,
         ))
@@ -610,6 +627,8 @@ async def resumen_descuentos(
         monto_afc = (liq.afc_trabajador or 0) + (liq.afc_empleador or 0)
         _sumar(cc_codigo, cc_nombre, "AFC", "AFC Chile", monto_afc)
         _sumar(cc_codigo, cc_nombre, "SII", "Impuesto Único (SII)", liq.impuesto_unico)
+        # Mutual: seguro de accidentes del trabajo, se paga aparte a la Mutualidad afiliada de la empresa
+        _sumar(cc_codigo, cc_nombre, "MUTUAL", mutualidad_nombre, liq.mutual_empleador)
 
     por_institucion = [
         ResumenInstitucionOut(**v) for v in sorted(

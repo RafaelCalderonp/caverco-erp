@@ -177,6 +177,7 @@ class IndicadoresPrevired:
     aporte_empleador_afp: Decimal = field(default=Decimal("0.001"))   # 0.1% aporte patronal AFP
     seguro_social:        Decimal = field(default=Decimal("0.009"))   # expectativa de vida
     rentabilidad_protegida: Decimal = field(default=Decimal("0.009"))  # rentabilidad protegida (nuevo aporte patronal)
+    tasa_mutual: Decimal = field(default=Decimal("0.0348"))  # seguro accidentes del trabajo (Ley 16.744), propio de cada empresa
     tramos_iu:            list    = field(default_factory=lambda: TRAMOS_IU_2026)  # tramos vigentes del período
 
     @classmethod
@@ -272,6 +273,7 @@ class ResultadoLiquidacion:
     aporte_empleador_afp:      Decimal   # 0.1% aporte adicional AFP
     seguro_social_empleador:   Decimal   # expectativa de vida
     rentabilidad_protegida_empleador: Decimal   # rentabilidad protegida
+    mutual_empleador:          Decimal   # seguro accidentes del trabajo (Ley 16.744)
     total_costo_empleador:     Decimal   # suma total aportes patronales
     # Meta
     tasa_afp_usada:       Decimal
@@ -331,7 +333,8 @@ def calcular_liquidacion(
     aporte_afp = _r(total_imp * ind.aporte_empleador_afp)
     seg_soc    = _r(total_imp * ind.seguro_social)
     rent_prot  = _r(total_imp * ind.rentabilidad_protegida)
-    total_patronal = _r(afc_emp + sis_emp + aporte_afp + seg_soc + rent_prot)
+    mutual_emp = _r(total_imp * ind.tasa_mutual)
+    total_patronal = _r(afc_emp + sis_emp + aporte_afp + seg_soc + rent_prot + mutual_emp)
 
     return ResultadoLiquidacion(
         sueldo_base=sueldo, gratificacion=gratif,
@@ -352,6 +355,7 @@ def calcular_liquidacion(
         aporte_empleador_afp=aporte_afp,
         seguro_social_empleador=seg_soc,
         rentabilidad_protegida_empleador=rent_prot,
+        mutual_empleador=mutual_emp,
         total_costo_empleador=total_patronal,
         tasa_afp_usada=ind.tasa_afp,
         uf_usada=ind.uf, utm_usada=ind.utm,
