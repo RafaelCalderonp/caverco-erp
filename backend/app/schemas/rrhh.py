@@ -209,6 +209,8 @@ class EmpleadoBase(BaseModel):
     banco: Optional[str] = None
     tipo_cuenta: Optional[str] = None
     numero_cuenta: Optional[str] = None
+    apv_monto: Optional[Decimal] = Decimal("0")
+    apv_institucion: Optional[str] = None
 
 class EmpleadoCreate(EmpleadoBase):
     id_empresa: int
@@ -242,6 +244,8 @@ class EmpleadoUpdate(BaseModel):
     banco: Optional[str] = None
     tipo_cuenta: Optional[str] = None
     numero_cuenta: Optional[str] = None
+    apv_monto: Optional[Decimal] = None
+    apv_institucion: Optional[str] = None
     activo: Optional[bool] = None
     fecha_egreso: Optional[date] = None
 

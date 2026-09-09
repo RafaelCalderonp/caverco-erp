@@ -146,6 +146,8 @@ class Empleado(Base):
     id_tipo_contrato  = Column(Integer, ForeignKey("erp.tipo_contrato.id"))
     valor_isapre_uf   = Column(Numeric(8,4), default=Decimal("0"))
     n_cargas          = Column(SmallInteger, default=0)
+    apv_monto         = Column(Numeric(12,2), default=Decimal("0"))  # Ahorro Previsional Voluntario, Régimen B
+    apv_institucion   = Column(String(80))  # AFP / banco / seguros / AGF donde se deposita; vacío = misma AFP
     banco             = Column(String(60))
     tipo_cuenta       = Column(String(30))
     numero_cuenta     = Column(String(30))
@@ -422,6 +424,7 @@ class Liquidacion(Base):
     seguro_social_empleador   = Column(Numeric(12,2), nullable=False, default=0)   # expectativa de vida
     rentabilidad_protegida_empleador = Column(Numeric(12,2), nullable=False, default=0)
     mutual_empleador          = Column(Numeric(12,2), nullable=False, default=0)  # seguro accidentes del trabajo, Ley 16.744
+    apv                       = Column(Numeric(12,2), nullable=False, default=0)  # APV Régimen B (descuento voluntario del trabajador)
     total_costo_empleador     = Column(Numeric(12,2), nullable=False, default=0)
     dias_trabajados           = Column(SmallInteger, default=30)
     estado               = Column(String(20), default="BORRADOR")

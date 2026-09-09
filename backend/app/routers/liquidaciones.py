@@ -138,6 +138,7 @@ def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiqu
         anticipo         = req.anticipo,
         prestamo         = req.prestamo,
         otros_descuentos = req.otros_descuentos,
+        apv              = emp.apv_monto or Decimal("0"),
     )
 
 
@@ -319,6 +320,7 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
             "anticipo":  int(res.anticipo),
             "prestamo":  int(res.prestamo),
             "otros":     int(res.otros_descuentos),
+            "apv":       int(res.apv),
             "total":     int(res.total_otros_desc),
         },
         "resultado": {
@@ -436,6 +438,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         total_desc_legales   = res.total_desc_legales,
         anticipo             = res.anticipo,
         prestamo             = res.prestamo,
+        apv                  = res.apv,
         total_otros_desc     = res.total_otros_desc,
         base_tributaria      = res.base_tributaria,
         liquido_a_pagar      = res.liquido_a_pagar,
@@ -535,6 +538,7 @@ class ResumenTrabajadorOut(BaseModel):
     seguro_social_empleador: Decimal
     rentabilidad_protegida_empleador: Decimal
     mutual_empleador: Decimal
+    apv: Decimal
     total_aportes_patronales: Decimal
     liquido_a_pagar: Decimal
 
@@ -615,6 +619,7 @@ async def resumen_descuentos(
             afc_empleador=liq.afc_empleador, sis_empleador=liq.sis_empleador, aporte_empleador_afp=liq.aporte_empleador_afp,
             seguro_social_empleador=liq.seguro_social_empleador, rentabilidad_protegida_empleador=liq.rentabilidad_protegida_empleador,
             mutual_empleador=liq.mutual_empleador,
+            apv=liq.apv,
             total_aportes_patronales=total_aportes,
             liquido_a_pagar=liq.liquido_a_pagar,
         ))
@@ -629,6 +634,11 @@ async def resumen_descuentos(
         _sumar(cc_codigo, cc_nombre, "SEGURO_SOCIAL", "Seguro Social", monto_seg_social)
         monto_salud = (liq.descuento_salud or 0) + (liq.adicional_salud or 0)
         _sumar(cc_codigo, cc_nombre, "SALUD", isapre_nombre or "Sin Isapre/Fonasa", monto_salud)
+        # APV: Ahorro Previsional Voluntario del trabajador, se deposita en su
+        # AFP (o en la institución que tenga registrada, ej. banco/seguros)
+        if liq.apv:
+            apv_institucion = (emp.apv_institucion if emp and emp.apv_institucion else None) or afp_nombre or "APV"
+            _sumar(cc_codigo, cc_nombre, "APV", apv_institucion, liq.apv)
         monto_afc = (liq.afc_trabajador or 0) + (liq.afc_empleador or 0)
         _sumar(cc_codigo, cc_nombre, "AFC", "AFC Chile", monto_afc)
         _sumar(cc_codigo, cc_nombre, "SII", "Impuesto Único (SII)", liq.impuesto_unico)

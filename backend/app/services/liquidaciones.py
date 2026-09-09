@@ -235,6 +235,7 @@ class EntradaLiquidacion:
     anticipo:         Decimal = Decimal("0")
     prestamo:         Decimal = Decimal("0")
     otros_descuentos: Decimal = Decimal("0")
+    apv:              Decimal = Decimal("0")   # Ahorro Previsional Voluntario, Régimen B (rebaja base tributaria)
 
 
 @dataclass
@@ -264,6 +265,7 @@ class ResultadoLiquidacion:
     anticipo:             Decimal
     prestamo:             Decimal
     otros_descuentos:     Decimal
+    apv:                  Decimal
     total_otros_desc:     Decimal
     # Resultado
     liquido_a_pagar:      Decimal
@@ -316,15 +318,15 @@ def calcular_liquidacion(
     # 7. AFC trabajador
     seg_ces = _r(total_imp * ind.afc_trabajador_tasa)
 
-    # 8. Base tributaria
-    base_trib = _r(total_imp - desc_afp - desc_salud - adic_salud - seg_ces)
+    # 8. Base tributaria (el APV Régimen B rebaja la base antes del impuesto)
+    base_trib = _r(total_imp - desc_afp - desc_salud - adic_salud - seg_ces - e.apv)
 
     # 9. Impuesto Único
     imp_unico = calcular_impuesto_unico(base_trib, ind.tramos_iu)
 
     # 10. Totales
     total_leg   = _r(desc_afp + desc_salud + adic_salud + imp_unico + seg_ces)
-    total_otros = _r(e.anticipo + e.prestamo + e.otros_descuentos)
+    total_otros = _r(e.anticipo + e.prestamo + e.otros_descuentos + e.apv)
     liquido     = _r(total_hab - total_leg - total_otros)
 
     # Costos patronales
@@ -348,7 +350,7 @@ def calcular_liquidacion(
         base_tributaria=base_trib, impuesto_unico=imp_unico,
         total_desc_legales=total_leg,
         anticipo=e.anticipo, prestamo=e.prestamo,
-        otros_descuentos=e.otros_descuentos, total_otros_desc=total_otros,
+        otros_descuentos=e.otros_descuentos, apv=e.apv, total_otros_desc=total_otros,
         liquido_a_pagar=liquido,
         afc_empleador=afc_emp,
         sis_empleador=sis_emp,

@@ -66,6 +66,8 @@ export default function EmpleadoDetalle() {
       valor_isapre_uf: emp.valor_isapre_uf || '',
       colacion: emp.colacion ?? '',
       movilizacion: emp.movilizacion ?? '',
+      apv_monto: emp.apv_monto ?? '',
+      apv_institucion: emp.apv_institucion || '',
     })
     setError('')
     setEditando(true)
@@ -84,6 +86,8 @@ export default function EmpleadoDetalle() {
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
         colacion: Number(form.colacion) || 0,
         movilizacion: Number(form.movilizacion) || 0,
+        apv_monto: Number(form.apv_monto) || 0,
+        apv_institucion: form.apv_institucion || null,
       }
       if (!payload.id_afp) delete payload.id_afp
       if (!payload.id_isapre) delete payload.id_isapre
@@ -215,6 +219,22 @@ export default function EmpleadoDetalle() {
             )}
           </div>
 
+          <h4 style={{marginBottom:12, fontWeight:600, fontSize:14, color:'var(--gray-700)'}}>APV (Ahorro Previsional Voluntario)</h4>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16}}>
+            <div className="form-group">
+              <label className="form-label">Monto mensual (CLP)</label>
+              <input className="input" type="number" step="1" placeholder="Ej: 50000"
+                value={form.apv_monto}
+                onChange={e => setForm(f => ({ ...f, apv_monto: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Institución (vacío = misma AFP)</label>
+              <input className="input" placeholder="Ej: Capital, Banco X, Seguros Y"
+                value={form.apv_institucion}
+                onChange={e => setForm(f => ({ ...f, apv_institucion: e.target.value }))} />
+            </div>
+          </div>
+
           <div style={{display:'flex', gap:8}}>
             <button className="btn btn-primary btn-sm" onClick={guardar} disabled={guardando}>
               {guardando ? 'Guardando…' : 'Guardar Cambios'}
@@ -248,6 +268,7 @@ export default function EmpleadoDetalle() {
             ['AFP', afpNombre(emp.id_afp)],
             ['Salud', isapreNombre(emp.id_isapre)],
             ...(esIsapre(emp.id_isapre) ? [['Valor Plan Isapre', emp.valor_isapre_uf ? `${emp.valor_isapre_uf} UF` : '—']] : []),
+            ...(Number(emp.apv_monto) > 0 ? [['APV', `${fmt(emp.apv_monto)}${emp.apv_institucion ? ` — ${emp.apv_institucion}` : ' — misma AFP'}`]] : []),
           ].map(([k,v]) => (
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid var(--gray-100)'}}>
               <span className="text-muted">{k}</span><span style={{fontWeight:500}}>{v || '—'}</span>
