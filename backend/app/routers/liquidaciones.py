@@ -341,6 +341,17 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
     entrada = _build_entrada(emp, req)
     res     = calcular_liquidacion(entrada, ind)
 
+    # CC al momento de emitir: se prioriza el del contrato vigente (igual criterio
+    # que el Registro de Asistencia) sobre el CC del perfil del empleado, para que
+    # reasignar/unificar centros de costo no altere liquidaciones ya emitidas.
+    contrato_vigente = (await db.execute(
+        select(Contrato)
+        .where(Contrato.id_empleado == emp.id, Contrato.estado == "vigente", Contrato.id_centro_costo.isnot(None))
+        .order_by(Contrato.id.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+    id_cc_emision = contrato_vigente.id_centro_costo if contrato_vigente else emp.id_centro_costo
+
     liq = Liquidacion(
         id_empresa           = emp.id_empresa,
         id_empleado          = emp.id,
@@ -379,7 +390,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         total_costo_empleador     = res.total_costo_empleador,
         estado                    = "EMITIDA",
         observacion          = req.observacion,
-        id_centro_costo           = emp.id_centro_costo,
+        id_centro_costo           = id_cc_emision,
     )
     db.add(liq)
     try:
