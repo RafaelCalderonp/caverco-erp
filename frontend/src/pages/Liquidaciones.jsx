@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { liquidacionesApi, empleadosApi, catalogosApi, remuneracionesContabilidadApi } from '../services/api'
 import { useEmpresa } from '../context/EmpresaContext'
+import { useAuth } from '../context/AuthContext'
 
 const PERIODOS = (() => {
   const arr = []
@@ -290,6 +291,20 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
 
 export default function Liquidaciones() {
   const { empresaActual } = useEmpresa()
+  const { usuario } = useAuth()
+  const [recalculandoAportes, setRecalculandoAportes] = useState(false)
+  const [msgRecalculo, setMsgRecalculo] = useState('')
+
+  const recalcularAportesPatronales = async () => {
+    if (!confirm(`¿Recalcular los aportes patronales (SIS, Seguro Social, Rentabilidad Protegida) de todas las liquidaciones del período ${periodo}? No se modificará el sueldo ni el líquido a pagar del trabajador.`)) return
+    setRecalculandoAportes(true); setMsgRecalculo('')
+    try {
+      const r = await liquidacionesApi.recalcularAportesPatronales(periodo)
+      setMsgRecalculo(`✅ ${r.data.total_actualizadas} liquidación(es) actualizadas`)
+    } catch (e) {
+      setMsgRecalculo(`❌ ${e.response?.data?.detail || 'Error al recalcular'}`)
+    } finally { setRecalculandoAportes(false) }
+  }
   const [tab, setTab]         = useState('lista')        // 'lista' | 'calcular'
   const [periodo, setPeriodo] = useState(PERIODOS[0])
   const [lista, setLista]     = useState([])
@@ -765,6 +780,16 @@ export default function Liquidaciones() {
               <Chip label="Seguro Social" value={pct(indicadores.seguro_social,1)} />
               <Chip label="Rentabilidad Protegida" value={pct(indicadores.rentabilidad_protegida,1)} />
             </div>
+
+            {usuario?.rol === 'SUPERADMIN' && (
+              <div style={{padding:'8px 12px',borderTop:'1px solid #bfdbfe',display:'flex',alignItems:'center',gap:10}}>
+                <button onClick={e => { e.stopPropagation(); recalcularAportesPatronales() }} disabled={recalculandoAportes}
+                  style={{fontSize:12,border:'1px solid #cbd5e1',borderRadius:4,padding:'4px 10px',background:'var(--bg)',cursor:'pointer',color:'var(--primary)'}}>
+                  {recalculandoAportes ? 'Recalculando…' : `🔄 Recalcular aportes patronales de ${periodo}`}
+                </button>
+                {msgRecalculo && <span style={{fontSize:12}}>{msgRecalculo}</span>}
+              </div>
+            )}
 
             {/* Contenido expandido: solo AFP, AFC, Tramos IU */}
             {indicOpen && (() => {
