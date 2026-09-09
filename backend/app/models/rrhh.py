@@ -422,11 +422,14 @@ class Liquidacion(Base):
     dias_trabajados           = Column(SmallInteger, default=30)
     estado               = Column(String(20), default="BORRADOR")
     observacion          = Column(Text)
+    id_centro_costo      = Column(Integer, ForeignKey("erp.centros_costo.id"))  # foto del CC del trabajador al emitir
     created_at           = Column(TIMESTAMPTZ, server_default=func.now())
     updated_at           = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
     __table_args__       = (
         {"schema": "erp"},
     )
+
+    centro_costo = relationship("CentroCosto")
 
 
 class EmpresaCredencial(Base):

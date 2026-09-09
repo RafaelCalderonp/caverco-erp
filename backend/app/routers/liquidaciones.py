@@ -379,6 +379,7 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         total_costo_empleador     = res.total_costo_empleador,
         estado                    = "EMITIDA",
         observacion          = req.observacion,
+        id_centro_costo           = emp.id_centro_costo,
     )
     db.add(liq)
     try:
@@ -397,13 +398,15 @@ async def listar_por_periodo(
     db: AsyncSession = Depends(get_db)
 ):
     """Lista todas las liquidaciones de un período (YYYY-MM), enriquecidas con nombre del empleado y CC."""
-    q = select(Liquidacion).where(Liquidacion.periodo == periodo)
+    q = select(Liquidacion).options(selectinload(Liquidacion.centro_costo)).where(Liquidacion.periodo == periodo)
     if id_empresa:
         q = q.where(Liquidacion.id_empresa == id_empresa)
     result = await db.execute(q.order_by(Liquidacion.id_empleado))
     liquidaciones = result.scalars().all()
 
-    # Enriquecer con nombres y centro de costo
+    # Enriquecer con nombres y centro de costo (el CC se toma de la foto guardada
+    # en la liquidación al momento de emitirla, no del CC actual del empleado —
+    # así reasignar a alguien de CC no altera liquidaciones ya emitidas)
     if liquidaciones:
         ids = [l.id_empleado for l in liquidaciones]
         emp_res = await db.execute(
@@ -416,7 +419,7 @@ async def listar_por_periodo(
         for liq in liquidaciones:
             d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
             d["nombre_empleado"] = emp_map.get(liq.id_empleado, f"Trabajador #{liq.id_empleado}")
-            cc = cc_map.get(liq.id_empleado)
+            cc = liq.centro_costo or cc_map.get(liq.id_empleado)
             d["cc_codigo"] = cc.codigo if cc else None
             d["cc_nombre"] = cc.nombre if cc else None
             out.append(d)
@@ -488,7 +491,7 @@ async def resumen_descuentos(
     patronales por CC y trabajador, más un resumen agrupado por CC e
     institución (AFP/Isapre/AFC/SII) para hacer los pagos previsionales.
     """
-    q = select(Liquidacion).where(Liquidacion.periodo == periodo)
+    q = select(Liquidacion).options(selectinload(Liquidacion.centro_costo)).where(Liquidacion.periodo == periodo)
     if id_empresa:
         q = q.where(Liquidacion.id_empresa == id_empresa)
     liquidaciones = (await db.execute(q.order_by(Liquidacion.id_empleado))).scalars().all()
@@ -517,7 +520,7 @@ async def resumen_descuentos(
 
     for liq in liquidaciones:
         emp = emp_map.get(liq.id_empleado)
-        cc = emp.centro_costo if emp else None
+        cc = liq.centro_costo or (emp.centro_costo if emp else None)
         cc_codigo = cc.codigo if cc else None
         cc_nombre = cc.nombre if cc else None
         afp_nombre = emp.afp_rel.nombre if emp and emp.afp_rel else None
