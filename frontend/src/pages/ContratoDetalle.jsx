@@ -151,8 +151,28 @@ export default function ContratoDetalle() {
     obra_nombre: '',
     obra_direccion: '',
     relator_cargo: 'Gerente General',
+    maquinas_seleccionadas: [],
+    otras_marcada: false,
+    otras_detalle: '',
   })
   const [descargandoIrl, setDescargandoIrl] = useState(false)
+
+  const MAQUINAS_IRL_SIEMPRE = [
+    'Esmeril angular de corte', 'Atornillador', 'Taladro',
+    'Herramientas manuales (Martillo, Alicate, Pinzas, Llaves variedades, Atornillador, Barreta/Barretilla, Entre otras)',
+  ]
+  const MAQUINAS_IRL_OPCIONALES = [
+    'Aspiradora industrial', 'Soldadora', 'Esmeril angular de desbaste',
+    'Demoledor manual', 'Sierra circular', 'Sierra sable', 'Soplador', 'Turbo calefactor',
+  ]
+  function toggleMaquinaIrl(nombre) {
+    setFormIrl(f => ({
+      ...f,
+      maquinas_seleccionadas: f.maquinas_seleccionadas.includes(nombre)
+        ? f.maquinas_seleccionadas.filter(m => m !== nombre)
+        : [...f.maquinas_seleccionadas, nombre],
+    }))
+  }
 
   const MOTIVOS_AMONESTACION = [
     'Atrasos reiterados e injustificados al lugar de trabajo',
@@ -567,6 +587,8 @@ export default function ContratoDetalle() {
         hora_inicio: formIrl.hora_inicio,
         hora_termino: formIrl.hora_termino,
         relator_cargo: formIrl.relator_cargo,
+        maquinas_seleccionadas: formIrl.maquinas_seleccionadas,
+        otras_detalle: formIrl.otras_marcada ? formIrl.otras_detalle : null,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `IRL_${nombre.replace(/ /g, '_')}.docx`))
     } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar IRL')) }
@@ -1383,6 +1405,36 @@ export default function ContratoDetalle() {
             <label className="form-label">Dirección Obra</label>
             <input className="form-control" type="text" value={formIrl.obra_direccion}
               onChange={e => setFormIrl(f => ({...f, obra_direccion: e.target.value}))} />
+          </div>
+          <div style={{gridColumn:'1 / -1'}}>
+            <label className="form-label">Máquinas o herramientas a emplear en esta obra</label>
+            <div style={{fontSize:12.5, color:'var(--gray-500)', marginBottom:6}}>
+              Esmeril de corte, Atornillador, Taladro y Herramientas manuales quedan marcadas siempre. Marca las demás que apliquen para esta obra.
+            </div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:'4px 16px', marginBottom:8}}>
+              {MAQUINAS_IRL_SIEMPRE.map(m => (
+                <label key={m} style={{fontSize:12.5, color:'var(--gray-500)', display:'flex', alignItems:'center', gap:4}}>
+                  <input type="checkbox" checked disabled /> {m}
+                </label>
+              ))}
+            </div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:'4px 16px'}}>
+              {MAQUINAS_IRL_OPCIONALES.map(m => (
+                <label key={m} style={{fontSize:13, display:'flex', alignItems:'center', gap:4}}>
+                  <input type="checkbox" checked={formIrl.maquinas_seleccionadas.includes(m)}
+                    onChange={() => toggleMaquinaIrl(m)} /> {m}
+                </label>
+              ))}
+              <label style={{fontSize:13, display:'flex', alignItems:'center', gap:4}}>
+                <input type="checkbox" checked={formIrl.otras_marcada}
+                  onChange={e => setFormIrl(f => ({...f, otras_marcada: e.target.checked}))} /> Otras
+              </label>
+            </div>
+            {formIrl.otras_marcada && (
+              <input className="form-control mt-2" type="text" placeholder="¿Cuáles otras?"
+                value={formIrl.otras_detalle}
+                onChange={e => setFormIrl(f => ({...f, otras_detalle: e.target.value}))} />
+            )}
           </div>
         </div>
         <button className="btn btn-outline btn-sm" onClick={descargarIrl} disabled={descargandoIrl}>

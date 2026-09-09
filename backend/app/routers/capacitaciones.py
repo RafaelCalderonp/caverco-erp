@@ -481,6 +481,8 @@ class IrlCreate(BaseModel):
     hora_inicio: str = "8:30"
     hora_termino: str = "12:30"
     relator_cargo: str = "Gerente General"
+    maquinas_seleccionadas: List[str] = []
+    otras_detalle: Optional[str] = None
 
 
 @router.post("/empresas/{id_empresa}/irl/word")
@@ -505,6 +507,8 @@ async def generar_irl(
         relator_nombre=relator_nombre,
         relator_cargo=data.relator_cargo,
         empresa=empresa,
+        maquinas_seleccionadas=data.maquinas_seleccionadas,
+        otras_detalle=data.otras_detalle,
     )
     fname = f"IRL_{data.nombre_trabajador.replace(' ', '_')}.docx"
     return StreamingResponse(

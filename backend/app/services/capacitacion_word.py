@@ -898,6 +898,26 @@ _MAQUINAS = [
     "Otras",
 ]
 
+# Estas se dejan siempre marcadas independiente de la obra
+_MAQUINAS_SIEMPRE = {
+    "Esmeril angular de corte", "Atornillador", "Taladro",
+    "Herramientas manuales (Martillo, Alicate, Pinzas, Llaves variedades, Atornillador, Barreta/Barretilla, Entre otras)",
+}
+
+
+def _run_recuadro(p, texto, size=7.5):
+    """Agrega un run con el texto encerrado en un recuadro (borde de caracter)."""
+    run = p.add_run(texto)
+    run.font.size = Pt(size)
+    rpr = run._r.get_or_add_rPr()
+    bdr = OxmlElement("w:bdr")
+    bdr.set(qn("w:val"), "single")
+    bdr.set(qn("w:sz"), "6")
+    bdr.set(qn("w:space"), "2")
+    bdr.set(qn("w:color"), "000000")
+    rpr.append(bdr)
+    return run
+
 # (riesgo, daño, medida, proc)
 _RIESGOS_FISICOS = [
     ("Caídas al mismo nivel", "Contusión", "Mantener superficies de tránsito en óptimas condiciones, libres de humedad y señalizadas", _PROC_F),
@@ -1115,7 +1135,10 @@ def generar_irl_docx(
     relator_nombre: str,
     relator_cargo: str,
     empresa=None,
+    maquinas_seleccionadas: list[str] | None = None,
+    otras_detalle: str | None = None,
 ) -> bytes:
+    maquinas_seleccionadas = set(maquinas_seleccionadas or [])
     doc = Document()
 
     # Márgenes
@@ -1295,7 +1318,7 @@ def generar_irl_docx(
         ("Espacio de Trabajo", _ESPACIO_TRABAJO),
         ("Condiciones Ambientales del Puesto de Trabajo", _COND_AMBIENT),
         ("Condiciones de Orden y Aseo exigidas en el Lugar de Trabajo", _COND_ORDEN),
-        ("Máquinas o herramientas que se deben emplear", "\n".join(f"☐  {m}" for m in _MAQUINAS)),
+        ("Máquinas o herramientas que se deben emplear", None),  # se construye aparte, ver abajo
     ]
     for i, (label, content) in enumerate(char_data):
         lc = char_tbl.rows[i].cells[0]
@@ -1308,10 +1331,35 @@ def generar_irl_docx(
 
         cc = char_tbl.rows[i].cells[1]
         cc.vertical_alignment = WD_ALIGN_VERTICAL.TOP
-        p2 = cc.paragraphs[0]
-        p2.clear()
-        run2 = p2.add_run(content)
-        run2.font.size = Pt(7.5)
+
+        if content is not None:
+            p2 = cc.paragraphs[0]
+            p2.clear()
+            run2 = p2.add_run(content)
+            run2.font.size = Pt(7.5)
+            continue
+
+        # Fila "Máquinas o herramientas": una línea por ítem, marcado (☑) si es
+        # de los que siempre van marcados o fue seleccionado según la obra.
+        # "Otras", si se marca, lleva su detalle en un recuadro al lado.
+        cc.paragraphs[0].clear()
+        primero = True
+        for m in _MAQUINAS:
+            p2 = cc.paragraphs[0] if primero else cc.add_paragraph()
+            primero = False
+            p2.paragraph_format.space_before = Pt(1)
+            p2.paragraph_format.space_after = Pt(1)
+            if m == "Otras":
+                marcada = bool(otras_detalle)
+                run2 = p2.add_run(f"{'☑' if marcada else '☐'}  {m}")
+                run2.font.size = Pt(7.5)
+                if marcada:
+                    p2.add_run("\t\t").font.size = Pt(7.5)
+                    _run_recuadro(p2, otras_detalle)
+            else:
+                marcada = m in _MAQUINAS_SIEMPRE or m in maquinas_seleccionadas
+                run2 = p2.add_run(f"{'☑' if marcada else '☐'}  {m}")
+                run2.font.size = Pt(7.5)
 
     # ── Riesgos Específicos ──
     rt = doc.add_table(rows=1, cols=1)
