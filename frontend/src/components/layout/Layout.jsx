@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useEmpresa } from '../../context/EmpresaContext'
+import { empleadosApi } from '../../services/api'
 import logo from '../../assets/caverco-logo.png'
 
 const NAV = [
@@ -33,6 +34,64 @@ const NAV = [
 
 const REQUIERE_EMPRESA = ['/dashboard', '/empleados', '/catalogos', '/licencias', '/capacitaciones', '/contratos', '/solicitudes-contrato', '/liquidaciones', '/contabilidad', '/plan-cuentas', '/libro-diario', '/balance-8-columnas', '/estado-resultados', '/balance-clasificado', '/renta-liquida', '/plantillas-contabilizacion', '/config-asientos-remuneraciones']
 const STORAGE_KEY = 'sidebarColapsado'
+
+function CampanaAlertas({ empresaActual }) {
+  const navigate = useNavigate()
+  const [abierto, setAbierto] = useState(false)
+  const [pendientes, setPendientes] = useState([])
+
+  useEffect(() => {
+    if (!empresaActual) { setPendientes([]); return }
+    empleadosApi.alertasPendientes(empresaActual.id)
+      .then(r => setPendientes(r.data))
+      .catch(() => setPendientes([]))
+  }, [empresaActual])
+
+  if (!empresaActual) return null
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setAbierto(v => !v)}
+        style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 4 }}
+        title="Alertas pendientes">
+        🔔
+        {pendientes.length > 0 && (
+          <span style={{
+            position: 'absolute', top: -2, right: -2, background: 'var(--danger)', color: '#fff',
+            borderRadius: '50%', minWidth: 16, height: 16, fontSize: 10, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+          }}>{pendientes.length}</span>
+        )}
+      </button>
+
+      {abierto && (
+        <>
+          <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+          <div style={{
+            position: 'absolute', right: 0, top: '120%', width: 340, zIndex: 11,
+            background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,.12)', maxHeight: 400, overflowY: 'auto',
+          }}>
+            <div style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, borderBottom: '1px solid var(--gray-100)' }}>
+              Alertas pendientes
+            </div>
+            {pendientes.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 13, color: 'var(--gray-500)' }}>Sin alertas pendientes 🎉</div>
+            ) : pendientes.map(p => (
+              <div key={p.id_empleado}
+                onClick={() => { setAbierto(false); navigate(`/contratos/${p.id_contrato}`) }}
+                style={{ padding: '10px 14px', borderBottom: '1px solid var(--gray-100)', cursor: 'pointer', fontSize: 12.5 }}>
+                <div style={{ fontWeight: 600 }}>⚠️ Finiquito pendiente</div>
+                <div style={{ color: 'var(--gray-600)', margin: '2px 0' }}>{p.nombre}</div>
+                <div style={{ color: '#92400e', fontSize: 11.5 }}>Recuerda también dar de baja en Previred</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function Layout() {
   const location = useLocation()
@@ -104,6 +163,7 @@ export default function Layout() {
                 {empresaActual.razon_social} · Cambiar
               </button>
             )}
+            <CampanaAlertas empresaActual={empresaActual} />
             <div className="avatar">{(usuario?.username || '??').slice(0, 2).toUpperCase()}</div>
             <span style={{fontSize:13, color:'var(--gray-700)'}}>{usuario?.username} · {usuario?.rol}</span>
             <button onClick={onLogout} style={{marginLeft: 12}}>Salir</button>

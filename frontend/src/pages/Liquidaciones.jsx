@@ -150,6 +150,17 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
     setEditMode(false)
   }
 
+  const desactivarDesdeAsistencia = async (emp) => {
+    if (!confirm(`¿Eliminar/desactivar a ${emp.nombre}? Ya no aparecerá en los listados para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
+    try {
+      await empleadosApi.delete(emp.id)
+      setLocalData(prev => prev?.filter(e => e.id !== emp.id) || prev)
+      setSavedData(prev => prev?.filter(e => e.id !== emp.id) || prev)
+    } catch {
+      alert('No se pudo desactivar al trabajador')
+    }
+  }
+
   const guardar = async () => {
     if (!localData) return
     setGuardando(true)
@@ -223,6 +234,7 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
                 <thead>
                   <tr>
                     <th style={{position:'sticky',left:0,zIndex:2,background:'#f8fafc',padding:'6px 12px',textAlign:'left',borderBottom:'1px solid #e2e8f0',minWidth:170,fontWeight:600,fontSize:12}}>Trabajador</th>
+                    <th style={{padding:'6px 4px',textAlign:'center',borderBottom:'1px solid #e2e8f0',background:'#f8fafc',minWidth:28}}></th>
                     {Array.from({length: asistData.dias}, (_,i) => {
                       const d = new Date(year, month-1, i+1)
                       const inhabil = asistData.tipo_dia[i] === 'INHABIL'
@@ -240,6 +252,12 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
                   {localData.map((emp, empIdx) => (
                     <tr key={emp.id} style={{borderBottom:'1px solid #f1f5f9'}}>
                       <td style={{position:'sticky',left:0,zIndex:1,background:'var(--bg)',padding:'4px 12px',fontWeight:500,whiteSpace:'nowrap',borderRight:'1px solid #e2e8f0'}}>{emp.nombre}</td>
+                      <td style={{textAlign:'center',padding:'2px'}}>
+                        <button onClick={() => desactivarDesdeAsistencia(emp)} title="Eliminar/desactivar trabajador"
+                          style={{width:18,height:18,borderRadius:'50%',border:'1px solid #fca5a5',background:'#fee2e2',
+                            color:'#dc2626',fontSize:11,lineHeight:1,cursor:'pointer',display:'inline-flex',
+                            alignItems:'center',justifyContent:'center',padding:0}}>✕</button>
+                      </td>
                       {emp.asistencia.map((estado, diaIdx) => {
                         const s = TICK[estado] || TICK.VERDE
                         const changed = savedData && savedData[empIdx]?.asistencia[diaIdx] !== estado

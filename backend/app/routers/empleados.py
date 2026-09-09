@@ -55,6 +55,32 @@ async def stats_empleados(id_empresa: Optional[int] = None, db: AsyncSession = D
     inactivos = total - activos
     return {"total": total, "activos": activos, "inactivos": inactivos}
 
+@router.get("/alertas-pendientes")
+async def alertas_pendientes(id_empresa: int, db: AsyncSession = Depends(get_db)):
+    """Trabajadores desactivados cuyo contrato sigue 'vigente' (nunca se generó
+    el finiquito). Sirve de base para la campana de alertas del ERP."""
+    q = (
+        select(Empleado, Contrato)
+        .join(Contrato, Contrato.id_empleado == Empleado.id)
+        .where(
+            Empleado.id_empresa == id_empresa,
+            Empleado.activo == False,
+            Contrato.estado == "vigente",
+        )
+        .order_by(Empleado.apellido_paterno)
+    )
+    result = await db.execute(q)
+    return [
+        {
+            "id_empleado": emp.id,
+            "nombre": f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
+            "id_contrato": con.id,
+            "numero_contrato": con.numero_contrato,
+        }
+        for emp, con in result.all()
+    ]
+
+
 @router.get("/{id}", response_model=EmpleadoOut)
 async def obtener_empleado(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(

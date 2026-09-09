@@ -84,6 +84,7 @@ export const empleadosApi = {
   update: (id, d)  => api.patch(`/empleados/${id}`, d),
   delete: (id)     => api.delete(`/empleados/${id}`),
   eliminarDefinitivo: (id) => api.delete(`/empleados/${id}/definitivo`),
+  alertasPendientes: (idEmpresa) => api.get('/empleados/alertas-pendientes', { params: { id_empresa: idEmpresa } }),
 }
 
 export const departamentosApi = {
