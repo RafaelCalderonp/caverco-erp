@@ -619,9 +619,14 @@ async def resumen_descuentos(
             liquido_a_pagar=liq.liquido_a_pagar,
         ))
 
-        # AFP/SIS/Seguro Social/Rentabilidad Protegida se enteran juntos vía Previred a la AFP del trabajador
-        monto_afp = (liq.descuento_afp or 0) + (liq.aporte_empleador_afp or 0) + (liq.sis_empleador or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0)
+        # AFP: cotización del trabajador (11,x%) + aporte patronal 0,1%. SIS,
+        # Seguro Social (Expectativa de Vida) y Rentabilidad Protegida se
+        # enteran vía Previred pero a un fondo colectivo único (no por AFP),
+        # por eso Previred los reporta en una línea "Seguro Social" aparte.
+        monto_afp = (liq.descuento_afp or 0) + (liq.aporte_empleador_afp or 0)
         _sumar(cc_codigo, cc_nombre, "AFP", afp_nombre or "Sin AFP", monto_afp)
+        monto_seg_social = (liq.sis_empleador or 0) + (liq.seguro_social_empleador or 0) + (liq.rentabilidad_protegida_empleador or 0)
+        _sumar(cc_codigo, cc_nombre, "SEGURO_SOCIAL", "Seguro Social", monto_seg_social)
         monto_salud = (liq.descuento_salud or 0) + (liq.adicional_salud or 0)
         _sumar(cc_codigo, cc_nombre, "SALUD", isapre_nombre or "Sin Isapre/Fonasa", monto_salud)
         monto_afc = (liq.afc_trabajador or 0) + (liq.afc_empleador or 0)
