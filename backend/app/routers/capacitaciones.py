@@ -349,6 +349,8 @@ async def generar_reglamento_interno(
 ):
     empresa_res = await db.execute(select(Empresa).where(Empresa.id == id_empresa))
     empresa = empresa_res.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(404, "Empresa no encontrada")
 
     nombre = data.nombre_trabajador
     rut    = data.rut_trabajador or ""
@@ -359,7 +361,7 @@ async def generar_reglamento_interno(
         emp_res = await db.execute(select(Empleado).where(Empleado.id == data.id_empleado))
         emp = emp_res.scalar_one_or_none()
         if emp:
-            nombre  = f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
+            nombre  = f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
             rut     = emp.rut or rut
             seccion = seccion or getattr(emp, "cargo_nombre", "") or ""
 
@@ -368,7 +370,7 @@ async def generar_reglamento_interno(
         rut            = rut,
         seccion        = seccion,
         fecha          = data.fecha_entrega,
-        empresa_nombre = empresa.razon_social if empresa else "Instalaciones Arquitectónicas SpA",
+        empresa_nombre = empresa.razon_social,
     )
     fname = f"Reglamento_Interno_{(nombre or 'trabajador').replace(' ','_')}.docx"
 
@@ -432,6 +434,8 @@ async def generar_cert_antiguedad(
 ):
     empresa_res = await db.execute(select(Empresa).where(Empresa.id == id_empresa))
     empresa = empresa_res.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(404, "Empresa no encontrada")
 
     nombre = data.nombre_trabajador
     rut    = data.rut_trabajador or ""
@@ -445,8 +449,8 @@ async def generar_cert_antiguedad(
             rut    = emp.rut or rut
             cargo  = cargo or getattr(emp, "cargo_nombre", "") or ""
 
-    empresa_nombre = empresa.razon_social if empresa else "INSTALACIONES ARQUITECTÓNICAS SpA"
-    empresa_rut    = empresa.rut if empresa else "77.868.358-K"
+    empresa_nombre = empresa.razon_social
+    empresa_rut    = empresa.rut
 
     docx_bytes = generar_certificado_antiguedad_docx(
         nombre         = nombre,
