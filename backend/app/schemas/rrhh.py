@@ -247,6 +247,7 @@ class EmpleadoUpdate(BaseModel):
     apv_monto: Optional[Decimal] = None
     apv_institucion: Optional[str] = None
     activo: Optional[bool] = None
+    activo: Optional[bool] = None
     fecha_egreso: Optional[date] = None
 
 class ContratoResumenOut(BaseModel):

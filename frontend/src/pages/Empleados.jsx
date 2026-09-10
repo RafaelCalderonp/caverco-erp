@@ -50,18 +50,20 @@ function valorOrden(e, key) {
 export default function Empleados() {
   const [empleados, setEmpleados] = useState([])
   const [buscar, setBuscar] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('activos') // 'activos' | 'inactivos' | 'todos'
   const [loading, setLoading] = useState(true)
   const [orden, setOrden] = useState({ key: 'nombre', dir: 1 })
 
   const cargar = () => {
     setLoading(true)
-    empleadosApi.list({ buscar: buscar || undefined, activo: true })
+    const activo = filtroEstado === 'activos' ? true : filtroEstado === 'inactivos' ? false : undefined
+    empleadosApi.list({ buscar: buscar || undefined, activo })
       .then(r => setEmpleados(r.data))
       .catch(() => setEmpleados([]))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { cargar() }, [buscar])
+  useEffect(() => { cargar() }, [buscar, filtroEstado])
 
   const initials = (e) => `${e.nombres?.[0] || ''}${e.apellido_paterno?.[0] || ''}`.toUpperCase()
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
@@ -91,6 +93,16 @@ export default function Empleados() {
     }
   }
 
+  const reactivar = async (e) => {
+    if (!confirm(`¿Reactivar a ${e.nombres} ${e.apellido_paterno}?`)) return
+    try {
+      await empleadosApi.update(e.id, { activo: true })
+      cargar()
+    } catch {
+      alert('No se pudo reactivar al trabajador')
+    }
+  }
+
   const eliminarDefinitivo = async (e) => {
     if (!confirm(`Esto borrará para siempre a ${e.nombres} ${e.apellido_paterno} y su contrato, sin posibilidad de recuperarlo. ¿Continuar?`)) return
     try {
@@ -109,9 +121,15 @@ export default function Empleados() {
         <Link to="/empleados/nuevo" className="btn btn-primary">+ Nuevo Trabajador</Link>
       </div>
 
-      <div className="search-bar">
+      <div className="search-bar" style={{display:'flex', gap:10}}>
         <input className="input" placeholder="Buscar por nombre o RUT…" value={buscar}
           onChange={e => setBuscar(e.target.value)} />
+        <select className="input" style={{maxWidth:160}} value={filtroEstado}
+          onChange={e => setFiltroEstado(e.target.value)}>
+          <option value="activos">Activos</option>
+          <option value="inactivos">Inactivos</option>
+          <option value="todos">Todos</option>
+        </select>
       </div>
 
       <div className="card" style={{padding:0}}>
@@ -159,7 +177,11 @@ export default function Empleados() {
                   </td>
                   <td style={{padding:'5px 10px', display:'flex', gap:6}}>
                     <IconBtn as={Link} to={`/empleados/${e.id}`} icon="👁️" title="Ver ficha" />
-                    <IconBtn icon="⏻" danger title="Desactivar" onClick={() => desactivar(e)} />
+                    {e.activo ? (
+                      <IconBtn icon="⏻" danger title="Desactivar" onClick={() => desactivar(e)} />
+                    ) : (
+                      <IconBtn icon="↺" title="Reactivar" onClick={() => reactivar(e)} />
+                    )}
                     <IconBtn icon="✕" danger title="Eliminar" onClick={() => eliminarDefinitivo(e)} />
                   </td>
                 </tr>

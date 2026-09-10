@@ -152,7 +152,7 @@ function RegistroAsistencia({ periodo, centrosCosto, centroCostoId, setCentroCos
   }
 
   const desactivarDesdeAsistencia = async (emp) => {
-    if (!confirm(`¿Eliminar/desactivar a ${emp.nombre}? Ya no aparecerá en los listados para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
+    if (!confirm(`¿Eliminar/desactivar a ${emp.nombre}? Esto lo desactiva por completo en el sistema (no solo aquí): ya no aparecerá en NINGÚN centro de costo para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
     try {
       await empleadosApi.delete(emp.id)
       setLocalData(prev => prev?.filter(e => e.id !== emp.id) || prev)
@@ -499,7 +499,7 @@ export default function Liquidaciones() {
   }
 
   const desactivarTrabajador = async (emp) => {
-    if (!confirm(`¿Desactivar a ${emp.nombre}? Ya no aparecerá en el listado de este centro de costo para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
+    if (!confirm(`¿Desactivar a ${emp.nombre}? Esto lo desactiva por completo en el sistema (no solo en este CC): ya no aparecerá en NINGÚN centro de costo para generar liquidaciones. Puedes reactivarlo desde Trabajadores.`)) return
     try {
       await empleadosApi.delete(emp.id)
       setCalcData(cd => cd && ({...cd, empleados: cd.empleados.filter(e => e.id !== emp.id)}))
