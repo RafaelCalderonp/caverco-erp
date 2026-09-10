@@ -118,7 +118,7 @@ class EntregaEppCreate(BaseModel):
     cargo: Optional[str] = None
     obra: Optional[str] = None
     fecha_entrega: date
-    entregado_por: Optional[str] = "Salvador Calderón"
+    entregado_por: Optional[str] = None
     items: List[dict] = []   # [{elemento, cantidad, fecha?}]
 
 
@@ -412,7 +412,7 @@ async def generar_entrega_epp(
         obra           = obra,
         fecha          = data.fecha_entrega,
         items          = data.items,
-        entregado_por  = data.entregado_por or "Salvador Calderón",
+        entregado_por  = data.entregado_por or "",
         empresa_nombre = empresa.razon_social if empresa else "",
     )
     fname = f"EntregaEPP_{(nombre or 'trabajador').replace(' ','_')}.docx"

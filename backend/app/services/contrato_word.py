@@ -549,7 +549,7 @@ def generar_epp_docx(empresa, empleado, entrega) -> bytes:
 
     nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
     fecha_entrega   = entrega.fecha_entrega
-    entregado_por   = entrega.entregado_por or "Salvador Calderón"
+    entregado_por   = entrega.entregado_por or ""
     items           = entrega.items or []
 
     # ── Encabezado: logo + título + folio ─────────────────────────────────────

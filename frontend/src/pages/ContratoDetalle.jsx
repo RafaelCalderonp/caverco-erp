@@ -130,12 +130,13 @@ export default function ContratoDetalle() {
   const [mostrarFormEpp, setMostrarFormEpp] = useState(false)
   const [formEpp, setFormEpp] = useState({
     folio: '', fecha_entrega: new Date().toISOString().slice(0, 10),
-    entregado_por: 'Salvador Calderón', observaciones: '',
+    entregado_por: '', observaciones: '',
     items: EPP_DEFAULT_ITEMS.map(i => ({ ...i })),
   })
   const [guardandoEpp, setGuardandoEpp] = useState(false)
   const [descargandoEpp, setDescargandoEpp] = useState(null)
   const [errorEpp, setErrorEpp] = useState('')
+  const [prevencionistas, setPrevencionistas] = useState([])
 
   const [fechaReglamento, setFechaReglamento] = useState(new Date().toISOString().slice(0, 10))
   const [descargandoReglamento, setDescargandoReglamento] = useState(false)
@@ -339,6 +340,7 @@ export default function ContratoDetalle() {
     catalogosApi.motivosTermino().then(r => setMotivosTermino(r.data)).catch(() => {})
     catalogosApi.afp().then(r => setAfps(r.data)).catch(() => {})
     catalogosApi.isapre().then(r => setIsapres(r.data)).catch(() => {})
+    catalogosApi.prevencionistas().then(r => setPrevencionistas(r.data)).catch(() => {})
     // Tope gratificación mensual del período actual (Art. 50 CT)
     const periodo = new Date().toISOString().slice(0, 7)
     liquidacionesApi.indicadores(periodo)
@@ -541,7 +543,7 @@ export default function ContratoDetalle() {
       })
       setFormEpp({
         folio: '', fecha_entrega: new Date().toISOString().slice(0, 10),
-        entregado_por: 'Salvador Calderón', observaciones: '',
+        entregado_por: '', observaciones: '',
         items: EPP_DEFAULT_ITEMS.map(i => ({ ...i })),
       })
       setMostrarFormEpp(false)
@@ -1275,8 +1277,11 @@ export default function ContratoDetalle() {
               </div>
               <div className="form-group">
                 <label className="form-label">Entregado por</label>
-                <input className="input" type="text" value={formEpp.entregado_por}
-                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))} />
+                <select className="input" value={formEpp.entregado_por}
+                  onChange={e => setFormEpp(f => ({ ...f, entregado_por: e.target.value }))}>
+                  <option value="">Seleccionar…</option>
+                  {prevencionistas.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                </select>
               </div>
             </div>
 

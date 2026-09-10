@@ -710,7 +710,7 @@ def generar_epp_docx(nombre: str, rut: str, cargo: str, obra: str,
     firma_tbl.style = "Table Grid"
     _cell_para(firma_tbl.rows[0].cells[0], "Entregado por", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_para(firma_tbl.rows[0].cells[1], "Firma Trabajador", bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
-    _cell_para(firma_tbl.rows[1].cells[0], entregado_por or "Salvador Calderón", size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _cell_para(firma_tbl.rows[1].cells[0], entregado_por or "", size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
     _cell_para(firma_tbl.rows[1].cells[1], "", size=8)
     for row in firma_tbl.rows:
         row.cells[0].width = Cm(8.5)
