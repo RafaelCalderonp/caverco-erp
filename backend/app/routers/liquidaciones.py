@@ -49,6 +49,7 @@ class LiquidacionPreviewRequest(BaseModel):
     prestamo:        Decimal = Decimal("0")
     otros_descuentos:Decimal = Decimal("0")
     observacion:     Optional[str] = None
+    id_centro_costo: Optional[int] = None  # CC desde el que se calculó (Registro de Asistencia); prioridad sobre el del contrato
 
 class FiniquitoRequest(BaseModel):
     id_contrato: int
@@ -400,16 +401,20 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
     entrada = _build_entrada(emp, req)
     res     = calcular_liquidacion(entrada, ind)
 
-    # CC al momento de emitir: se prioriza el del contrato vigente (igual criterio
-    # que el Registro de Asistencia) sobre el CC del perfil del empleado, para que
-    # reasignar/unificar centros de costo no altere liquidaciones ya emitidas.
-    contrato_vigente = (await db.execute(
-        select(Contrato)
-        .where(Contrato.id_empleado == emp.id, Contrato.estado == "vigente", Contrato.id_centro_costo.isnot(None))
-        .order_by(Contrato.id.desc())
-        .limit(1)
-    )).scalar_one_or_none()
-    id_cc_emision = contrato_vigente.id_centro_costo if contrato_vigente else emp.id_centro_costo
+    # CC al momento de emitir: se prioriza el CC explícito enviado desde el
+    # cálculo (el de Registro de Asistencia, que refleja dónde trabajó
+    # realmente ese período — la gente puede moverse de obra en obra). Si no
+    # viene, se cae al contrato vigente, y por último al perfil del empleado.
+    if req.id_centro_costo:
+        id_cc_emision = req.id_centro_costo
+    else:
+        contrato_vigente = (await db.execute(
+            select(Contrato)
+            .where(Contrato.id_empleado == emp.id, Contrato.estado == "vigente", Contrato.id_centro_costo.isnot(None))
+            .order_by(Contrato.id.desc())
+            .limit(1)
+        )).scalar_one_or_none()
+        id_cc_emision = contrato_vigente.id_centro_costo if contrato_vigente else emp.id_centro_costo
 
     liq = Liquidacion(
         id_empresa           = emp.id_empresa,

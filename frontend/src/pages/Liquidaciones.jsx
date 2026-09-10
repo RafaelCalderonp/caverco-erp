@@ -575,6 +575,7 @@ export default function Liquidaciones() {
         anticipo: ef.anticipo,
         prestamo: ef.prestamo,
         observacion: ef.observacion,
+        id_centro_costo: centroCostoId ? Number(centroCostoId) : undefined,
       })
       const liqId = res.data.id
       setCalcPreviews(p => ({...p, [empId]: null}))
