@@ -115,6 +115,18 @@ async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
         raise HTTPException(404, "Trabajador no encontrado")
     return emp
 
+def _primer_dia_habil_mes_siguiente(periodo: str) -> date:
+    """Primer día hábil del mes siguiente al período YYYY-MM (para el
+    comprobante de pago en efectivo: se paga al día hábil siguiente al
+    cierre del mes de la remuneración)."""
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    d = date(year, month, 1)
+    while not es_habil(d):
+        d += timedelta(days=1)
+    return d
+
+
 def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiquidacion:
     afp_nombre = emp.afp_rel.nombre if emp.afp_rel else "Cuprum"
     tipo       = emp.tipo_contrato_rel.codigo if emp.tipo_contrato_rel else "POR_OBRA"
@@ -829,7 +841,7 @@ async def descargar_comprobante_efectivo(id: int, db: AsyncSession = Depends(get
     try:
         docx_bytes = generar_comprobante_efectivo_docx(
             empresa=empresa, empleado=empleado, liquidacion=liq,
-            fecha_declaracion=date.today(), logo_bytes=logo_bytes,
+            fecha_declaracion=_primer_dia_habil_mes_siguiente(liq.periodo), logo_bytes=logo_bytes,
         )
     except Exception as e:
         log.exception("Error generando comprobante de efectivo para liquidacion %s: %s", id, e)
