@@ -482,3 +482,93 @@ def generar_cc_docx(liquidaciones: list) -> bytes:
     doc.save(buf)
     buf.seek(0)
     return buf.read()
+
+
+# ── comprobante de pago en efectivo ────────────────────────────────────────
+
+def generar_comprobante_efectivo_docx(empresa, empleado, liquidacion, fecha_declaracion) -> bytes:
+    """Declaración de pago en efectivo, para trabajadores que piden que su
+    sueldo no se pague por transferencia. La firman ambas partes."""
+    doc = Document()
+    _remove_paragraph_spacing(doc)
+
+    sec = doc.sections[0]
+    sec.page_width    = Cm(21.59)
+    sec.page_height   = Cm(27.94)
+    sec.top_margin    = Cm(2.5)
+    sec.bottom_margin = Cm(2.5)
+    sec.left_margin   = Cm(2.5)
+    sec.right_margin  = Cm(2.5)
+
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
+    monto = int(liquidacion.liquido_a_pagar or 0)
+    mes_label = MESES[int(liquidacion.periodo[5:7]) - 1]
+    anio = liquidacion.periodo[:4]
+    fecha_str = f"{fecha_declaracion.day:02d} de {MESES[fecha_declaracion.month - 1]} del año {fecha_declaracion.year}"
+
+    def _p(text_runs, align=WD_ALIGN_PARAGRAPH.JUSTIFY, size=11, space_after=12, centrado_bold=False):
+        p = doc.add_paragraph()
+        p.alignment = align
+        p.paragraph_format.space_after = Pt(space_after)
+        for text, bold in text_runs:
+            r = p.add_run(text)
+            r.bold = bold
+            r.font.size = Pt(size if not centrado_bold else 14)
+        return p
+
+    _p([("Declaración de pago en efectivo", True)], align=WD_ALIGN_PARAGRAPH.CENTER, size=14, space_after=0, centrado_bold=True)
+    _p([("Por solicitud expresa del colaborador.", True)], align=WD_ALIGN_PARAGRAPH.CENTER, size=14, space_after=24, centrado_bold=True)
+
+    _p([
+        ("Con fecha de ", False), (fecha_str, False),
+        (", bajo solicitud expresa del colaborador sr: ", False),
+        (nombre_empleado, True), (", Rut: ", False), (empleado.rut, True),
+        (", quien ha solicitado que el pago de sus remuneraciones no se realice a través de "
+         "depósito en cuenta bancaria y que estos sean pagados en dinero en efectivo. "
+         "La empresa ", False),
+        (empresa.razon_social, True), (", Rut: ", False), (empresa.rut, True),
+        (" ha pagado en efectivo el monto $ ", False), (f"{monto:,}".replace(",", "."), True),
+        (".- (", False), (f"{_numero_letras(monto)} pesos.)", False),
+        (", relacionados a la liquidación de remuneraciones del mes de ", False),
+        (mes_label, True), (" del año ", False), (anio, True), (".", False),
+    ])
+
+    _p([
+        ("Yo ", False), (nombre_empleado, True), (", Rut: ", False), (empleado.rut, True),
+        (", declaro recibir a mi entera satisfacción el monto indicado anteriormente, "
+         "por concepto de remuneraciones de mi empleador.", False),
+    ], space_after=100)
+
+    firma_tbl = doc.add_table(rows=2, cols=2)
+    firma_tbl.autofit = True
+    _para(firma_tbl.rows[0].cells[0], empresa.razon_social, bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _para(firma_tbl.rows[0].cells[1], nombre_empleado, bold=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _para(firma_tbl.rows[1].cells[0], f"Rut: {empresa.rut}", size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _para(firma_tbl.rows[1].cells[1], f"Rut: {empleado.rut}", size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in firma_tbl.rows:
+        row.height = Cm(1.0)
+        for cell in row.cells:
+            cell.width = Cm(7.5)
+    for cell in firma_tbl.rows[0].cells:
+        tcPr = cell._tc.get_or_add_tcPr()
+        borders = OxmlElement("w:tcBorders")
+        top = OxmlElement("w:top")
+        top.set(qn("w:val"), "single"); top.set(qn("w:sz"), "6"); top.set(qn("w:color"), "000000")
+        borders.append(top)
+        tcPr.append(borders)
+
+    doc.add_paragraph()
+    nota = doc.add_paragraph()
+    nota.paragraph_format.space_before = Pt(40)
+    r = nota.add_run("Nota: Esta declaración debe ser firmada por ambas partes e incorporando la huella por parte del colaborador.")
+    r.italic = True
+    r.font.size = Pt(9)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()

@@ -34,6 +34,26 @@ export default function LiquidacionDetalle() {
     }
   }
 
+  const descargarComprobanteEfectivo = async () => {
+    try {
+      const r = await liquidacionesApi.descargarComprobanteEfectivo(id)
+      const disposition = r.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const nombre = match ? match[1] : `Comprobante_${id}.docx`
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a = document.createElement('a')
+      a.href = url; a.download = nombre
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch(err) {
+      let msg = 'Error al generar el comprobante'
+      if (err.response?.data instanceof Blob) {
+        try { const t = await err.response.data.text(); msg = JSON.parse(t).detail || msg } catch {}
+      }
+      setMsg(msg)
+    }
+  }
+
   const pagar = async () => {
     try {
       const r = await liquidacionesApi.marcarPagada(id)
@@ -55,6 +75,7 @@ export default function LiquidacionDetalle() {
         </div>
         <div className="flex gap-2">
           <button className="btn btn-outline" onClick={descargarWord}>⬇️ Descargar Word</button>
+          <button className="btn btn-outline" onClick={descargarComprobanteEfectivo}>🧾 Comprobante Efectivo</button>
           <Link to={`/liquidaciones/${id}/boleta`} className="btn btn-outline">🖨️ Ver Boleta</Link>
           {liq.estado === 'EMITIDA' && (
             <button className="btn btn-primary" onClick={pagar}>Marcar como Pagada</button>

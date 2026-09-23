@@ -966,6 +966,11 @@ export default function Liquidaciones() {
                         onClick={() => descargar(() => liquidacionesApi.descargarWord(l.id), `liquidacion_${l.periodo}_${l.nombre_empleado || l.id_empleado}.docx`)}>
                         ⬇️ Word
                       </button>
+                      <button className="btn btn-outline btn-sm" style={{...btnLiqStyle,marginLeft:4}}
+                        title="Declaración de pago en efectivo"
+                        onClick={() => descargar(() => liquidacionesApi.descargarComprobanteEfectivo(l.id), `Comprobante_${l.periodo}_${l.nombre_empleado || l.id_empleado}.docx`)}>
+                        🧾 Comprobante
+                      </button>
                       {l.estado === 'EMITIDA' && (
                         <button className="btn btn-primary btn-sm" style={{...btnLiqStyle,marginLeft:4}}
                           onClick={() => marcarPagada(l)}>

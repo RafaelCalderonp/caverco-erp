@@ -25,7 +25,7 @@ from app.services.liquidaciones import (
 from app.services.indicadores import asegurar_indicadores, construir_indicadores, obtener_valor_periodo, obtener_tramos_periodo, refrescar_indicadores
 from app.services.previred_export import generar_csv_previred
 from app.services.libro_remuneraciones import generar_csv_libro_remuneraciones, nombre_archivo
-from app.services.liquidacion_word import generar_liquidacion_docx, generar_cc_docx
+from app.services.liquidacion_word import generar_liquidacion_docx, generar_cc_docx, generar_comprobante_efectivo_docx
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/liquidaciones", tags=["Liquidaciones"], dependencies=[Depends(get_current_user)])
@@ -785,6 +785,42 @@ async def descargar_liquidacion_word(id: int, db: AsyncSession = Depends(get_db)
 
     apellidos = f"{empleado.apellido_paterno}".replace(" ", "_")
     filename = f"liquidacion_{liq.periodo}_{apellidos}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{id}/comprobante-efectivo/word")
+async def descargar_comprobante_efectivo(id: int, db: AsyncSession = Depends(get_db)):
+    """Declaración de pago en efectivo (por solicitud del trabajador), lista para firmar."""
+    result = await db.execute(select(Liquidacion).where(Liquidacion.id == id))
+    liq = result.scalar_one_or_none()
+    if not liq:
+        raise HTTPException(404, "Liquidación no encontrada")
+
+    emp_res = await db.execute(select(Empleado).where(Empleado.id == liq.id_empleado))
+    empleado = emp_res.scalar_one_or_none()
+    if not empleado:
+        raise HTTPException(404, "Trabajador no encontrado")
+
+    empresa_res = await db.execute(select(Empresa).where(Empresa.id == liq.id_empresa))
+    empresa = empresa_res.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(404, "Empresa no encontrada")
+
+    try:
+        docx_bytes = generar_comprobante_efectivo_docx(
+            empresa=empresa, empleado=empleado, liquidacion=liq,
+            fecha_declaracion=date.today(),
+        )
+    except Exception as e:
+        log.exception("Error generando comprobante de efectivo para liquidacion %s: %s", id, e)
+        raise HTTPException(500, f"Error al generar el comprobante: {e}")
+
+    apellidos = f"{empleado.apellido_paterno}".replace(" ", "_")
+    filename = f"Comprobante_{apellidos}_{liq.periodo}.docx"
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
