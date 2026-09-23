@@ -486,7 +486,7 @@ def generar_cc_docx(liquidaciones: list) -> bytes:
 
 # ── comprobante de pago en efectivo ────────────────────────────────────────
 
-def generar_comprobante_efectivo_docx(empresa, empleado, liquidacion, fecha_declaracion) -> bytes:
+def generar_comprobante_efectivo_docx(empresa, empleado, liquidacion, fecha_declaracion, logo_bytes=None) -> bytes:
     """Declaración de pago en efectivo, para trabajadores que piden que su
     sueldo no se pague por transferencia. La firman ambas partes."""
     doc = Document()
@@ -503,6 +503,15 @@ def generar_comprobante_efectivo_docx(empresa, empleado, liquidacion, fecha_decl
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(11)
+
+    if logo_bytes:
+        p_logo = doc.add_paragraph()
+        p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_logo.paragraph_format.space_after = Pt(12)
+        try:
+            p_logo.add_run().add_picture(io.BytesIO(logo_bytes), height=Cm(2.0))
+        except Exception:
+            pass
 
     nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
     monto = int(liquidacion.liquido_a_pagar or 0)

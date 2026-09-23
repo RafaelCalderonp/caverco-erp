@@ -810,10 +810,26 @@ async def descargar_comprobante_efectivo(id: int, db: AsyncSession = Depends(get
     if not empresa:
         raise HTTPException(404, "Empresa no encontrada")
 
+    logo_bytes: bytes | None = None
+    if empresa.logo_url:
+        try:
+            if empresa.logo_url.startswith("data:"):
+                import base64 as _b64
+                _, b64data = empresa.logo_url.split(",", 1)
+                logo_bytes = _b64.b64decode(b64data)
+            else:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    r = await client.get(empresa.logo_url)
+                    if r.status_code == 200:
+                        logo_bytes = r.content
+        except Exception as logo_err:
+            log.warning("No se pudo obtener el logo para comprobante: %s", logo_err)
+
     try:
         docx_bytes = generar_comprobante_efectivo_docx(
             empresa=empresa, empleado=empleado, liquidacion=liq,
-            fecha_declaracion=date.today(),
+            fecha_declaracion=date.today(), logo_bytes=logo_bytes,
         )
     except Exception as e:
         log.exception("Error generando comprobante de efectivo para liquidacion %s: %s", id, e)
