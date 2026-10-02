@@ -12,6 +12,16 @@ const PERIODOS = (() => {
   return arr
 })()
 
+// El ciclo de remuneraciones va del 21 de un mes al 20 del siguiente: hasta
+// el día 20 corresponde liquidar el mes recién vencido (el anterior al
+// actual); desde el día 21 ya corresponde el mes en curso.
+const PERIODO_DEFAULT = (() => {
+  const now = new Date()
+  const offset = now.getDate() <= 20 ? 1 : 0
+  const d = new Date(now.getFullYear(), now.getMonth() - offset, 1)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+})()
+
 const fmt = n => n != null ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 const estadoBadge = e => ({
   BORRADOR: 'badge-gray', EMITIDA: 'badge-blue', PAGADA: 'badge-green'
@@ -19,7 +29,7 @@ const estadoBadge = e => ({
 
 export default function Liquidaciones() {
   const [tab, setTab]         = useState('lista')        // 'lista' | 'calcular'
-  const [periodo, setPeriodo] = useState(PERIODOS[0])
+  const [periodo, setPeriodo] = useState(PERIODO_DEFAULT)
   const [lista, setLista]     = useState([])
   const [loading, setLoading] = useState(false)
   const [empleados, setEmpleados] = useState([])
