@@ -998,6 +998,7 @@ async def descargar_finiquito_word(
     # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
     # Art. 44 inciso 3° CT: en contratos de 30 días o menos, el feriado va incluido en la
     # remuneración diaria y no corresponde liquidarlo ni pagarlo por separado.
+    dias_ganados_hab = 0.0; dias_pendientes_hab = 0.0; dias_calendario_vac = Decimal("0")
     if fi and (fecha_termino - fi).days > 30:
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
