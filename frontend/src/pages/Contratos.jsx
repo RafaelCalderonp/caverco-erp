@@ -102,6 +102,23 @@ export default function Contratos() {
     }
   }
 
+  const exportarFiniquitosDt = async (idObra, nombreObra) => {
+    const ticket = prompt(`Referencia del lote (ticket) para los finiquitos de "${nombreObra}" a exportar a la DT:`,
+      `${nombreObra}-${new Date().toISOString().slice(0,10)}`)
+    if (!ticket) return
+    try {
+      const res = await contratosApi.finiquitosDtCsv(idObra, ticket)
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `FiniquitosDT_${nombreObra}_${ticket}.csv`.replace(/\s+/g, '_')
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo generar el archivo de finiquitos para la DT')
+    }
+  }
+
   const diasParaVencer = (c) => {
     if (c.estado !== 'vigente' || !c.fecha_termino_pactada) return null
     const hoy = new Date(); hoy.setHours(0,0,0,0)
@@ -157,18 +174,20 @@ export default function Contratos() {
     for (const c of r) {
       const obra = obras.find(o => o.id === c.id_obra)
       const clave = obra ? obra.nombre : 'Sin obra asignada'
-      if (!grupos.has(clave)) grupos.set(clave, [])
-      grupos.get(clave).push(c)
+      if (!grupos.has(clave)) grupos.set(clave, { idObra: obra?.id || null, items: [] })
+      grupos.get(clave).items.push(c)
     }
 
     return [...grupos.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([obra, items]) => ({
+      .map(([obra, { idObra, items }]) => ({
         obra,
+        idObra,
         items: items.sort((a, b) =>
           `${a.empleado?.apellido_paterno || ''} ${a.empleado?.nombres || ''}`
             .localeCompare(`${b.empleado?.apellido_paterno || ''} ${b.empleado?.nombres || ''}`)),
         totalSueldo: items.reduce((s, c) => s + (Number(c.sueldo_bruto) || 0), 0),
+        pendientesFiniquitoDt: items.filter(c => c.estado === 'finiquitado').length,
       }))
   }, [contratos, obraResumen, buscar, obras])
 
@@ -315,9 +334,17 @@ export default function Contratos() {
           <div key={grupo.obra} className="card" style={{padding:0, marginBottom:16}}>
             <div style={{padding:'10px 14px', borderBottom:'1px solid var(--gray-200)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <strong>{grupo.obra}</strong>
-              <span style={{fontSize:12, color:'var(--gray-500)'}}>
-                {grupo.items.length} trabajador{grupo.items.length !== 1 ? 'es' : ''} · {fmt(grupo.totalSueldo)}
-              </span>
+              <div style={{display:'flex', gap:10, alignItems:'center'}}>
+                <span style={{fontSize:12, color:'var(--gray-500)'}}>
+                  {grupo.items.length} trabajador{grupo.items.length !== 1 ? 'es' : ''} · {fmt(grupo.totalSueldo)}
+                </span>
+                {grupo.idObra && grupo.pendientesFiniquitoDt > 0 && (
+                  <button className="btn btn-outline btn-sm" onClick={() => exportarFiniquitosDt(grupo.idObra, grupo.obra)}
+                    title="Genera el archivo CSV de carga masiva de finiquitos para la Dirección del Trabajo">
+                    📤 Exportar Finiquitos DT
+                  </button>
+                )}
+              </div>
             </div>
             <div className="table-wrap">
               <table>

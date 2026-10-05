@@ -23,7 +23,7 @@ from app.core.security import get_current_user, require_roles
 from app.models.rrhh import (
     Contrato, AnexoContrato, ContratoDocumento, ContratoRequisitoObra,
     EntregaEpp, PactoHorasExtra, Empleado, Obra, CentroCosto, Cargo,
-    Empresa, AFP, Isapre, TipoContrato, TipoAnexo,
+    Empresa, AFP, Isapre, TipoContrato, TipoAnexo, FiniquitoDT,
 )
 from app.services.contrato_word import (
     generar_contrato_docx, generar_anexo_docx, generar_epp_docx,
@@ -1065,9 +1065,149 @@ async def descargar_finiquito_word(
         dias_calendario_vac  = float(dias_calendario_vac) if fi else 0,
         dias_inhabiles_vac   = float(dias_calendario_vac - Decimal(str(dias_pendientes_hab))) if fi else 0,
     )
+
+    # Persistir causal + montos para la carga masiva de finiquitos a la DT
+    contrato.causal_despido_codigo = causal_codigo
+    fdt = await db.scalar(select(FiniquitoDT).where(FiniquitoDT.id_contrato == contrato.id))
+    if fdt is None:
+        fdt = FiniquitoDT(id_contrato=contrato.id)
+        db.add(fdt)
+    fdt.causal_codigo = causal_codigo
+    fdt.fecha_termino = fecha_termino
+    fdt.cantidad_dias_vacaciones = Decimal(str(dias_pendientes_hab)) if fi else Decimal("0")
+    fdt.indemnizacion_feriado = Decimal(str(vac_prop))
+    fdt.indemnizacion_aviso_previo = Decimal(str(aviso_calculado))
+    fdt.indemnizacion_servicio = Decimal(str(indem_anos))
+    fdt.indemnizacion_articulo_163 = Decimal(str(indem_tiempo_servido))
+    fdt.remuneracion_pendiente = Decimal(str(rem_pendiente))
+    fdt.gratificaciones = Decimal(str(gratif_dia))
+    fdt.descuento_seguridad_social = Decimal(str(desc_afp + desc_salud))
+    fdt.descuento_impuestos = Decimal("0")
+    # ticket_dt/fecha_exportado se dejan intactos si ya existían (re-generar el
+    # Word no debe reabrir un finiquito ya exportado a la DT)
+    await db.commit()
+
     fname = _fname("Finiquito", empleado, fecha_termino)
     return StreamingResponse(
         _io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
+    )
+
+
+# ---- Carga masiva de finiquitos a la Dirección del Trabajo (DT) ----
+@router.get("/obra/{id_obra}/finiquitos-dt-csv")
+async def descargar_finiquitos_dt_csv(
+    id_obra: int,
+    ticket: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Genera el CSV de carga masiva de Finiquito Laboral Electrónico (formato
+    oficial DT, 48 columnas) para los finiquitos de esta obra que aún no han
+    sido exportados en un ticket anterior, y los marca como exportados con
+    el ticket indicado.
+    """
+    import csv as _csv
+    from app.services.dt_finiquito_codigos import (
+        CAUSAL_FINIQUITO_DT, region_a_codigo_dt, comuna_a_codigo_dt,
+        banco_a_codigo_dt, tipo_cuenta_a_codigo_dt,
+    )
+
+    obra = await db.get(Obra, id_obra)
+    if not obra:
+        raise HTTPException(status_code=404, detail="Obra no encontrada")
+
+    rows = (await db.execute(
+        select(FiniquitoDT, Contrato, Empleado, Empresa)
+        .join(Contrato, Contrato.id == FiniquitoDT.id_contrato)
+        .join(Empleado, Empleado.id == Contrato.id_empleado)
+        .join(Empresa, Empresa.id == Empleado.id_empresa)
+        .where(Contrato.id_obra == id_obra, FiniquitoDT.ticket_dt.is_(None))
+    )).all()
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No hay finiquitos pendientes de exportar para esta obra")
+
+    region_codigo = region_a_codigo_dt(obra.region or "")
+    comuna_codigo = comuna_a_codigo_dt(obra.comuna or "")
+    if region_codigo is None or comuna_codigo is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se pudo mapear región/comuna de la obra '{obra.nombre}' ('{obra.region}' / '{obra.comuna}') a los códigos de la DT",
+        )
+
+    header = [
+        "RutEmpresa", "RutTrabajador", "FechaInicioContrato", "FechaTerminoContrato",
+        "DeclaraNotificacionRetencionAlimento", "CausalFiniquitoId", "Funciones",
+        "RegionTrabajoId", "ComunaId", "LugarPrestacionServiciosDireccion",
+        "CantidadDiasVacaciones", "IndemnizacionFeriado", "IndemnizacionAvisoPrevio",
+        "IndemnizacionServicio", "IndemnizacionOtras", "IndemnizacionArticulo163",
+        "remuneracionPendiente", "Gratificaciones", "Bonos", "HorasExtraordinarias",
+        "Aguinaldo", "SemanaCorrida", "ComisionOParticipacion", "Movilizacion",
+        "Colacion", "PerdidaCaja", "DesgasteHerramientas", "Viaticos",
+        "AsignacionesFamiliares", "DescuentoSeguridadSocial", "DescuentoImpuestos",
+        "DescuentoAfc", "DescuentoAnticipado", "DescuentoIndemnizacion",
+        "DescuentoPension", "DescuentoCajaCompensacion", "PrestamoAdeudado",
+        "AnticipoSueldo", "VacacionesAnticipadas", "Email", "CodigoComunaPersonal",
+        "CallePersonal", "NumeroPersonal", "DepartamentoBlockPersonal", "Telefono",
+        "CuentaTransferencia", "BancoId", "TipoCuentaId",
+    ]
+
+    exportados = []
+    buf = io.StringIO()
+    writer = _csv.writer(buf)
+    writer.writerow(header)
+    for fdt, contrato, empleado, empresa in rows:
+        causal_dt = CAUSAL_FINIQUITO_DT.get(fdt.causal_codigo)
+        if causal_dt is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Causal '{fdt.causal_codigo}' del contrato {contrato.id} no tiene mapeo a la DT",
+            )
+        comuna_personal_codigo = comuna_a_codigo_dt(empleado.comuna or "") or ""
+        banco_codigo = banco_a_codigo_dt(empleado.banco or "") or ""
+        tipo_cuenta_codigo = tipo_cuenta_a_codigo_dt(empleado.tipo_cuenta or "") or ""
+        writer.writerow([
+            (empresa.rut or "").replace(".", ""),
+            (empleado.rut or "").replace(".", ""),
+            contrato.fecha_inicio.strftime("%d-%m-%Y") if contrato.fecha_inicio else "",
+            fdt.fecha_termino.strftime("%d-%m-%Y"),
+            "No",  # DeclaraNotificacionRetencionAlimento — sin fuente de datos; requiere confirmación manual
+            causal_dt,
+            "",  # Funciones
+            region_codigo, comuna_codigo, obra.direccion or "",
+            int(fdt.cantidad_dias_vacaciones or 0),
+            int(fdt.indemnizacion_feriado or 0),
+            int(fdt.indemnizacion_aviso_previo or 0),
+            int(fdt.indemnizacion_servicio or 0),
+            0,  # IndemnizacionOtras
+            int(fdt.indemnizacion_articulo_163 or 0),
+            int(fdt.remuneracion_pendiente or 0),
+            int(fdt.gratificaciones or 0),
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  # Bonos..AsignacionesFamiliares
+            int(fdt.descuento_seguridad_social or 0),
+            int(fdt.descuento_impuestos or 0),
+            0,  # DescuentoAfc — siempre 0, la DT lo calcula
+            0, 0, 0, 0,  # DescuentoAnticipado..DescuentoCajaCompensacion
+            0, 0, 0,  # PrestamoAdeudado..VacacionesAnticipadas
+            empleado.email_personal or empleado.email_corporativo or "",
+            comuna_personal_codigo,
+            empleado.direccion or "", "", "",
+            empleado.telefono or "",
+            empleado.numero_cuenta or "",
+            banco_codigo,
+            tipo_cuenta_codigo,
+        ])
+        fdt.ticket_dt = ticket
+        fdt.fecha_exportado = func.now()
+        exportados.append(contrato.id)
+
+    await db.commit()
+
+    fname = f"FiniquitosDT_{obra.nombre}_{ticket}.csv".replace(" ", "_")
+    return StreamingResponse(
+        io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"},
     )

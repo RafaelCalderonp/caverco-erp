@@ -191,6 +191,7 @@ class Contrato(Base):
     finiquito_ratificado       = Column(Boolean, nullable=False, default=False)  # Art. 177 CT: ratificación ante notario/inspector del trabajo o DT online
     finiquito_fecha_ratificacion = Column(Date)
     finiquito_ministro_fe      = Column(String(100))  # notario, inspector del trabajo, presidente de sindicato, etc.
+    causal_despido_codigo      = Column(String(10))  # ej. '159_5', '160_1', '161_1' — causal detallada usada en carta/finiquito
     created_at            = Column(TIMESTAMPTZ, server_default=func.now())
 
     empleado          = relationship("Empleado", back_populates="contratos", foreign_keys=[id_empleado])
@@ -198,6 +199,35 @@ class Contrato(Base):
     anexos = relationship("AnexoContrato", back_populates="contrato")
     documentos = relationship("ContratoDocumento", back_populates="contrato")
     requisitos_obra = relationship("ContratoRequisitoObra", back_populates="contrato")
+
+
+class FiniquitoDT(Base):
+    """Montos del finiquito ya calculados al generar el Word, guardados para
+    poder exportar después la carga masiva de finiquitos a la DT sin
+    recalcular nada."""
+    __tablename__ = "finiquitos_dt"
+    __table_args__ = {"schema": "erp"}
+
+    id                      = Column(Integer, primary_key=True)
+    id_contrato             = Column(Integer, ForeignKey("erp.contratos.id", ondelete="CASCADE"), nullable=False, unique=True)
+    causal_codigo           = Column(String(10), nullable=False)
+    fecha_termino           = Column(Date, nullable=False)
+    cantidad_dias_vacaciones = Column(Numeric(6, 2), nullable=False, default=0)
+    indemnizacion_feriado   = Column(Numeric(14, 2), nullable=False, default=0)
+    indemnizacion_aviso_previo = Column(Numeric(14, 2), nullable=False, default=0)
+    indemnizacion_servicio  = Column(Numeric(14, 2), nullable=False, default=0)
+    indemnizacion_articulo_163 = Column(Numeric(14, 2), nullable=False, default=0)
+    remuneracion_pendiente  = Column(Numeric(14, 2), nullable=False, default=0)
+    gratificaciones         = Column(Numeric(14, 2), nullable=False, default=0)
+    descuento_seguridad_social = Column(Numeric(14, 2), nullable=False, default=0)
+    descuento_impuestos     = Column(Numeric(14, 2), nullable=False, default=0)
+    declara_notificacion_retencion_alimento = Column(Boolean)
+    ticket_dt               = Column(String(60))
+    fecha_exportado         = Column(TIMESTAMPTZ)
+    created_at              = Column(TIMESTAMPTZ, server_default=func.now())
+    updated_at              = Column(TIMESTAMPTZ, server_default=func.now(), onupdate=func.now())
+
+    contrato = relationship("Contrato")
 
 
 class MotivoTermino(Base):

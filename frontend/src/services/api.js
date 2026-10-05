@@ -192,6 +192,10 @@ export const contratosApi = {
     create: (idContrato, d)           => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
     word:   (idContrato, pactoId)     => api.get(`/contratos/${idContrato}/pactos-horas-extra/${pactoId}/word`, { responseType: 'blob' }),
   },
+  finiquitosDtCsv: (idObra, ticket) => api.get(
+    `/contratos/obra/${idObra}/finiquitos-dt-csv`,
+    { params: { ticket }, responseType: 'blob' }
+  ),
 }
 
 export const catalogosApi = {
