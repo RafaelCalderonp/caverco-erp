@@ -862,6 +862,7 @@ def generar_carta_despido_docx(
     empresa, empleado, contrato,
     causal_codigo: str,
     fecha_termino: date,
+    fecha_emision: date = None,
     cargo_nombre: str = "",
     dias_trabajados_mes: int = 0,
     monto_dias_trabajados: int = 0,
@@ -886,6 +887,7 @@ def generar_carta_despido_docx(
     from decimal import Decimal
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
+    fecha_emision = fecha_emision or fecha_termino
 
     doc = Document()
     style = doc.styles["Normal"]
@@ -900,7 +902,7 @@ def generar_carta_despido_docx(
 
     _parrafo(doc, ["CARTA DE AVISO DE TÉRMINO DE CONTRATO DE TRABAJO"], bold_default=True,
              align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-    _parrafo(doc, [f"{empresa.ciudad or 'Santiago'}, {_fecha_larga(fecha_termino)}"],
+    _parrafo(doc, [f"{empresa.ciudad or 'Santiago'}, {_fecha_larga(fecha_emision)}"],
              align=WD_ALIGN_PARAGRAPH.RIGHT, space_after=16)
 
     nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
@@ -1015,6 +1017,7 @@ def generar_finiquito_docx(
     empresa, empleado, contrato,
     causal_codigo: str,
     fecha_termino: date,
+    fecha_emision: date = None,
     cargo_nombre: str = "",
     ciudad: str = "Santiago",
     monto_dias_trabajados: int = 0,
@@ -1039,6 +1042,7 @@ def generar_finiquito_docx(
 ) -> bytes:
     causal_info = CAUSALES_DESPIDO.get(causal_codigo, ("", causal_codigo, False, False))
     art_ref, causal_texto, tiene_indem, tiene_aviso = causal_info
+    fecha_emision = fecha_emision or fecha_termino
 
     total = neto_dias + rem_pendiente + vacaciones_proporcionales + indemnizacion_anos + aviso_previo + indem_tiempo_servido
 
@@ -1063,7 +1067,7 @@ def generar_finiquito_docx(
              align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
 
     ciudad_doc = getattr(empresa, "ciudad", None) or ciudad
-    _parrafo(doc, [f"En {ciudad_doc}, a {_fecha_larga(fecha_termino)},"],
+    _parrafo(doc, [f"En {ciudad_doc}, a {_fecha_larga(fecha_emision)},"],
              align=WD_ALIGN_PARAGRAPH.LEFT, space_after=6)
 
     nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {(empleado.apellido_materno or '')}".strip()

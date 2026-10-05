@@ -238,7 +238,7 @@ export default function ContratoDetalle() {
       if (saved) return JSON.parse(saved)
     } catch {}
     return {
-      causal_codigo: '', fecha_termino: '',
+      causal_codigo: '', fecha_termino: '', fecha_emision: '',
       aviso_con_30_dias: false,
       incluye_gratificacion: false,
       remun_pendiente_procede: null,
@@ -722,6 +722,7 @@ export default function ContratoDetalle() {
       const res = await contratosApi.cartaDespido.word(id, {
         causal_codigo: formDespido.causal_codigo,
         fecha_termino: formDespido.fecha_termino,
+        fecha_emision: formDespido.fecha_emision || undefined,
         aviso_con_30_dias: formDespido.aviso_con_30_dias,
         incluye_gratificacion: formDespido.incluye_gratificacion,
         remun_pendiente_procede: formDespido.remun_pendiente_procede,
@@ -743,6 +744,7 @@ export default function ContratoDetalle() {
       const res = await contratosApi.finiquito.word(id, {
         causal_codigo: formDespido.causal_codigo,
         fecha_termino: formDespido.fecha_termino,
+        fecha_emision: formDespido.fecha_emision || undefined,
         aviso_con_30_dias: formDespido.aviso_con_30_dias,
         incluye_gratificacion: formDespido.incluye_gratificacion,
         remun_pendiente_procede: formDespido.remun_pendiente_procede,
@@ -1699,7 +1701,7 @@ export default function ContratoDetalle() {
                 onClick={() => {
                   if (!confirm('¿Reiniciar el formulario de carta de despido? Se borrarán los datos guardados.')) return
                   localStorage.removeItem(`despido_${id}`)
-                  setFormDespido({ causal_codigo:'', fecha_termino:'', aviso_con_30_dias:false, incluye_gratificacion:false, remun_pendiente_procede:null, colacion_mensual: contrato?.colacion ? String(Math.round(Number(contrato.colacion))) : '', movilizacion_mensual: contrato?.movilizacion ? String(Math.round(Number(contrato.movilizacion))) : '', dias_vacaciones_tomados:0, descripcion_adicional:'' })
+                  setFormDespido({ causal_codigo:'', fecha_termino:'', fecha_emision:'', aviso_con_30_dias:false, incluye_gratificacion:false, remun_pendiente_procede:null, colacion_mensual: contrato?.colacion ? String(Math.round(Number(contrato.colacion))) : '', movilizacion_mensual: contrato?.movilizacion ? String(Math.round(Number(contrato.movilizacion))) : '', dias_vacaciones_tomados:0, descripcion_adicional:'' })
                   setMontosDespido(null)
                   setDespidoGuardado(false)
                   setDespidoExpandido(true)
@@ -1737,6 +1739,12 @@ export default function ContratoDetalle() {
             <input className="input" type="date" value={formDespido.fecha_termino}
               onChange={e => { setFormDespido(f => ({ ...f, fecha_termino: e.target.value })); setMontosDespido(null) }}
               style={{fontSize:13}} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Fecha de Emisión (carta/finiquito)</label>
+            <input className="input" type="date" value={formDespido.fecha_emision}
+              onChange={e => setFormDespido(f => ({ ...f, fecha_emision: e.target.value }))}
+              placeholder="Si se deja vacío, usa la fecha de término" style={{fontSize:13}} />
           </div>
           <div className="form-group" style={{margin:0, gridColumn:'1 / -1'}}>
             <label className="form-label" style={{fontSize:12}}>Descripción adicional (opcional)</label>
