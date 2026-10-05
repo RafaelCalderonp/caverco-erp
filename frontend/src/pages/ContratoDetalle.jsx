@@ -656,7 +656,9 @@ export default function ContratoDetalle() {
     // Vacaciones proporcionales
     // Días ganados = días_trabajados / 30 * 1.25 (1.25 días por mes de 30 días)
     // Valor día = sueldo_base / 30 (sin gratificación, Art. 67 CT)
-    const diasGanados = fInicio ? Math.round((diasTrabajados / 30) * 1.25 * 100) / 100 : 0
+    // Art. 44 inciso 3° CT: en contratos de 30 días o menos el feriado va
+    // incluido en la remuneración diaria, no se liquida aparte.
+    const diasGanados = (fInicio && diasTrabajados > 30) ? Math.round((diasTrabajados / 30) * 1.25 * 100) / 100 : 0
     const diasTomados = Number(formDespido.dias_vacaciones_tomados) || 0
     const diasPendientes = Math.max(0, Math.round((diasGanados - diasTomados) * 100) / 100)
     // Conversión a días calendario: contar días hábiles desde el día siguiente al despido
@@ -673,16 +675,19 @@ export default function ContratoDetalle() {
     const indemAnos = tieneIndem ? Math.round(baseIndem * anosCompletos) : 0
     const aviso = (tieneIndem && !formDespido.aviso_con_30_dias) ? Math.round(baseIndem) : 0
 
-    // Indemnización por tiempo servido — Art. 163 bis CT
-    // Solo para 159_5 (conclusión obra/faena)
+    // Indemnización por tiempo servido — Art. 163 inciso 3° CT (Ley 21.122)
+    // Solo para 159_5 (conclusión obra/faena) y solo si el contrato estuvo
+    // vigente 1 mes o más.
     let indemTiempoServido = 0
     if (formDespido.causal_codigo === '159_5' && fInicio) {
       const diasTot = (fTermino - fInicio) / (1000 * 60 * 60 * 24)
-      const mesesRaw = diasTot / 30.4375
-      const mesesEnt = Math.floor(mesesRaw)
-      const fracDias = (mesesRaw - mesesEnt) * 30.4375
-      const mesesConFrac = mesesEnt + (fracDias > 15 ? 1 : 0)
-      indemTiempoServido = Math.round(baseIndem / 30 * 2.5 * mesesConFrac)
+      if (diasTot >= 30) {
+        const mesesRaw = diasTot / 30.4375
+        const mesesEnt = Math.floor(mesesRaw)
+        const fracDias = (mesesRaw - mesesEnt) * 30.4375
+        const mesesConFrac = mesesEnt + (fracDias > 15 ? 1 : 0)
+        indemTiempoServido = Math.round(baseIndem / 30 * 2.5 * mesesConFrac)
+      }
     }
 
     setMontosDespido({
