@@ -102,20 +102,45 @@ export default function Contratos() {
     }
   }
 
-  const exportarFiniquitosDt = async (idObra, nombreObra) => {
-    const ticket = prompt(`Referencia del lote (ticket) para los finiquitos de "${nombreObra}" a exportar a la DT:`,
-      `${nombreObra}-${new Date().toISOString().slice(0,10)}`)
-    if (!ticket) return
+  const [modalDt, setModalDt] = useState(null) // { idObra, nombreObra, pendientes, seleccionados: Set, ticket, cargando, exportando }
+
+  const abrirModalExportarDt = async (idObra, nombreObra) => {
+    setModalDt({ idObra, nombreObra, pendientes: [], seleccionados: new Set(), ticket: `${nombreObra}-${new Date().toISOString().slice(0,10)}`, cargando: true, exportando: false })
     try {
-      const res = await contratosApi.finiquitosDtCsv(idObra, ticket)
+      const res = await contratosApi.finiquitosDtPendientes(idObra)
+      setModalDt(m => m && m.idObra === idObra
+        ? { ...m, pendientes: res.data, seleccionados: new Set(res.data.map(p => p.id_contrato)), cargando: false }
+        : m)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo cargar el listado de finiquitos pendientes')
+      setModalDt(null)
+    }
+  }
+
+  const toggleSeleccionDt = (idContrato) => {
+    setModalDt(m => {
+      const set = new Set(m.seleccionados)
+      if (set.has(idContrato)) set.delete(idContrato); else set.add(idContrato)
+      return { ...m, seleccionados: set }
+    })
+  }
+
+  const confirmarExportarDt = async () => {
+    if (!modalDt.ticket.trim()) { alert('Ingresa una referencia de ticket'); return }
+    if (modalDt.seleccionados.size === 0) { alert('Selecciona al menos un trabajador'); return }
+    setModalDt(m => ({ ...m, exportando: true }))
+    try {
+      const res = await contratosApi.finiquitosDtCsv(modalDt.idObra, modalDt.ticket.trim(), [...modalDt.seleccionados])
       const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
       const a = document.createElement('a')
       a.href = url
-      a.download = `FiniquitosDT_${nombreObra}_${ticket}.csv`.replace(/\s+/g, '_')
+      a.download = `FiniquitosDT_${modalDt.nombreObra}_${modalDt.ticket.trim()}.csv`.replace(/\s+/g, '_')
       a.click()
       URL.revokeObjectURL(url)
+      setModalDt(null)
     } catch (err) {
       alert(err.response?.data?.detail || 'No se pudo generar el archivo de finiquitos para la DT')
+      setModalDt(m => ({ ...m, exportando: false }))
     }
   }
 
@@ -339,8 +364,8 @@ export default function Contratos() {
                   {grupo.items.length} trabajador{grupo.items.length !== 1 ? 'es' : ''} · {fmt(grupo.totalSueldo)}
                 </span>
                 {grupo.idObra && grupo.pendientesFiniquitoDt > 0 && (
-                  <button className="btn btn-outline btn-sm" onClick={() => exportarFiniquitosDt(grupo.idObra, grupo.obra)}
-                    title="Genera el archivo CSV de carga masiva de finiquitos para la Dirección del Trabajo">
+                  <button className="btn btn-outline btn-sm" onClick={() => abrirModalExportarDt(grupo.idObra, grupo.obra)}
+                    title="Elige qué finiquitos exportar a la Dirección del Trabajo">
                     📤 Exportar Finiquitos DT
                   </button>
                 )}
@@ -384,6 +409,63 @@ export default function Contratos() {
           </div>
         ))}
       </>}
+
+      {modalDt && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}}
+          onClick={() => !modalDt.exportando && setModalDt(null)}>
+          <div className="card" style={{width:560, maxHeight:'80vh', display:'flex', flexDirection:'column', padding:0}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{padding:'14px 18px', borderBottom:'1px solid var(--gray-200)'}}>
+              <strong>Exportar Finiquitos DT — {modalDt.nombreObra}</strong>
+            </div>
+
+            <div style={{padding:'14px 18px', overflowY:'auto', flex:1}}>
+              {modalDt.cargando && <div style={{color:'var(--gray-500)'}}>Cargando finiquitos pendientes…</div>}
+
+              {!modalDt.cargando && modalDt.pendientes.length === 0 && (
+                <div style={{color:'var(--gray-500)'}}>
+                  No hay finiquitos pendientes de exportar en esta obra. Si un contrato ya tiene el Word del
+                  finiquito generado pero sigue "vigente", debes marcarlo como finiquitado (o volver a generar
+                  el Word) desde el detalle del contrato antes de que aparezca aquí.
+                </div>
+              )}
+
+              {!modalDt.cargando && modalDt.pendientes.length > 0 && (
+                <>
+                  <label style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, cursor:'pointer'}}>
+                    <input type="checkbox"
+                      checked={modalDt.seleccionados.size === modalDt.pendientes.length}
+                      onChange={e => setModalDt(m => ({ ...m, seleccionados: e.target.checked ? new Set(m.pendientes.map(p => p.id_contrato)) : new Set() }))} />
+                    <strong>Seleccionar todos ({modalDt.pendientes.length})</strong>
+                  </label>
+                  {modalDt.pendientes.map(p => (
+                    <label key={p.id_contrato} style={{display:'flex', alignItems:'center', gap:8, padding:'4px 0', cursor:'pointer'}}>
+                      <input type="checkbox" checked={modalDt.seleccionados.has(p.id_contrato)}
+                        onChange={() => toggleSeleccionDt(p.id_contrato)} />
+                      <span>{p.nombre} <span style={{color:'var(--gray-500)', fontSize:12}}>· {p.rut} · término {p.fecha_termino}</span></span>
+                    </label>
+                  ))}
+
+                  <div style={{marginTop:14}}>
+                    <label style={{display:'block', fontSize:12, color:'var(--gray-500)', marginBottom:4}}>Referencia del lote (ticket)</label>
+                    <input className="input" style={{width:'100%'}} value={modalDt.ticket}
+                      onChange={e => setModalDt(m => ({ ...m, ticket: e.target.value }))} />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={{padding:'12px 18px', borderTop:'1px solid var(--gray-200)', display:'flex', justifyContent:'flex-end', gap:8}}>
+              <button className="btn btn-outline" onClick={() => setModalDt(null)} disabled={modalDt.exportando}>Cancelar</button>
+              {modalDt.pendientes.length > 0 && (
+                <button className="btn btn-primary" onClick={confirmarExportarDt} disabled={modalDt.exportando}>
+                  {modalDt.exportando ? 'Generando…' : `📤 Exportar (${modalDt.seleccionados.size})`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

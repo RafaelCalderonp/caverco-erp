@@ -1096,17 +1096,45 @@ async def descargar_finiquito_word(
 
 
 # ---- Carga masiva de finiquitos a la Dirección del Trabajo (DT) ----
+@router.get("/obra/{id_obra}/finiquitos-dt-pendientes")
+async def listar_finiquitos_dt_pendientes(
+    id_obra: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista los contratos finiquitados de la obra que aún no se han exportado
+    (ticket_dt IS NULL), para que el frontend muestre un checklist de selección."""
+    rows = (await db.execute(
+        select(FiniquitoDT, Contrato, Empleado)
+        .join(Contrato, Contrato.id == FiniquitoDT.id_contrato)
+        .join(Empleado, Empleado.id == Contrato.id_empleado)
+        .where(Contrato.id_obra == id_obra, FiniquitoDT.ticket_dt.is_(None))
+    )).all()
+    return [
+        {
+            "id_contrato": contrato.id,
+            "numero_contrato": contrato.numero_contrato,
+            "nombre": f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip(),
+            "rut": empleado.rut,
+            "fecha_termino": fdt.fecha_termino.isoformat(),
+            "causal_codigo": fdt.causal_codigo,
+        }
+        for fdt, contrato, empleado in rows
+    ]
+
+
 @router.get("/obra/{id_obra}/finiquitos-dt-csv")
 async def descargar_finiquitos_dt_csv(
     id_obra: int,
     ticket: str,
+    ids_contrato: Optional[List[int]] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Genera el CSV de carga masiva de Finiquito Laboral Electrónico (formato
     oficial DT, 48 columnas) para los finiquitos de esta obra que aún no han
     sido exportados en un ticket anterior, y los marca como exportados con
-    el ticket indicado.
+    el ticket indicado. Si se envía ids_contrato, exporta solo esos contratos
+    (deben seguir pendientes de exportar); si no, exporta todos los pendientes.
     """
     import csv as _csv
     from app.services.dt_finiquito_codigos import (
@@ -1118,16 +1146,20 @@ async def descargar_finiquitos_dt_csv(
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
+    condiciones = [Contrato.id_obra == id_obra, FiniquitoDT.ticket_dt.is_(None)]
+    if ids_contrato:
+        condiciones.append(Contrato.id.in_(ids_contrato))
+
     rows = (await db.execute(
         select(FiniquitoDT, Contrato, Empleado, Empresa)
         .join(Contrato, Contrato.id == FiniquitoDT.id_contrato)
         .join(Empleado, Empleado.id == Contrato.id_empleado)
         .join(Empresa, Empresa.id == Empleado.id_empresa)
-        .where(Contrato.id_obra == id_obra, FiniquitoDT.ticket_dt.is_(None))
+        .where(*condiciones)
     )).all()
 
     if not rows:
-        raise HTTPException(status_code=400, detail="No hay finiquitos pendientes de exportar para esta obra")
+        raise HTTPException(status_code=400, detail="No hay finiquitos pendientes de exportar para esta selección")
 
     region_codigo = region_a_codigo_dt(obra.region or "")
     comuna_codigo = comuna_a_codigo_dt(obra.comuna or "")

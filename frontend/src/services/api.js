@@ -192,9 +192,11 @@ export const contratosApi = {
     create: (idContrato, d)           => api.post(`/contratos/${idContrato}/pactos-horas-extra`, d),
     word:   (idContrato, pactoId)     => api.get(`/contratos/${idContrato}/pactos-horas-extra/${pactoId}/word`, { responseType: 'blob' }),
   },
-  finiquitosDtCsv: (idObra, ticket) => api.get(
+  finiquitosDtPendientes: (idObra) => api.get(`/contratos/obra/${idObra}/finiquitos-dt-pendientes`),
+  finiquitosDtCsv: (idObra, ticket, idsContrato) => api.get(
     `/contratos/obra/${idObra}/finiquitos-dt-csv`,
-    { params: { ticket }, responseType: 'blob' }
+    { params: { ticket, ids_contrato: idsContrato }, responseType: 'blob',
+      paramsSerializer: { indexes: null } }
   ),
 }
 
