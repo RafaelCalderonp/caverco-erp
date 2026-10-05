@@ -60,6 +60,7 @@ export default function Contratos() {
   const [contratos, setContratos]       = useState([])
   const [estado, setEstado]             = useState(filtrosGuardados.estado ?? 'vigente')
   const [centroCosto, setCentroCosto]   = useState(filtrosGuardados.centroCosto ?? '')
+  const [obraId, setObraId]             = useState(filtrosGuardados.obraId ?? '')
   const [buscar, setBuscar]             = useState(filtrosGuardados.buscar ?? '')
   const [orden, setOrden]               = useState(filtrosGuardados.orden ?? { key: 'numero', dir: 1 })
   const [centrosCosto, setCentrosCosto] = useState([])
@@ -77,16 +78,16 @@ export default function Contratos() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(FILTROS_KEY, JSON.stringify({ estado, centroCosto, buscar, orden }))
-  }, [estado, centroCosto, buscar, orden])
+    localStorage.setItem(FILTROS_KEY, JSON.stringify({ estado, centroCosto, obraId, buscar, orden }))
+  }, [estado, centroCosto, obraId, buscar, orden])
 
   useEffect(() => {
     setLoading(true)
-    contratosApi.list({ estado: estado || undefined })
+    contratosApi.list({ estado: estado || undefined, id_obra: obraId || undefined })
       .then(r => setContratos(r.data))
       .catch(() => setContratos([]))
       .finally(() => setLoading(false))
-  }, [estado])
+  }, [estado, obraId])
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 
@@ -203,9 +204,16 @@ export default function Contratos() {
           ))}
         </select>
 
-        {(centroCosto || buscar || estado !== 'vigente') && (
+        <select className="input" value={obraId} onChange={e => setObraId(e.target.value)} style={{maxWidth:260}}>
+          <option value="">Todas las obras</option>
+          {obras.map(o => (
+            <option key={o.id} value={o.id}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>
+          ))}
+        </select>
+
+        {(centroCosto || obraId || buscar || estado !== 'vigente') && (
           <button className="btn btn-outline btn-sm" style={{alignSelf:'center'}}
-            onClick={() => { setEstado('vigente'); setCentroCosto(''); setBuscar('') }}>
+            onClick={() => { setEstado('vigente'); setCentroCosto(''); setObraId(''); setBuscar('') }}>
             ✕ Limpiar filtros
           </button>
         )}
@@ -214,6 +222,7 @@ export default function Contratos() {
       <div style={{fontSize:12, color:'var(--gray-500)', marginBottom:8}}>
         {lista.length} contrato{lista.length !== 1 ? 's' : ''}
         {centroCosto && ` · ${centrosCosto.find(c => String(c.id) === centroCosto)?.nombre}`}
+        {obraId && ` · ${obras.find(o => String(o.id) === obraId)?.nombre}`}
       </div>
 
       <div className="card" style={{padding:0}}>
