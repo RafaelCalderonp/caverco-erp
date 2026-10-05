@@ -844,8 +844,10 @@ async def descargar_carta_despido_word(
         anos_completos = 0
 
     # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
+    # Art. 44 inciso 3° CT: en contratos de 30 días o menos, el feriado va incluido en la
+    # remuneración diaria y no corresponde liquidarlo ni pagarlo por separado.
     dias_ganados_hab = 0.0; dias_pendientes_hab = 0.0; dias_calendario_vac = Decimal("0")
-    if fi:
+    if fi and (fecha_termino - fi).days > 30:
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
@@ -864,9 +866,10 @@ async def descargar_carta_despido_word(
     indem_anos = int(base_indem * anos_completos) if tiene_indem else 0
     aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
 
-    # Indemnización por tiempo servido — Art. 163 bis CT
-    # Solo Art. 159 N°5 (conclusión obra). No aplica en causales de abandono/ausencias.
-    if causal_codigo == "159_5" and fi:
+    # Indemnización por tiempo servido — Art. 163 inciso 3° CT (Ley 21.122)
+    # Solo Art. 159 N°5 (conclusión obra), y solo si el contrato estuvo vigente
+    # 1 mes o más; por eso meses_enteros debe ser al menos 1 antes de sumar la fracción.
+    if causal_codigo == "159_5" and fi and dias_totales >= 30:
         meses = dias_totales / 30.4375
         meses_enteros = floor(meses)
         fraccion = meses - meses_enteros
@@ -993,7 +996,9 @@ async def descargar_finiquito_word(
         anos_completos = 0
 
     # Vacaciones proporcionales — conteo exacto de días hábiles/inhábiles con feriados reales
-    if fi:
+    # Art. 44 inciso 3° CT: en contratos de 30 días o menos, el feriado va incluido en la
+    # remuneración diaria y no corresponde liquidarlo ni pagarlo por separado.
+    if fi and (fecha_termino - fi).days > 30:
         from app.utils.feriados import calcular_dias_calendario
         from datetime import timedelta
         dias_trabajados_total = (fecha_termino - fi).days
@@ -1012,13 +1017,18 @@ async def descargar_finiquito_word(
     indem_anos     = int(base_indem * anos_completos) if tiene_indem else 0
     aviso_calculado = int(base_indem) if (tiene_aviso and not aviso_con_30_dias) else 0
 
+    # Indemnización por tiempo servido — Art. 163 inciso 3° CT (Ley 21.122)
+    # Solo si el contrato estuvo vigente 1 mes o más (dias_tot >= 30).
     if causal_codigo == "159_5" and fi:
         from math import floor as _floor
         dias_tot = (fecha_termino - fi).days
-        meses_raw = dias_tot / 30.4375
-        meses_ent = _floor(meses_raw)
-        meses_con_frac = meses_ent + (1 if (meses_raw - meses_ent) * 30.4375 > 15 else 0)
-        indem_tiempo_servido = int(base_indem / 30 * Decimal("2.5") * meses_con_frac)
+        if dias_tot >= 30:
+            meses_raw = dias_tot / 30.4375
+            meses_ent = _floor(meses_raw)
+            meses_con_frac = meses_ent + (1 if (meses_raw - meses_ent) * 30.4375 > 15 else 0)
+            indem_tiempo_servido = int(base_indem / 30 * Decimal("2.5") * meses_con_frac)
+        else:
+            indem_tiempo_servido = 0
     else:
         indem_tiempo_servido = 0
 
