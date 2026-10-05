@@ -83,11 +83,14 @@ export default function Contratos() {
 
   useEffect(() => {
     setLoading(true)
-    contratosApi.list({ estado: estado || undefined, id_obra: obraId || undefined })
+    // En la pestaña Resumen por Obra no filtramos por estado: necesitamos ver
+    // vigentes y finiquitados juntos para poder exportar los finiquitos a la DT.
+    const filtroEstado = tab === 'resumen' ? undefined : (estado || undefined)
+    contratosApi.list({ estado: filtroEstado, id_obra: obraId || undefined })
       .then(r => setContratos(r.data))
       .catch(() => setContratos([]))
       .finally(() => setLoading(false))
-  }, [estado, obraId])
+  }, [estado, obraId, tab])
 
   const fmt = (n) => n ? `$${Number(n).toLocaleString('es-CL')}` : '—'
 
