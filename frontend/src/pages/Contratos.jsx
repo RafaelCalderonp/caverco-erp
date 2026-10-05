@@ -56,16 +56,24 @@ function cargarFiltrosGuardados() {
 export default function Contratos() {
   const { usuario } = useAuth()
   const filtrosGuardados = cargarFiltrosGuardados()
+  const [tab, setTab]                   = useState('lista') // 'lista' | 'resumen'
   const [contratos, setContratos]       = useState([])
   const [estado, setEstado]             = useState(filtrosGuardados.estado ?? 'vigente')
   const [centroCosto, setCentroCosto]   = useState(filtrosGuardados.centroCosto ?? '')
   const [buscar, setBuscar]             = useState(filtrosGuardados.buscar ?? '')
   const [orden, setOrden]               = useState(filtrosGuardados.orden ?? { key: 'numero', dir: 1 })
   const [centrosCosto, setCentrosCosto] = useState([])
+  const [obras, setObras]               = useState([])
+  const [cargos, setCargos]             = useState([])
+  const [tiposContrato, setTiposContrato] = useState([])
+  const [obraResumen, setObraResumen]   = useState('')
   const [loading, setLoading]           = useState(true)
 
   useEffect(() => {
     catalogosApi.centrosCosto().then(r => setCentrosCosto(r.data)).catch(() => {})
+    catalogosApi.obras().then(r => setObras(r.data)).catch(() => {})
+    catalogosApi.cargos().then(r => setCargos(r.data)).catch(() => {})
+    catalogosApi.tiposContrato().then(r => setTiposContrato(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -132,13 +140,51 @@ export default function Contratos() {
     return r
   }, [contratos, centroCosto, buscar, orden, centrosCosto])
 
+  const resumenPorObra = useMemo(() => {
+    let r = [...contratos]
+    if (obraResumen) r = r.filter(c => String(c.id_obra) === obraResumen)
+    if (buscar.trim()) {
+      const term = buscar.trim().toLowerCase()
+      r = r.filter(c => {
+        const nombre = `${c.empleado?.nombres || ''} ${c.empleado?.apellido_paterno || ''} ${c.empleado?.apellido_materno || ''}`.toLowerCase()
+        const rut = (c.empleado?.rut || '').toLowerCase()
+        return nombre.includes(term) || rut.includes(term)
+      })
+    }
+
+    const grupos = new Map()
+    for (const c of r) {
+      const obra = obras.find(o => o.id === c.id_obra)
+      const clave = obra ? obra.nombre : 'Sin obra asignada'
+      if (!grupos.has(clave)) grupos.set(clave, [])
+      grupos.get(clave).push(c)
+    }
+
+    return [...grupos.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([obra, items]) => ({
+        obra,
+        items: items.sort((a, b) =>
+          `${a.empleado?.apellido_paterno || ''} ${a.empleado?.nombres || ''}`
+            .localeCompare(`${b.empleado?.apellido_paterno || ''} ${b.empleado?.nombres || ''}`)),
+        totalSueldo: items.reduce((s, c) => s + (Number(c.sueldo_bruto) || 0), 0),
+      }))
+  }, [contratos, obraResumen, buscar, obras])
+
   return (
     <div>
       <div className="page-header">
         <h1>Contratos</h1>
-        <Link to="/contratos/nuevo" className="btn btn-primary">+ Nuevo Contrato</Link>
+        <div className="flex gap-2">
+          <button className={`btn ${tab==='lista'?'btn-primary':'btn-outline'}`}
+            onClick={() => setTab('lista')}>📋 Lista</button>
+          <button className={`btn ${tab==='resumen'?'btn-primary':'btn-outline'}`}
+            onClick={() => setTab('resumen')}>📊 Resumen por Obra</button>
+          <Link to="/contratos/nuevo" className="btn btn-primary">+ Nuevo Contrato</Link>
+        </div>
       </div>
 
+      {tab === 'lista' && <>
       <div className="search-bar" style={{display:'flex', gap:10, flexWrap:'wrap'}}>
         <input className="input" placeholder="Buscar por trabajador, RUT o N° contrato…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{maxWidth:260}} />
@@ -225,6 +271,83 @@ export default function Contratos() {
           </table>
         </div>
       </div>
+      </>}
+
+      {tab === 'resumen' && <>
+        <div className="search-bar" style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+          <input className="input" placeholder="Buscar por trabajador o RUT…" value={buscar}
+            onChange={e => setBuscar(e.target.value)} style={{maxWidth:260}} />
+
+          <select className="input" value={obraResumen} onChange={e => setObraResumen(e.target.value)} style={{maxWidth:260}}>
+            <option value="">Todas las obras</option>
+            {obras.map(o => (
+              <option key={o.id} value={o.id}>{o.nombre}</option>
+            ))}
+          </select>
+
+          {(obraResumen || buscar) && (
+            <button className="btn btn-outline btn-sm" style={{alignSelf:'center'}}
+              onClick={() => { setObraResumen(''); setBuscar('') }}>
+              ✕ Limpiar filtros
+            </button>
+          )}
+        </div>
+
+        <div style={{fontSize:12, color:'var(--gray-500)', marginBottom:8}}>
+          {resumenPorObra.reduce((n, g) => n + g.items.length, 0)} trabajador{resumenPorObra.reduce((n, g) => n + g.items.length, 0) !== 1 ? 'es' : ''} en {resumenPorObra.length} obra{resumenPorObra.length !== 1 ? 's' : ''}
+          {estado && ` · estado: ${estado}`}
+        </div>
+
+        {!loading && resumenPorObra.length === 0 && (
+          <div className="card" style={{padding:32, textAlign:'center', color:'var(--gray-500)'}}>Sin resultados</div>
+        )}
+
+        {resumenPorObra.map(grupo => (
+          <div key={grupo.obra} className="card" style={{padding:0, marginBottom:16}}>
+            <div style={{padding:'10px 14px', borderBottom:'1px solid var(--gray-200)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <strong>{grupo.obra}</strong>
+              <span style={{fontSize:12, color:'var(--gray-500)'}}>
+                {grupo.items.length} trabajador{grupo.items.length !== 1 ? 'es' : ''} · {fmt(grupo.totalSueldo)}
+              </span>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>RUT</th>
+                    <th>Nombre Completo</th>
+                    <th>Cargo</th>
+                    <th>CC</th>
+                    <th>Fecha Ingreso</th>
+                    <th>Tipo de Contrato</th>
+                    <th>Sueldo Bruto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grupo.items.map((c, i) => {
+                    const cc = centrosCosto.find(x => x.id === c.id_centro_costo)
+                    const cargo = cargos.find(x => x.id === c.id_cargo)
+                    const tipo = tiposContrato.find(x => x.id === c.id_tipo_contrato)
+                    return (
+                      <tr key={c.id} style={{background: i % 2 === 1 ? 'var(--gray-50)' : 'transparent'}}>
+                        <td style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.empleado?.rut || '—'}</td>
+                        <td className="text-muted" style={{padding:'7px 14px'}}>
+                          {c.empleado ? `${c.empleado.nombres} ${c.empleado.apellido_paterno} ${c.empleado.apellido_materno || ''}`.trim() : `Trabajador #${c.id_empleado}`}
+                        </td>
+                        <td className="text-muted" style={{padding:'7px 14px'}}>{cargo?.nombre || '—'}</td>
+                        <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}} title={cc?.nombre || ''}>{cc?.codigo || '—'}</td>
+                        <td className="text-muted" style={{padding:'7px 14px', whiteSpace:'nowrap'}}>{c.fecha_inicio}</td>
+                        <td className="text-muted" style={{padding:'7px 14px'}}>{tipo?.nombre || '—'}</td>
+                        <td style={{padding:'7px 14px'}}>{fmt(c.sueldo_bruto)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </>}
     </div>
   )
 }
