@@ -277,6 +277,8 @@ export default function ContratoDetalle() {
   const [resultadoFiniquito, setResultadoFiniquito] = useState(null)
   const [calculandoFiniquito, setCalculandoFiniquito] = useState(false)
   const [errorFiniquito, setErrorFiniquito] = useState('')
+  const [motivoFiniquitar, setMotivoFiniquitar] = useState('')
+  const [marcandoFiniquitado, setMarcandoFiniquitado] = useState(false)
 
   const [descargando, setDescargando] = useState(false)
   const [errorDescarga, setErrorDescarga] = useState('')
@@ -738,6 +740,21 @@ export default function ContratoDetalle() {
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
     } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar finiquito')) }
     finally { setDescargandoFiniquito(false) }
+  }
+
+  async function marcarFiniquitado() {
+    if (!motivoFiniquitar) { alert('Selecciona el motivo de término'); return }
+    if (!confirm(`¿Marcar este contrato como FINIQUITADO con fecha de término ${formDespido.fecha_termino}? Esta acción cambia el estado del contrato.`)) return
+    setMarcandoFiniquitado(true)
+    try {
+      await contratosApi.finiquitar(id, {
+        id_motivo_termino: Number(motivoFiniquitar),
+        fecha_termino_real: formDespido.fecha_termino,
+      })
+      await cargar()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo marcar el contrato como finiquitado')
+    } finally { setMarcandoFiniquitado(false) }
   }
 
   async function descargarEppWord(eppId) {
@@ -1856,6 +1873,31 @@ export default function ContratoDetalle() {
           <button className="btn btn-primary btn-sm" onClick={descargarFiniquito} disabled={descargandoFiniquito}>
             {descargandoFiniquito ? '...' : '📄 Generar Finiquito Word'}
           </button>
+
+          <div style={{marginTop:16, paddingTop:14, borderTop:'1px solid var(--gray-200)'}}>
+            {contrato.estado === 'finiquitado' ? (
+              <p style={{fontSize:13, color:'var(--gray-600)'}}>
+                ✅ Este contrato ya está marcado como <strong>finiquitado</strong>
+                {contrato.fecha_termino_real ? ` (fecha término: ${contrato.fecha_termino_real})` : ''}.
+              </p>
+            ) : (
+              <>
+                <p style={{fontSize:12, color:'var(--gray-500)', margin:'0 0 8px'}}>
+                  Generar el Word no cambia el estado del contrato. Una vez firmado el finiquito, márcalo aquí para que deje de aparecer como vigente:
+                </p>
+                <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                  <select className="select" style={{maxWidth:280}} value={motivoFiniquitar}
+                    onChange={e => setMotivoFiniquitar(e.target.value)}>
+                    <option value="">Selecciona motivo de término…</option>
+                    {motivosTermino.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                  </select>
+                  <button className="btn btn-outline btn-sm" onClick={marcarFiniquitado} disabled={marcandoFiniquitado}>
+                    {marcandoFiniquitado ? '...' : '✅ Marcar Contrato como Finiquitado'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
