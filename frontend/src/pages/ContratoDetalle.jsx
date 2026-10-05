@@ -214,6 +214,19 @@ export default function ContratoDetalle() {
     ]},
   ]
 
+  // Mapea cada causal de despido al código de erp.motivos_termino correspondiente,
+  // para poder finiquitar el contrato automáticamente al generar el Finiquito.
+  const CAUSAL_A_MOTIVO_CODIGO = {
+    '159_1': 'MUTUO_ACUERDO',
+    '159_2': 'RENUNCIA',
+    '159_4': 'FIN_PLAZO',
+    '159_5': 'FIN_OBRA_FAENA',
+    '159_6': 'CASO_FORTUITO',
+    '160_1': 'DESPIDO_CAUSA_JUSTA', '160_1b': 'DESPIDO_CAUSA_JUSTA', '160_1f': 'DESPIDO_CAUSA_JUSTA',
+    '160_3': 'DESPIDO_CAUSA_JUSTA', '160_4': 'DESPIDO_CAUSA_JUSTA', '160_5': 'DESPIDO_CAUSA_JUSTA', '160_7': 'DESPIDO_CAUSA_JUSTA',
+    '161_1': 'NECESIDADES_EMPRESA', '161_2': 'NECESIDADES_EMPRESA',
+  }
+
   // Tasas legales fijas (Art. 85 Ley 18.469 / Ley 19.728 Art. 5)
   const TASA_SALUD = 0.07
   const TASA_AFC   = 0.006
@@ -738,6 +751,23 @@ export default function ContratoDetalle() {
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
+
+      // Al generar el finiquito, marcar el contrato como finiquitado automáticamente
+      if (contrato?.estado !== 'finiquitado') {
+        const motivoCodigo = CAUSAL_A_MOTIVO_CODIGO[formDespido.causal_codigo]
+        const motivo = motivosTermino.find(m => m.codigo === motivoCodigo)
+        if (motivo) {
+          try {
+            await contratosApi.finiquitar(id, {
+              id_motivo_termino: motivo.id,
+              fecha_termino_real: formDespido.fecha_termino,
+            })
+            await cargar()
+          } catch (err) {
+            alert(`El Word se generó, pero no se pudo marcar el contrato como finiquitado automáticamente: ${err.response?.data?.detail || 'error desconocido'}. Puedes hacerlo manualmente abajo.`)
+          }
+        }
+      }
     } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar finiquito')) }
     finally { setDescargandoFiniquito(false) }
   }
