@@ -97,6 +97,7 @@ class LiquidacionOut(BaseModel):
     estado: str
     observacion: Optional[str] = None
     nombre_empleado: Optional[str] = None   # enriquecido en el endpoint de lista
+    rut_empleado: Optional[str] = None      # enriquecido en el endpoint de lista
     cc_codigo: Optional[str] = None         # enriquecido en el endpoint de lista
     cc_nombre: Optional[str] = None         # enriquecido en el endpoint de lista
     model_config = {"from_attributes": True}
@@ -524,11 +525,13 @@ async def listar_por_periodo(
         )
         empleados = emp_res.scalars().all()
         emp_map = {e.id: f"{e.nombres} {e.apellido_paterno}" for e in empleados}
+        rut_map = {e.id: e.rut for e in empleados}
         cc_map = {e.id: e.centro_costo for e in empleados}
         out = []
         for liq in liquidaciones:
             d = {c.key: getattr(liq, c.key) for c in liq.__table__.columns}
             d["nombre_empleado"] = emp_map.get(liq.id_empleado, f"Trabajador #{liq.id_empleado}")
+            d["rut_empleado"] = rut_map.get(liq.id_empleado)
             cc = liq.centro_costo or cc_map.get(liq.id_empleado)
             d["cc_codigo"] = cc.codigo if cc else None
             d["cc_nombre"] = cc.nombre if cc else None

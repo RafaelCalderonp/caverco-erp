@@ -488,6 +488,18 @@ export default function Liquidaciones() {
     finally { setCalcLoading(false) }
   }
 
+  const [rutCopiado, setRutCopiado] = useState(null)
+  const copiarRut = async (rut) => {
+    if (!rut) return
+    try {
+      await navigator.clipboard.writeText(rut)
+      setRutCopiado(rut)
+      setTimeout(() => setRutCopiado(r => r === rut ? null : r), 1500)
+    } catch {
+      alert('No se pudo copiar el RUT')
+    }
+  }
+
   const marcarPagada = async (l) => {
     const nombre = l.nombre_empleado || `Trabajador #${l.id_empleado}`
     if (!confirm(`¿Marcar como PAGADA la liquidación de ${nombre} (${l.periodo})?`)) return
@@ -973,7 +985,15 @@ export default function Liquidaciones() {
                 {listaFiltrada.map(l => (
                   <tr key={l.id}>
                     <td style={tdLiqStyle} title={l.cc_nombre || ''}>{l.cc_codigo || '—'}</td>
-                    <td style={tdLiqStyle}>{l.nombre_empleado || `Trabajador #${l.id_empleado}`}</td>
+                    <td style={tdLiqStyle}>
+                      {l.nombre_empleado || `Trabajador #${l.id_empleado}`}
+                      {l.rut_empleado && (
+                        <button className="btn btn-outline btn-sm" style={{...btnLiqStyle,marginLeft:6,padding:'1px 5px'}}
+                          title={`Copiar RUT (${l.rut_empleado})`} onClick={() => copiarRut(l.rut_empleado)}>
+                          {rutCopiado === l.rut_empleado ? '✅' : '📋'} RUT
+                        </button>
+                      )}
+                    </td>
                     <td style={tdLiqStyle}>{l.periodo}</td>
                     <td style={{...tdLiqStyle,textAlign:'right'}}>{fmt(l.total_imponible)}</td>
                     <td style={{...tdLiqStyle,textAlign:'right'}}>{fmt(l.total_haberes)}</td>
