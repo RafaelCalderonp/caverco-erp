@@ -61,6 +61,8 @@ export default function Contratos() {
   const [estado, setEstado]             = useState(filtrosGuardados.estado ?? 'vigente')
   const [centroCosto, setCentroCosto]   = useState(filtrosGuardados.centroCosto ?? '')
   const [obraId, setObraId]             = useState(filtrosGuardados.obraId ?? '')
+  const [fechaDesde, setFechaDesde]     = useState(filtrosGuardados.fechaDesde ?? '')
+  const [fechaHasta, setFechaHasta]     = useState(filtrosGuardados.fechaHasta ?? '')
   const [buscar, setBuscar]             = useState(filtrosGuardados.buscar ?? '')
   const [orden, setOrden]               = useState(filtrosGuardados.orden ?? { key: 'numero', dir: 1 })
   const [centrosCosto, setCentrosCosto] = useState([])
@@ -78,8 +80,8 @@ export default function Contratos() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(FILTROS_KEY, JSON.stringify({ estado, centroCosto, obraId, buscar, orden }))
-  }, [estado, centroCosto, obraId, buscar, orden])
+    localStorage.setItem(FILTROS_KEY, JSON.stringify({ estado, centroCosto, obraId, fechaDesde, fechaHasta, buscar, orden }))
+  }, [estado, centroCosto, obraId, fechaDesde, fechaHasta, buscar, orden])
 
   useEffect(() => {
     setLoading(true)
@@ -164,6 +166,10 @@ export default function Contratos() {
     // Filtro centro de costo (client-side)
     if (centroCosto) r = r.filter(c => String(c.id_centro_costo) === centroCosto)
 
+    // Filtro por fecha de inicio de contrato (client-side)
+    if (fechaDesde) r = r.filter(c => c.fecha_inicio && c.fecha_inicio >= fechaDesde)
+    if (fechaHasta) r = r.filter(c => c.fecha_inicio && c.fecha_inicio <= fechaHasta)
+
     // Búsqueda por trabajador / RUT / N° contrato (client-side)
     if (buscar.trim()) {
       const term = buscar.trim().toLowerCase()
@@ -184,7 +190,7 @@ export default function Contratos() {
       return cmp * orden.dir
     })
     return r
-  }, [contratos, centroCosto, buscar, orden, centrosCosto])
+  }, [contratos, centroCosto, fechaDesde, fechaHasta, buscar, orden, centrosCosto])
 
   const resumenPorObra = useMemo(() => {
     let r = [...contratos]
@@ -258,9 +264,16 @@ export default function Contratos() {
           ))}
         </select>
 
-        {(centroCosto || obraId || buscar || estado !== 'vigente') && (
+        <div style={{display:'flex', alignItems:'center', gap:6}}>
+          <span style={{fontSize:12, color:'var(--gray-500)'}}>Fecha contrato</span>
+          <input type="date" className="input" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{maxWidth:160}} title="Desde" />
+          <span style={{fontSize:12, color:'var(--gray-500)'}}>—</span>
+          <input type="date" className="input" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{maxWidth:160}} title="Hasta" />
+        </div>
+
+        {(centroCosto || obraId || buscar || estado !== 'vigente' || fechaDesde || fechaHasta) && (
           <button className="btn btn-outline btn-sm" style={{alignSelf:'center'}}
-            onClick={() => { setEstado('vigente'); setCentroCosto(''); setObraId(''); setBuscar('') }}>
+            onClick={() => { setEstado('vigente'); setCentroCosto(''); setObraId(''); setBuscar(''); setFechaDesde(''); setFechaHasta('') }}>
             ✕ Limpiar filtros
           </button>
         )}
