@@ -5,7 +5,7 @@ Endpoints: calcular preview, emitir, listar por período, detalle, indicadores P
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
@@ -1009,20 +1009,27 @@ async def get_asistencia(
     """
     year, month = int(periodo[:4]), int(periodo[5:7])
     dias_en_mes = calendar.monthrange(year, month)[1]
+    fin_periodo = date(year, month, dias_en_mes)
 
     # Empleados del centro de costo (activos, filtrados por empresa)
     q = select(Empleado).where(Empleado.activo == True)
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
-        # Incluye empleados cuyo perfil O su contrato vigente tiene este CC
+        # Incluye empleados cuyo perfil O su contrato vigente tiene este CC,
+        # pero solo si ya estaban contratados dentro del período (su contrato
+        # no puede haber empezado después del mes que se está liquidando).
         contrato_cc_sub = (
             select(Contrato.id_empleado)
-            .where(Contrato.id_centro_costo == centro_costo_id, Contrato.estado == "vigente")
+            .where(
+                Contrato.id_centro_costo == centro_costo_id,
+                Contrato.estado == "vigente",
+                Contrato.fecha_inicio <= fin_periodo,
+            )
         )
         q = q.where(
             or_(
-                Empleado.id_centro_costo == centro_costo_id,
+                and_(Empleado.id_centro_costo == centro_costo_id, Empleado.fecha_ingreso <= fin_periodo),
                 Empleado.id.in_(contrato_cc_sub),
             )
         )
