@@ -475,7 +475,9 @@ export default function Liquidaciones() {
           movilizacion: Math.round((emp.movilizacion|| 0) / 30 * dias),
           viaticos:     Math.round(200000 / 30 * dias),
           he_days: {},
-          aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: ''
+          aguinaldo: 0, anticipo: 0, prestamo: 0, observacion: '',
+          bono_imponible: 0, bono_imponible_glosa: '',
+          bono_no_imponible: 0, bono_no_imponible_glosa: '',
         }
       })
       // Auto-expandir el primer empleado pendiente
@@ -557,9 +559,13 @@ export default function Liquidaciones() {
         horas_extra_50: totalHe50,
         horas_extra_100: totalHe100,
         aguinaldo: ef.aguinaldo,
+        bono_imponible: ef.bono_imponible,
+        bono_imponible_glosa: ef.bono_imponible_glosa || undefined,
         colacion: ef.colacion,
         movilizacion: ef.movilizacion,
         viaticos: ef.viaticos,
+        bono_no_imponible: ef.bono_no_imponible,
+        bono_no_imponible_glosa: ef.bono_no_imponible_glosa || undefined,
         anticipo: ef.anticipo,
         prestamo: ef.prestamo,
         observacion: ef.observacion,
@@ -579,9 +585,13 @@ export default function Liquidaciones() {
         horas_extra_50: totalHe50,
         horas_extra_100: totalHe100,
         aguinaldo: ef.aguinaldo,
+        bono_imponible: ef.bono_imponible,
+        bono_imponible_glosa: ef.bono_imponible_glosa || undefined,
         colacion: ef.colacion,
         movilizacion: ef.movilizacion,
         viaticos: ef.viaticos,
+        bono_no_imponible: ef.bono_no_imponible,
+        bono_no_imponible_glosa: ef.bono_no_imponible_glosa || undefined,
         anticipo: ef.anticipo,
         prestamo: ef.prestamo,
         observacion: ef.observacion,
@@ -1234,6 +1244,35 @@ export default function Liquidaciones() {
                         </div>
                       </div>
 
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                        <div style={{border:'1px solid var(--gray-200)',borderRadius:6,padding:10}}>
+                          <div style={{fontWeight:600,fontSize:12,marginBottom:6}}>Bono Imponible</div>
+                          <div className="form-group" style={{marginBottom:8}}>
+                            <label className="form-label">Monto</label>
+                            <input className="input" type="number" value={ef.bono_imponible}
+                              onChange={e => setEF(emp.id, {bono_imponible: Number(e.target.value)})} />
+                          </div>
+                          <div className="form-group" style={{marginBottom:0}}>
+                            <label className="form-label">Bono por…</label>
+                            <input className="input" placeholder="ej. responsabilidad, turno, meta" value={ef.bono_imponible_glosa}
+                              onChange={e => setEF(emp.id, {bono_imponible_glosa: e.target.value})} />
+                          </div>
+                        </div>
+                        <div style={{border:'1px solid var(--gray-200)',borderRadius:6,padding:10}}>
+                          <div style={{fontWeight:600,fontSize:12,marginBottom:6}}>Bono No Imponible</div>
+                          <div className="form-group" style={{marginBottom:8}}>
+                            <label className="form-label">Monto</label>
+                            <input className="input" type="number" value={ef.bono_no_imponible}
+                              onChange={e => setEF(emp.id, {bono_no_imponible: Number(e.target.value)})} />
+                          </div>
+                          <div className="form-group" style={{marginBottom:0}}>
+                            <label className="form-label">Bono por…</label>
+                            <input className="input" placeholder="ej. movilización extra, colación extra" value={ef.bono_no_imponible_glosa}
+                              onChange={e => setEF(emp.id, {bono_no_imponible_glosa: e.target.value})} />
+                          </div>
+                        </div>
+                      </div>
+
                       {rojoDias.length > 0 && (() => {
                         const vh = valorHH(emp)
                         const base = Math.max(emp.sueldo_base || 0, indicadores?.sueldo_minimo || 0)
@@ -1305,12 +1344,14 @@ export default function Liquidaciones() {
                           {prev.haberes.horas_extra_50>0  && <Row label="HH.EE 50%"  v={prev.haberes.horas_extra_50} />}
                           {prev.haberes.horas_extra_100>0 && <Row label="HH.EE 100%" v={prev.haberes.horas_extra_100} />}
                           {prev.haberes.aguinaldo>0       && <Row label="Aguinaldo"  v={prev.haberes.aguinaldo} />}
+                          {prev.haberes.bono_imponible>0  && <Row label={prev.haberes.bono_imponible_glosa ? `Bono: ${prev.haberes.bono_imponible_glosa}` : 'Bono Imponible'} v={prev.haberes.bono_imponible} />}
                           <Row label="Total Imponible" v={prev.haberes.total_imponible} bold />
                         </Section>
                         <Section title="Haberes No Imponibles">
                           {prev.haberes.colacion>0     && <Row label="Colación"     v={prev.haberes.colacion} />}
                           {prev.haberes.movilizacion>0 && <Row label="Movilización" v={prev.haberes.movilizacion} />}
                           {prev.haberes.viaticos>0     && <Row label="Viáticos"     v={prev.haberes.viaticos} />}
+                          {prev.haberes.bono_no_imponible>0 && <Row label={prev.haberes.bono_no_imponible_glosa ? `Bono: ${prev.haberes.bono_no_imponible_glosa}` : 'Bono No Imponible'} v={prev.haberes.bono_no_imponible} />}
                           <Row label="Total Haberes" v={prev.haberes.total_haberes} bold />
                         </Section>
                         <Section title="Descuentos Legales" red>

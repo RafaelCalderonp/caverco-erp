@@ -225,12 +225,16 @@ class EntradaLiquidacion:
     horas_extra_50:   Decimal = Decimal("0")   # monto CLP ya calculado
     horas_extra_100:  Decimal = Decimal("0")
     aguinaldo:        Decimal = Decimal("0")
+    bono_imponible:         Decimal = Decimal("0")
+    bono_imponible_glosa:   str     = ""
     # Haberes no imponibles
     colacion:         Decimal = Decimal("0")
     movilizacion:     Decimal = Decimal("0")
     viaticos:         Decimal = Decimal("0")
     asig_familiar:    Decimal = Decimal("0")
     otros_haberes:    Decimal = Decimal("0")
+    bono_no_imponible:       Decimal = Decimal("0")
+    bono_no_imponible_glosa: str     = ""
     # Descuentos voluntarios
     anticipo:         Decimal = Decimal("0")
     prestamo:         Decimal = Decimal("0")
@@ -246,12 +250,16 @@ class ResultadoLiquidacion:
     horas_extra_50:       Decimal
     horas_extra_100:      Decimal
     aguinaldo:            Decimal
+    bono_imponible:       Decimal
+    bono_imponible_glosa: str
     total_imponible:      Decimal
     colacion:             Decimal
     movilizacion:         Decimal
     viaticos:             Decimal
     asig_familiar:        Decimal
     otros_haberes:        Decimal
+    bono_no_imponible:       Decimal
+    bono_no_imponible_glosa: str
     total_haberes:        Decimal
     # Descuentos legales
     descuento_afp:        Decimal
@@ -296,11 +304,11 @@ def calcular_liquidacion(
     gratif = calcular_gratificacion(e.sueldo_base, ind.tope_gratif, e.dias_trabajados)
 
     # 3. Total imponible (tope AFP = renta_tope_afp)
-    total_imp_bruto = _r(sueldo + gratif + e.horas_extra_50 + e.horas_extra_100 + e.aguinaldo)
+    total_imp_bruto = _r(sueldo + gratif + e.horas_extra_50 + e.horas_extra_100 + e.aguinaldo + e.bono_imponible)
     total_imp = _r(min(total_imp_bruto, ind.renta_tope_afp))
 
     # 4. Total haberes
-    total_hab = _r(total_imp + e.colacion + e.movilizacion + e.viaticos + e.asig_familiar + e.otros_haberes)
+    total_hab = _r(total_imp + e.colacion + e.movilizacion + e.viaticos + e.asig_familiar + e.otros_haberes + e.bono_no_imponible)
 
     # 5. Descuento AFP
     desc_afp = _r(total_imp * ind.tasa_afp)
@@ -342,8 +350,10 @@ def calcular_liquidacion(
         sueldo_base=sueldo, gratificacion=gratif,
         horas_extra_50=e.horas_extra_50, horas_extra_100=e.horas_extra_100,
         aguinaldo=e.aguinaldo, total_imponible=total_imp,
+        bono_imponible=e.bono_imponible, bono_imponible_glosa=e.bono_imponible_glosa,
         colacion=e.colacion, movilizacion=e.movilizacion, viaticos=e.viaticos,
         asig_familiar=e.asig_familiar, otros_haberes=e.otros_haberes,
+        bono_no_imponible=e.bono_no_imponible, bono_no_imponible_glosa=e.bono_no_imponible_glosa,
         total_haberes=total_hab,
         descuento_afp=desc_afp, descuento_salud=desc_salud,
         adicional_salud=adic_salud, afc_trabajador=seg_ces,

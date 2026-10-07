@@ -40,11 +40,15 @@ class LiquidacionPreviewRequest(BaseModel):
     horas_extra_50:  Decimal = Decimal("0")
     horas_extra_100: Decimal = Decimal("0")
     aguinaldo:       Decimal = Decimal("0")
+    bono_imponible:        Decimal = Decimal("0")
+    bono_imponible_glosa:  Optional[str] = None
     colacion:        Decimal = Decimal("0")
     movilizacion:    Decimal = Decimal("0")
     viaticos:        Decimal = Decimal("0")
     asig_familiar:   Decimal = Decimal("0")
     otros_haberes:   Decimal = Decimal("0")
+    bono_no_imponible:       Decimal = Decimal("0")
+    bono_no_imponible_glosa: Optional[str] = None
     anticipo:        Decimal = Decimal("0")
     prestamo:        Decimal = Decimal("0")
     otros_descuentos:Decimal = Decimal("0")
@@ -67,12 +71,16 @@ class LiquidacionOut(BaseModel):
     horas_extra_50: Decimal
     horas_extra_100: Decimal
     aguinaldo: Decimal
+    bono_imponible: Decimal = Decimal("0")
+    bono_imponible_glosa: Optional[str] = None
     total_imponible: Decimal
     colacion: Decimal
     movilizacion: Decimal
     viaticos: Decimal
     asig_familiar: Decimal
     otros_haberes: Decimal
+    bono_no_imponible: Decimal = Decimal("0")
+    bono_no_imponible_glosa: Optional[str] = None
     total_haberes: Decimal
     descuento_afp: Decimal
     descuento_salud: Decimal
@@ -143,11 +151,15 @@ def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiqu
         horas_extra_50   = req.horas_extra_50,
         horas_extra_100  = req.horas_extra_100,
         aguinaldo        = req.aguinaldo,
+        bono_imponible       = req.bono_imponible,
+        bono_imponible_glosa = req.bono_imponible_glosa or "",
         colacion         = req.colacion,
         movilizacion     = req.movilizacion,
         viaticos         = req.viaticos,
         asig_familiar    = req.asig_familiar,
         otros_haberes    = req.otros_haberes,
+        bono_no_imponible       = req.bono_no_imponible,
+        bono_no_imponible_glosa = req.bono_no_imponible_glosa or "",
         anticipo         = req.anticipo,
         prestamo         = req.prestamo,
         otros_descuentos = req.otros_descuentos,
@@ -312,12 +324,16 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
             "horas_extra_50":   int(res.horas_extra_50),
             "horas_extra_100":  int(res.horas_extra_100),
             "aguinaldo":        int(res.aguinaldo),
+            "bono_imponible":       int(res.bono_imponible),
+            "bono_imponible_glosa": res.bono_imponible_glosa,
             "total_imponible":  int(res.total_imponible),
             "colacion":         int(res.colacion),
             "movilizacion":     int(res.movilizacion),
             "viaticos":         int(res.viaticos),
             "asig_familiar":    int(res.asig_familiar),
             "otros_haberes":    int(res.otros_haberes),
+            "bono_no_imponible":       int(res.bono_no_imponible),
+            "bono_no_imponible_glosa": res.bono_no_imponible_glosa,
             "total_haberes":    int(res.total_haberes),
         },
         "descuentos_legales": {
@@ -441,11 +457,15 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
         horas_extra_50       = res.horas_extra_50,
         horas_extra_100      = res.horas_extra_100,
         aguinaldo            = res.aguinaldo,
+        bono_imponible       = res.bono_imponible,
+        bono_imponible_glosa = res.bono_imponible_glosa or None,
         colacion             = res.colacion,
         movilizacion         = res.movilizacion,
         viaticos             = res.viaticos,
         asig_familiar        = res.asig_familiar,
         otros_haberes        = res.otros_haberes,
+        bono_no_imponible       = res.bono_no_imponible,
+        bono_no_imponible_glosa = res.bono_no_imponible_glosa or None,
         total_haberes        = res.total_haberes,
         descuento_afp        = res.descuento_afp,
         descuento_salud      = res.descuento_salud,

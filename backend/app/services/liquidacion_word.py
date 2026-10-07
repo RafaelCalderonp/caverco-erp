@@ -328,6 +328,13 @@ def _insert_liquidacion(doc, empresa, empleado, liquidacion,
            "",                   "",
            "IMPUESTO ÚNICO",     clp(liq.impuesto_unico))
 
+    bono_imp_lbl = (f"BONO: {liq.bono_imponible_glosa}" if getattr(liq, "bono_imponible_glosa", None) else "BONO IMPONIBLE") if liq.bono_imponible else ""
+    bono_no_imp_lbl = (f"BONO: {liq.bono_no_imponible_glosa}" if getattr(liq, "bono_no_imponible_glosa", None) else "BONO NO IMPONIBLE") if liq.bono_no_imponible else ""
+    if bono_imp_lbl or bono_no_imp_lbl:
+        _fila3(bono_imp_lbl, clp(liq.bono_imponible) if liq.bono_imponible else "",
+               bono_no_imp_lbl, clp(liq.bono_no_imponible) if liq.bono_no_imponible else "",
+               "", "")
+
     row_tot = main.add_row()
     _set_row_height(row_tot, ROW_H)
     no_imp = (liq.total_haberes or 0) - (liq.total_imponible or 0)
