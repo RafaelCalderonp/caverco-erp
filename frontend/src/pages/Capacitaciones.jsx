@@ -623,7 +623,7 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
                 <tr style={{ background: 'var(--gray-100)' }}>
                   <th style={{ padding: '4px 8px', textAlign: 'left', width: 30 }}>N°</th>
                   <th style={{ padding: '4px 8px', textAlign: 'left' }}>Nombre</th>
-                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>{esArchimet ? 'Cargo' : 'Área'}</th>
+                  <th style={{ padding: '4px 8px', textAlign: 'left' }}>Cargo</th>
                   <th style={{ padding: '4px 8px', textAlign: 'left', width: 120 }}>RUT</th>
                   <th style={{ width: 30 }}></th>
                 </tr>

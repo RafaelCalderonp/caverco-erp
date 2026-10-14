@@ -298,10 +298,10 @@ def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_n
 
     # ── Tabla de asistentes ──────────────────────────────────────────────────
     n_rows = max(len(asistentes), 15)
-    att = doc.add_table(rows=n_rows + 1, cols=4)
+    att = doc.add_table(rows=n_rows + 1, cols=5)
     att.style = "Table Grid"
 
-    for i, h in enumerate(["N°", "Nombre Completo", "Área", "RUT"]):
+    for i, h in enumerate(["N°", "Nombre Completo", "Cargo", "RUT", "Firma"]):
         _cell_para(att.rows[0].cells[i], h, bold=True, size=8, align=WD_ALIGN_PARAGRAPH.CENTER)
         _set_cell_bg(att.rows[0].cells[i], "D9EAD3")
 
@@ -316,9 +316,10 @@ def generar_capacitacion_docx(capacitacion, procedimiento, asistentes, empresa_n
         else:
             for c in [1, 2, 3]:
                 _cell_para(row.cells[c], "", size=8)
+        _cell_para(row.cells[4], "", size=8)
         row.height = Cm(0.65)
 
-    att_widths = [1.0, 7.5, 5.0, 3.5]
+    att_widths = [1.0, 6.5, 4.5, 3.0, 2.0]
     for row in att.rows:
         for i, w in enumerate(att_widths):
             row.cells[i].width = Cm(w)
