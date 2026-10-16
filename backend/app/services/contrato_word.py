@@ -107,6 +107,14 @@ def _parrafo(doc, partes, bold_default=False, align=None, space_after=10):
     return p
 
 
+def _normalizar_espacios(texto: str) -> str:
+    """Colapsa tabs/espacios múltiples (ej. un Tab tecleado en un <textarea>
+    que no insertó espacio real) a un solo espacio, para que el texto quede
+    bien separado al concatenarlo en el Word."""
+    import re
+    return re.sub(r"\s+", " ", texto or "").strip()
+
+
 def _logo_bytes(logo_url: str | None) -> bytes | None:
     if not logo_url or not logo_url.startswith("data:"):
         return None
@@ -924,6 +932,7 @@ def generar_carta_despido_docx(
         " del Código del Trabajo, esto es: ",
     ])
 
+    descripcion_adicional = _normalizar_espacios(descripcion_adicional)
     causal_run = f'"{causal_texto}."' + (f" {descripcion_adicional}" if descripcion_adicional else "")
     _parrafo(doc, [causal_run], bold_default=True, space_after=10)
 
@@ -1092,6 +1101,7 @@ def generar_finiquito_docx(
 
     _parrafo(doc, [("PRIMERO:", True)], space_after=4)
     fi_str = _fecha_larga(contrato.fecha_inicio) if contrato.fecha_inicio else "la fecha de inicio del contrato"
+    descripcion_adicional = _normalizar_espacios(descripcion_adicional)
     _parrafo(doc, [
         f"don/doña ", (nombre_completo, True),
         f" declara haber prestado servicios a ", (f'"{razon}"', True),
