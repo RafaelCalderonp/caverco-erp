@@ -874,6 +874,7 @@ def generar_carta_despido_docx(
     gratificacion: int = 0,
     rem_pendiente: int = 0,
     descripcion_adicional: str = "",
+    obra_nombre: str = "",
     desc_afp: int = 0,
     desc_salud: int = 0,
     desc_afc: int = 0,
@@ -924,7 +925,8 @@ def generar_carta_despido_docx(
         " del Código del Trabajo, esto es: ",
     ])
 
-    _parrafo(doc, [f'"{causal_texto}."'], bold_default=True, space_after=10)
+    causal_run = f'"{causal_texto}."' + (f" Obra: {obra_nombre}." if causal_codigo == "159_5" and obra_nombre else "")
+    _parrafo(doc, [causal_run], bold_default=True, space_after=10)
 
     if descripcion_adicional:
         _parrafo(doc, [descripcion_adicional], space_after=10)
@@ -1034,6 +1036,7 @@ def generar_finiquito_docx(
     desc_afc: int = 0,
     tasa_afp: float = 0.1144,
     indem_tiempo_servido: int = 0,
+    obra_nombre: str = "",
     dias_ganados_vac: float = 0,
     dias_tomados_vac: float = 0,
     dias_pendientes_vac: float = 0,
@@ -1100,7 +1103,7 @@ def generar_finiquito_docx(
         f", desde el {fi_str} hasta el {_fecha_larga(fecha_termino)}, "
         f"fecha de terminación de sus servicios por la causal establecida en el {art_ref} "
         "del Código del Trabajo, esto es: ",
-        (f'"{causal_texto}".', True),
+        (f'"{causal_texto}".' + (f" Obra: {obra_nombre}." if causal_codigo == "159_5" and obra_nombre else ""), True),
     ], space_after=10)
 
     _parrafo(doc, [("SEGUNDO:", True)], space_after=4)
