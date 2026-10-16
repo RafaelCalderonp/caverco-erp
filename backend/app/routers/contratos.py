@@ -773,7 +773,6 @@ async def descargar_carta_despido_word(
     empleado = await db.get(Empleado, contrato.id_empleado)
     empresa  = await db.get(Empresa, empleado.id_empresa)
     cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
-    obra     = await db.get(Obra, contrato.id_obra) if contrato.id_obra else None
 
     from math import floor
     from decimal import Decimal
@@ -898,7 +897,6 @@ async def descargar_carta_despido_word(
         rem_pendiente              = rem_pendiente,
         anos_servicio              = anos_completos,
         descripcion_adicional      = descripcion_adicional,
-        obra_nombre                = obra.nombre if obra else "",
         desc_afp                   = desc_afp,
         desc_salud                 = desc_salud,
         desc_afc                   = desc_afc,
@@ -929,6 +927,7 @@ async def descargar_finiquito_word(
     colacion_mensual: int = 0,
     movilizacion_mensual: int = 0,
     dias_vacaciones_tomados: float = 0,
+    descripcion_adicional: str = "",
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -944,7 +943,6 @@ async def descargar_finiquito_word(
     empleado = await db.get(Empleado, contrato.id_empleado)
     empresa  = await db.get(Empresa, empleado.id_empresa) if empleado else None
     cargo    = await db.get(Cargo, empleado.id_cargo) if (empleado and empleado.id_cargo) else None
-    obra     = await db.get(Obra, contrato.id_obra) if contrato.id_obra else None
 
     if not empresa or not empleado:
         raise HTTPException(status_code=400, detail="Contrato sin empresa o trabajador")
@@ -1062,7 +1060,7 @@ async def descargar_finiquito_word(
         desc_salud           = desc_salud,
         desc_afc             = desc_afc,
         tasa_afp             = tasa_afp,
-        obra_nombre          = obra.nombre if obra else "",
+        descripcion_adicional = descripcion_adicional,
         dias_ganados_vac     = dias_ganados_hab if fi else 0,
         dias_tomados_vac     = float(dias_vacaciones_tomados),
         dias_pendientes_vac  = dias_pendientes_hab if fi else 0,

@@ -751,6 +751,7 @@ export default function ContratoDetalle() {
         colacion_mensual: Number(formDespido.colacion_mensual) || 0,
         movilizacion_mensual: Number(formDespido.movilizacion_mensual) || 0,
         dias_vacaciones_tomados: Number(formDespido.dias_vacaciones_tomados) || 0,
+        descripcion_adicional: formDespido.descripcion_adicional,
       })
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Finiquito_${id}.docx`))
 
