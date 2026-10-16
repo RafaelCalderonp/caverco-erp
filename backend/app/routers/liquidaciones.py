@@ -1034,14 +1034,28 @@ async def get_asistencia(
     dias_en_mes = calendar.monthrange(year, month)[1]
     fin_periodo = date(year, month, dias_en_mes)
 
-    # Empleados del centro de costo (activos, filtrados por empresa)
-    q = select(Empleado).where(Empleado.activo == True)
+    liq_cc_sub = None
+    if centro_costo_id:
+        liq_cc_sub = (
+            select(Liquidacion.id_empleado)
+            .where(Liquidacion.periodo == periodo, Liquidacion.id_centro_costo == centro_costo_id)
+        )
+
+    # Empleados del centro de costo (activos, filtrados por empresa). Un
+    # empleado desactivado después de liquidarlo en este período/CC igual
+    # debe seguir apareciendo aquí.
+    q = select(Empleado).where(
+        or_(Empleado.activo == True, Empleado.id.in_(liq_cc_sub)) if liq_cc_sub is not None else Empleado.activo == True
+    )
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
         # Incluye empleados cuyo perfil O su contrato vigente tiene este CC,
         # pero solo si ya estaban contratados dentro del período (su contrato
         # no puede haber empezado después del mes que se está liquidando).
+        # También incluye a quien ya tiene una liquidación emitida en este
+        # período/CC: un contrato finiquitado después no debe hacerlo
+        # desaparecer de la asistencia de un período ya liquidado.
         contrato_cc_sub = (
             select(Contrato.id_empleado)
             .where(
@@ -1054,6 +1068,7 @@ async def get_asistencia(
             or_(
                 and_(Empleado.id_centro_costo == centro_costo_id, Empleado.fecha_ingreso <= fin_periodo),
                 Empleado.id.in_(contrato_cc_sub),
+                Empleado.id.in_(liq_cc_sub),
             )
         )
     q = q.order_by(Empleado.apellido_paterno, Empleado.nombres)
