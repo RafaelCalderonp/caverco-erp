@@ -476,8 +476,9 @@ def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
 
     # Párrafos
     for txt in [
-        f"Declaro haber recibido en forma gratuita una copia del reglamento interno de orden, higiene y seguridad "
-        f"de la empresa {empresa_nombre} de acuerdo a lo establecido en el Art. 56 del D.S N° 40 y Art. 67 de la Ley 16.744.",
+        f"Declaro haber recibido en forma gratuita, enviada por la empresa a través de correo electrónico, una copia "
+        f"del reglamento interno de orden, higiene y seguridad de la empresa {empresa_nombre} de acuerdo a lo "
+        f"establecido en el Art. 56 del D.S. N° 44 y Art. 67 de la Ley 16.744.",
         "Asumo mi responsabilidad de dar lectura a su contenido y dar cumplimiento a las obligaciones, prohibiciones, "
         "normas de orden, higiene y seguridad que en él están escritas, como así también a las disposiciones "
         "establecidas por el Organismo Administrador del Seguro de Accidentes del Trabajo y Enfermedades "
@@ -493,11 +494,13 @@ def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
 
     # Tabla datos
     fecha_str = f"{fecha_entrega.day:02d} {MESES_RRHH[fecha_entrega.month-1]} {fecha_entrega.year}" if fecha_entrega else ""
-    tbl = doc.add_table(rows=5, cols=2)
+    email_empleado = getattr(empleado, "email_corporativo", None) or getattr(empleado, "email_personal", None) or ""
+    tbl = doc.add_table(rows=6, cols=2)
     tbl.style = "Table Grid"
     for i, (lbl, val) in enumerate([
         ("Nombre completo",       nombre_empleado),
         ("R.U.T.",                empleado.rut or ""),
+        ("Correo electrónico",   email_empleado),
         ("Sección",               cargo_nombre),
         ("Firma del trabajador",  ""),
         ("Fecha de entrega",      fecha_str),
