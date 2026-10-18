@@ -549,7 +549,7 @@ def generar_capacitacion_archimet_docx(capacitacion, procedimiento, asistentes, 
 # ─── 2. ENTREGA DE REGLAMENTO INTERNO ────────────────────────────────────────
 
 def generar_reglamento_docx(nombre: str, rut: str, seccion: str,
-                             fecha: date, empresa_nombre: str) -> bytes:
+                             fecha: date, empresa_nombre: str, email: str = "") -> bytes:
     doc = _new_doc()
 
     # Título
@@ -565,8 +565,9 @@ def generar_reglamento_docx(nombre: str, rut: str, seccion: str,
 
     # Párrafos declaración
     textos = [
-        f"Declaro haber recibido en forma gratuita una copia del reglamento interno de orden, higiene y seguridad "
-        f"de la empresa {empresa_nombre} de acuerdo a lo establecido en el Art. 56 del D.S N° 40 y Art. 67 de la Ley 16.744.",
+        f"Declaro haber recibido en forma gratuita, enviada por la empresa a través de correo electrónico, una copia "
+        f"del reglamento interno de orden, higiene y seguridad de la empresa {empresa_nombre} de acuerdo a lo "
+        f"establecido en el Art. 56 del D.S. N° 44 y Art. 67 de la Ley 16.744.",
         "Asumo mi responsabilidad de dar lectura a su contenido y dar cumplimiento a las obligaciones, prohibiciones, "
         "normas de orden, higiene y seguridad que en él están escritas, como así también a las disposiciones "
         "establecidas por el Organismo Administrador del Seguro de Accidentes del Trabajo y Enfermedades "
@@ -585,13 +586,14 @@ def generar_reglamento_docx(nombre: str, rut: str, seccion: str,
     p_sep.runs[0].font.size = Pt(8)
 
     # Tabla de datos
-    tbl = doc.add_table(rows=5, cols=2)
+    tbl = doc.add_table(rows=6, cols=2)
     tbl.style = "Table Grid"
 
     rows_data = [
         ("Nombre completo", nombre or ""),
         ("R.U.T.",          rut    or ""),
-        ("Sección",         seccion or ""),
+        ("Correo electrónico", email or ""),
+        ("Cargo",           seccion or ""),
         ("Firma del trabajador", ""),
         ("Fecha de entrega", _fmt_date_larga(fecha) if fecha else ""),
     ]

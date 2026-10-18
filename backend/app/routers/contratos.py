@@ -627,12 +627,14 @@ async def descargar_reglamento_word(id: int, fecha_entrega: Optional[date] = Non
     contrato = await _get_contrato_or_404(id, db)
     empleado = await db.get(Empleado, contrato.id_empleado)
     empresa  = await db.get(Empresa, empleado.id_empresa)
+    cargo    = await db.get(Cargo, empleado.id_cargo) if empleado.id_cargo else None
 
     from datetime import date as date_today
     docx_bytes = generar_reglamento_docx(
         empresa       = empresa,
         empleado      = empleado,
         fecha_entrega = fecha_entrega or date_today.today(),
+        cargo_nombre  = cargo.nombre if cargo else "",
     )
     fname  = _fname("Reglamento Interno", empleado, fecha_entrega or date.today())
 

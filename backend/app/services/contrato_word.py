@@ -439,7 +439,7 @@ MESES_RRHH = ["enero","febrero","marzo","abril","mayo","junio",
                "julio","agosto","septiembre","octubre","noviembre","diciembre"]
 
 
-def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
+def generar_reglamento_docx(empresa, empleado, fecha_entrega: date, cargo_nombre: str = "") -> bytes:
     doc = Document()
     section = doc.sections[0]
     section.page_width    = Cm(21.59)
@@ -453,7 +453,6 @@ def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
     style.font.size = Pt(11)
 
     nombre_empleado = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
-    cargo_nombre    = getattr(empleado, "cargo_nombre", "") or ""
     empresa_nombre  = empresa.razon_social or ""
 
     # Logo
@@ -501,7 +500,7 @@ def generar_reglamento_docx(empresa, empleado, fecha_entrega: date) -> bytes:
         ("Nombre completo",       nombre_empleado),
         ("R.U.T.",                empleado.rut or ""),
         ("Correo electrónico",   email_empleado),
-        ("Sección",               cargo_nombre),
+        ("Cargo",                 cargo_nombre),
         ("Firma del trabajador",  ""),
         ("Fecha de entrega",      fecha_str),
     ]):

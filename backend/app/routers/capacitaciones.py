@@ -12,7 +12,7 @@ from urllib.parse import quote
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.capacitaciones import ProcedimientoCapacitacion, Capacitacion, AsistenteCapacitacion
-from app.models.rrhh import Empresa, Empleado
+from app.models.rrhh import Empresa, Empleado, Cargo
 from app.services.capacitacion_word import (
     generar_capacitacion_docx,
     generar_capacitacion_archimet_docx,
@@ -356,6 +356,7 @@ async def generar_reglamento_interno(
     nombre = data.nombre_trabajador
     rut    = data.rut_trabajador or ""
     seccion = data.seccion or ""
+    email  = ""
 
     # Si viene id_empleado, enriquecer datos
     if data.id_empleado:
@@ -364,7 +365,11 @@ async def generar_reglamento_interno(
         if emp:
             nombre  = f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
             rut     = emp.rut or rut
-            seccion = seccion or getattr(emp, "cargo_nombre", "") or ""
+            email   = emp.email_corporativo or emp.email_personal or ""
+            if not seccion and emp.id_cargo:
+                cargo_res = await db.execute(select(Cargo).where(Cargo.id == emp.id_cargo))
+                cargo_obj = cargo_res.scalar_one_or_none()
+                seccion = cargo_obj.nombre if cargo_obj else ""
 
     docx_bytes = generar_reglamento_docx(
         nombre         = nombre,
@@ -372,6 +377,7 @@ async def generar_reglamento_interno(
         seccion        = seccion,
         fecha          = data.fecha_entrega,
         empresa_nombre = empresa.razon_social,
+        email          = email,
     )
     fname = f"Reglamento_Interno_{(nombre or 'trabajador').replace(' ','_')}.docx"
 
