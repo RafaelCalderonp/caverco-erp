@@ -33,6 +33,7 @@ class ProcedimientoOut(BaseModel):
     nombre: str
     objetivo_general: Optional[str] = None
     objetivos_especificos: Optional[str] = None
+    abreviatura: Optional[str] = None
     activo: bool
     empresa_rut_filtro: Optional[str] = None
     model_config = {"from_attributes": True}
@@ -295,10 +296,10 @@ async def descargar_word_capacitacion(id_empresa: int, id: int, db: AsyncSession
         empresa_nombre = empresa.razon_social if empresa else "",
         empresa        = empresa,
     )
-    cod = cap.procedimiento.codigo if cap.procedimiento else str(id)
+    tipo = (cap.procedimiento.abreviatura or cap.procedimiento.nombre) if cap.procedimiento else f"Capacitacion_{id}"
     d = cap.fecha
     yymmdd = d.strftime("%y%m%d") if hasattr(d, "strftime") else str(d).replace("-", "")[2:]
-    fname = f"{yymmdd}_Capacitacion_{cod}.docx"
+    fname = f"{yymmdd}_{tipo}.docx"
 
     return StreamingResponse(
         io.BytesIO(docx_bytes),

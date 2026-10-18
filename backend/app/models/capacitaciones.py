@@ -12,6 +12,7 @@ class ProcedimientoCapacitacion(Base):
     nombre                = Column(String(300), nullable=False)
     objetivo_general      = Column(Text)
     objetivos_especificos = Column(Text)
+    abreviatura           = Column(String(60))  # para el nombre del archivo Word, ej. "Cap. M.Riesgos"
     activo                = Column(Boolean, nullable=False, default=True)
     empresa_rut_filtro    = Column(String(20), nullable=True, default=None)
     created_at            = Column(DateTime, default=func.now())
