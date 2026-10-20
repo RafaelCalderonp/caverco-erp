@@ -201,13 +201,16 @@ export default function Capacitaciones() {
     setEditandoId(null)
   }, [tab])
 
+  const conNombreEmpresa = (txt) =>
+    empresaActual?.razon_social ? (txt || '').replace(/de la empresa\./g, `de ${empresaActual.razon_social}.`) : (txt || '')
+
   function onProcChange(e) {
     const id = e.target.value
     const proc = procedimientos.find(p => String(p.id) === id)
     setFormCap(f => ({
       ...f,
       id_procedimiento: id,
-      objetivo_general: proc?.objetivo_general || '',
+      objetivo_general: conNombreEmpresa(proc?.objetivo_general),
       objetivos_especificos: proc?.objetivos_especificos || '',
     }))
   }
@@ -217,7 +220,7 @@ export default function Capacitaciones() {
     setFormCap({
       ...CAP_EMPTY,
       id_procedimiento: String(proc.id),
-      objetivo_general: proc.objetivo_general || '',
+      objetivo_general: conNombreEmpresa(proc.objetivo_general),
       objetivos_especificos: proc.objetivos_especificos || '',
       material_apoyo: proc.codigo || '',
     })
