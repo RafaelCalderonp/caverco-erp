@@ -75,3 +75,34 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.get("/debug/procedimientos")
+async def debug_procedimientos():
+    """Endpoint temporal de diagnóstico: estado de las migraciones 58-62 y
+    conteo de procedimientos de capacitación por empresa. Sin datos sensibles."""
+    import asyncpg
+    db_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    conn = await asyncpg.connect(db_url)
+    try:
+        migraciones = await conn.fetch(
+            "SELECT nombre, aplicada FROM erp.migrations_log WHERE nombre ~ '^(5[8-9]|6[0-2])_' ORDER BY nombre"
+        )
+        conteo_jd = await conn.fetchval(
+            "SELECT count(*) FROM erp.procedimientos_capacitacion WHERE empresa_rut_filtro = '78.278.332-7'"
+        )
+        conteo_base = await conn.fetchval(
+            "SELECT count(*) FROM erp.procedimientos_capacitacion WHERE empresa_rut_filtro IS NULL"
+        )
+        codigos_jd = await conn.fetch(
+            "SELECT codigo, nombre FROM erp.procedimientos_capacitacion WHERE empresa_rut_filtro = '78.278.332-7' ORDER BY codigo"
+        )
+        return {
+            "migraciones_58_a_62": [dict(r) for r in migraciones],
+            "conteo_procedimientos_jd": conteo_jd,
+            "conteo_procedimientos_base": conteo_base,
+            "codigos_jd": [dict(r) for r in codigos_jd],
+        }
+    except Exception as exc:
+        return {"error": str(exc)}
+    finally:
+        await conn.close()
