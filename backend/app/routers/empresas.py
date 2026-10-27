@@ -6,6 +6,7 @@ from typing import List
 from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
 from app.models.rrhh import Empresa
+from app.models.capacitaciones import ProcedimientoCapacitacion
 from app.schemas.rrhh import EmpresaCreate, EmpresaUpdate, EmpresaOut
 
 router = APIRouter(prefix="/empresas", tags=["Empresas"], dependencies=[Depends(get_current_user)])
@@ -37,6 +38,21 @@ async def crear(data: EmpresaCreate, db: AsyncSession = Depends(get_db)):
     db.add(empresa)
     await db.flush()
     await db.refresh(empresa)
+
+    # Siembra la empresa con su propia copia independiente de los
+    # procedimientos de capacitación base, para que futuras correcciones de
+    # texto legal se puedan aplicar por empresa sin afectar a las demás.
+    base = await db.execute(
+        select(ProcedimientoCapacitacion).where(ProcedimientoCapacitacion.empresa_rut_filtro == None)
+    )
+    for p in base.scalars().all():
+        db.add(ProcedimientoCapacitacion(
+            codigo=p.codigo, nombre=p.nombre, objetivo_general=p.objetivo_general,
+            objetivos_especificos=p.objetivos_especificos, abreviatura=p.abreviatura,
+            activo=p.activo, empresa_rut_filtro=empresa.rut,
+        ))
+    await db.flush()
+
     return empresa
 
 

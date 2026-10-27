@@ -8,7 +8,7 @@ class ProcedimientoCapacitacion(Base):
     __table_args__ = {"schema": "erp"}
 
     id                    = Column(Integer, primary_key=True)
-    codigo                = Column(String(30), nullable=False, unique=True)
+    codigo                = Column(String(30), nullable=False)  # único por empresa (empresa_rut_filtro), no global
     nombre                = Column(String(300), nullable=False)
     objetivo_general      = Column(Text)
     objetivos_especificos = Column(Text)

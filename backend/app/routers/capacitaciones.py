@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import date
@@ -130,16 +130,28 @@ async def listar_procedimientos(
     empresa_rut: Optional[str] = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(ProcedimientoCapacitacion).where(ProcedimientoCapacitacion.activo == True)
     if empresa_rut:
-        q = q.where(
-            or_(
-                ProcedimientoCapacitacion.empresa_rut_filtro == None,
-                ProcedimientoCapacitacion.empresa_rut_filtro == empresa_rut,
-            )
+        # Cada empresa tiene su propia copia independiente de los procedimientos
+        # (así una corrección de texto legal no afecta a las demás). Si la
+        # empresa aún no tiene copia propia (recién creada antes de este
+        # cambio, o seed pendiente), se cae a las plantillas base.
+        propios = await db.execute(
+            select(ProcedimientoCapacitacion)
+            .where(ProcedimientoCapacitacion.activo == True, ProcedimientoCapacitacion.empresa_rut_filtro == empresa_rut)
+            .order_by(ProcedimientoCapacitacion.id)
+        )
+        propios = propios.scalars().all()
+        if propios:
+            return propios
+        q = select(ProcedimientoCapacitacion).where(
+            ProcedimientoCapacitacion.activo == True,
+            ProcedimientoCapacitacion.empresa_rut_filtro == None,
         )
     else:
-        q = q.where(ProcedimientoCapacitacion.empresa_rut_filtro == None)
+        q = select(ProcedimientoCapacitacion).where(
+            ProcedimientoCapacitacion.activo == True,
+            ProcedimientoCapacitacion.empresa_rut_filtro == None,
+        )
     result = await db.execute(q.order_by(ProcedimientoCapacitacion.id))
     return result.scalars().all()
 
