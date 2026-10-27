@@ -170,7 +170,7 @@ export default function Capacitaciones() {
     try {
       const [capRes, procRes, empRes, obrasRes, ccRes, prevRes] = await Promise.all([
         capacitacionesApi.list(empresaActual.id),
-        capacitacionesApi.procedimientos(esArchimet ? empresaActual.rut : null),
+        capacitacionesApi.procedimientos(empresaActual.rut),
         api.get('/empleados').catch(() => ({ data: [] })),
         api.get('/catalogos/obras', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
         api.get('/catalogos/centros-costo', { params: { id_empresa: empresaActual.id } }).catch(() => ({ data: [] })),
@@ -533,7 +533,7 @@ function FormCapacitacion({ form, setForm, procedimientos, empleados, obras = []
 
           <div className="form-group">
             <label>Obra</label>
-            {esArchimet && obras.length > 0 ? (
+            {obras.length > 0 ? (
               <select className="form-control" value={form.obra}
                 onChange={e => setForm(f => ({ ...f, obra: e.target.value }))}>
                 <option value="">— Sin obra —</option>
