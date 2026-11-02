@@ -138,7 +138,7 @@ async def listar_procedimientos(
         propios = await db.execute(
             select(ProcedimientoCapacitacion)
             .where(ProcedimientoCapacitacion.activo == True, ProcedimientoCapacitacion.empresa_rut_filtro == empresa_rut)
-            .order_by(ProcedimientoCapacitacion.id)
+            .order_by(ProcedimientoCapacitacion.codigo)
         )
         propios = propios.scalars().all()
         if propios:
@@ -152,7 +152,7 @@ async def listar_procedimientos(
             ProcedimientoCapacitacion.activo == True,
             ProcedimientoCapacitacion.empresa_rut_filtro == None,
         )
-    result = await db.execute(q.order_by(ProcedimientoCapacitacion.id))
+    result = await db.execute(q.order_by(ProcedimientoCapacitacion.codigo))
     return result.scalars().all()
 
 
