@@ -161,8 +161,14 @@ export default function Capacitaciones() {
   // Archimet: template seleccionado para nuevo registro
   const [templateSeleccionado, setTemplateSeleccionado] = useState(null)
 
-  const procedimientosArchimet = procedimientos.filter(p => p.empresa_rut_filtro === RUT_ARCHIMET)
-  const procedimientosGlobales = procedimientos.filter(p => !p.empresa_rut_filtro)
+  // Cada empresa recibe su propia copia de TODOS sus procedimientos (todas
+  // con empresa_rut_filtro puesto a su propio RUT desde que se separaron por
+  // empresa), así que ya no sirve filtrar por dueño. Se distingue en cambio
+  // por el formato del código: los "base" (compartidos en origen) son
+  // numéricos (01, 02, ...); los específicos de Archimet usan código propio
+  // (PT-C-L, MS-GR-PR11, etc.).
+  const procedimientosArchimet = procedimientos.filter(p => !/^\d+$/.test(p.codigo))
+  const procedimientosGlobales = procedimientos.filter(p => /^\d+$/.test(p.codigo))
 
   const cargar = useCallback(async () => {
     if (!empresaActual) return
@@ -302,7 +308,7 @@ export default function Capacitaciones() {
   }
 
   async function descargarCap(cap) {
-    const esCapArchimet = cap.procedimiento?.empresa_rut_filtro === RUT_ARCHIMET
+    const esCapArchimet = cap.procedimiento?.codigo && !/^\d+$/.test(cap.procedimiento.codigo)
     setDescargando(cap.id)
     try {
       const res = esCapArchimet
@@ -325,8 +331,8 @@ export default function Capacitaciones() {
   ]
 
   // Capacitaciones del tab activo
-  const capsArchimet = capacitaciones.filter(c => c.procedimiento?.empresa_rut_filtro === RUT_ARCHIMET)
-  const capsGlobales = capacitaciones.filter(c => !c.procedimiento?.empresa_rut_filtro)
+  const capsArchimet = capacitaciones.filter(c => c.procedimiento?.codigo && !/^\d+$/.test(c.procedimiento.codigo))
+  const capsGlobales = capacitaciones.filter(c => !c.procedimiento?.codigo || /^\d+$/.test(c.procedimiento.codigo))
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
