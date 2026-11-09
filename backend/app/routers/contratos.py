@@ -307,6 +307,10 @@ async def crear_contrato(data: ContratoCreate, db: AsyncSession = Depends(get_db
     db.add(contrato)
     # Un contrato nuevo (ej. recontratación) pasa a ser la condición operativa
     # vigente del trabajador: se refleja en su ficha igual que en el alta inicial.
+    # Reactiva el perfil si estaba desactivado de un vínculo anterior, para
+    # que vuelva a aparecer en Registro de Asistencia y demás vistas filtradas
+    # por "activo".
+    empleado.activo = True
     empleado.id_tipo_contrato = data.id_tipo_contrato
     empleado.sueldo_base = data.sueldo_bruto
     empleado.colacion = data.colacion
