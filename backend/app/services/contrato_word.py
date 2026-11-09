@@ -410,6 +410,21 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
         ])
         if anexo.observacion:
             _parrafo(doc, [("SEGUNDO: Observaciones: ", True), (anexo.observacion, True)])
+    elif tipo_anexo_codigo == "AUTORIZ_ALZA_HOMBRE":
+        equipo = anexo.observacion or "Alza Hombre"
+        _parrafo(doc, [("PRIMERO: Autorización para Operar Equipo Alza Hombre: ", True)])
+        _parrafo(doc, [
+            'Cláusula que establece: "Las partes dejan constancia de que EL TRABAJADOR cuenta con Certificado '
+            'Psicosensotécnico vigente que acredita su aptitud psicofísica para la labor, en virtud de lo cual '
+            'EL EMPLEADOR autoriza a EL TRABAJADOR a operar el equipo ', (equipo, True),
+            ', correspondiente a una plataforma elevadora de personal (Alza Hombre), debiendo dar estricto '
+            'cumplimiento a las normas de seguridad establecidas en el Procedimiento de Trabajo Seguro para '
+            'Trabajo en Altura de la empresa, la Ley N°16.744 sobre Accidentes del Trabajo y Enfermedades '
+            'Profesionales, el D.S. N°594 del Ministerio de Salud y el D.S. N°44 del Ministerio del Trabajo '
+            'sobre gestión de riesgos laborales. EL TRABAJADOR se obliga a mantener vigente dicho certificado '
+            'mientras opere el equipo señalado, debiendo informar a EL EMPLEADOR con la antelación suficiente '
+            'para gestionar su renovación, quedando prohibida la operación del equipo con el certificado vencido."',
+        ])
     else:
         _parrafo(doc, [("PRIMERO: ", True), (anexo.observacion or "", True)])
 
