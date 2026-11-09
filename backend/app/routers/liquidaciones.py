@@ -5,7 +5,7 @@ Endpoints: calcular preview, emitir, listar por período, detalle, indicadores P
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_
+from sqlalchemy import select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
@@ -1050,12 +1050,14 @@ async def get_asistencia(
     if id_empresa:
         q = q.where(Empleado.id_empresa == id_empresa)
     if centro_costo_id:
-        # Incluye empleados cuyo perfil O su contrato vigente tiene este CC,
-        # pero solo si ya estaban contratados dentro del período (su contrato
-        # no puede haber empezado después del mes que se está liquidando).
-        # También incluye a quien ya tiene una liquidación emitida en este
-        # período/CC: un contrato finiquitado después no debe hacerlo
-        # desaparecer de la asistencia de un período ya liquidado.
+        # Incluye solo a quien tiene un contrato vigente real con este CC
+        # dentro del período (no su CC de perfil: ese se actualiza con cada
+        # contrato nuevo, aunque haya un vacío entre un contrato finiquitado
+        # y el siguiente, y hacía aparecer a trabajadores en meses donde no
+        # tenían ningún contrato activo). También se incluye a quien ya
+        # tiene una liquidación emitida en este período/CC: un contrato
+        # finiquitado después no debe hacerlo desaparecer de la asistencia
+        # de un período ya liquidado.
         contrato_cc_sub = (
             select(Contrato.id_empleado)
             .where(
@@ -1066,7 +1068,6 @@ async def get_asistencia(
         )
         q = q.where(
             or_(
-                and_(Empleado.id_centro_costo == centro_costo_id, Empleado.fecha_ingreso <= fin_periodo),
                 Empleado.id.in_(contrato_cc_sub),
                 Empleado.id.in_(liq_cc_sub),
             )
