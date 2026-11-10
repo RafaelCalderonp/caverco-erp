@@ -1062,8 +1062,11 @@ async def get_asistencia(
             select(Contrato.id_empleado)
             .where(
                 Contrato.id_centro_costo == centro_costo_id,
-                Contrato.estado == "vigente",
                 Contrato.fecha_inicio <= fin_periodo,
+                or_(
+                    Contrato.fecha_termino_real.is_(None),
+                    Contrato.fecha_termino_real >= date(year, month, 1),
+                ),
             )
         )
         q = q.where(
@@ -1109,11 +1112,20 @@ async def get_asistencia(
         dt = date(year, month, d)
         tipo_dia.append("HABIL" if es_habil(dt) else "INHABIL")
 
-    # Contrato vigente por empleado (para sueldo base y horas semanales)
+    # Contrato vigente en el período por empleado (para sueldo base y horas
+    # semanales). No solo "estado == vigente": un contrato finiquitado
+    # dentro del propio período (ej. finiquito el 28 del mes) igual debe
+    # aportar sus datos para la liquidación de ese mes.
     contratos_q = await db.execute(
         select(Contrato)
         .where(Contrato.id_empleado.in_(emp_ids))
-        .where(Contrato.estado == "vigente")
+        .where(Contrato.fecha_inicio <= fin_periodo)
+        .where(
+            or_(
+                Contrato.fecha_termino_real.is_(None),
+                Contrato.fecha_termino_real >= date(year, month, 1),
+            )
+        )
         .order_by(Contrato.fecha_inicio.desc())
     )
     contratos_all = contratos_q.scalars().all()
