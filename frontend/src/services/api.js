@@ -113,6 +113,7 @@ export const liquidacionesApi = {
   recalcularAportesPatronales: (periodo) => api.post('/liquidaciones/recalcular-aportes-patronales', null, { params: { periodo } }),
   getAsistencia: (periodo, centro_costo_id) => api.get(`/liquidaciones/asistencia/${periodo}`, { params: centro_costo_id ? { centro_costo_id } : {} }),
   resumenDescuentos: (periodo) => api.get(`/liquidaciones/periodo/${periodo}/resumen-descuentos`),
+  licencias: (periodo, id_empresa) => api.get(`/liquidaciones/periodo/${periodo}/licencias`, { params: id_empresa ? { id_empresa } : {} }),
   patchAsistencia: (periodo, id_empleado, dia, estado) => api.patch(`/liquidaciones/asistencia/${periodo}/celda`, { id_empleado, dia, estado }),
   guardarAsistencia: (periodo, celdas) => api.post(`/liquidaciones/asistencia/${periodo}/guardar`, { celdas }),
   exportarPrevired:            (periodo) =>

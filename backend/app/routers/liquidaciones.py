@@ -124,6 +124,12 @@ async def _get_empleado(id: int, db: AsyncSession) -> Empleado:
         raise HTTPException(404, "Trabajador no encontrado")
     return emp
 
+def _periodo_anterior(periodo: str) -> str:
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    year, month = (year - 1, 12) if month == 1 else (year, month - 1)
+    return f"{year:04d}-{month:02d}"
+
+
 def _primer_dia_habil_mes_siguiente(periodo: str) -> date:
     """Primer día hábil del mes siguiente al período YYYY-MM (para el
     comprobante de pago en efectivo: se paga al día hábil siguiente al
@@ -1193,6 +1199,67 @@ async def patch_asistencia_celda(periodo: str, body: AsistenciaCeldaIn, db: Asyn
     else:
         db.add(RegistroAsistencia(periodo=periodo, id_empleado=body.id_empleado, dia=body.dia, estado=body.estado))
     return {"ok": True}
+
+
+@router.get("/periodo/{periodo}/licencias")
+async def get_licencias_periodo(periodo: str, id_empresa: Optional[int] = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    Trabajadores con días marcados LICENCIA en el Registro de Asistencia de
+    este período, con el rango de fechas y la RIMA (Renta Imponible del Mes
+    Anterior al inicio de la licencia) para completar manualmente los campos
+    correspondientes en Previred. No genera ni modifica el archivo Previred:
+    el código de movimiento y dónde va la RIMA en el formato de 105 campos
+    no están confirmados con una fuente oficial, así que por ahora solo se
+    muestra el dato para que se declare a mano.
+    """
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    dias_en_mes = calendar.monthrange(year, month)[1]
+
+    q = (
+        select(RegistroAsistencia)
+        .where(RegistroAsistencia.periodo == periodo, RegistroAsistencia.estado == "LICENCIA")
+        .join(Empleado, Empleado.id == RegistroAsistencia.id_empleado)
+    )
+    if id_empresa:
+        q = q.where(Empleado.id_empresa == id_empresa)
+    filas = (await db.execute(q)).scalars().all()
+    if not filas:
+        return {"periodo": periodo, "trabajadores": []}
+
+    dias_por_emp: dict[int, list[int]] = {}
+    for f in filas:
+        dias_por_emp.setdefault(f.id_empleado, []).append(f.dia)
+
+    emp_ids = list(dias_por_emp.keys())
+    empleados = {
+        e.id: e for e in (await db.execute(select(Empleado).where(Empleado.id.in_(emp_ids)))).scalars().all()
+    }
+
+    periodo_ant = _periodo_anterior(periodo)
+    liqs_ant = (await db.execute(
+        select(Liquidacion).where(Liquidacion.periodo == periodo_ant, Liquidacion.id_empleado.in_(emp_ids))
+    )).scalars().all()
+    rima_por_emp = {liq.id_empleado: liq.total_imponible for liq in liqs_ant}
+
+    trabajadores = []
+    for emp_id, dias in dias_por_emp.items():
+        emp = empleados.get(emp_id)
+        if not emp:
+            continue
+        dias.sort()
+        trabajadores.append({
+            "id_empleado": emp_id,
+            "nombre": f"{emp.nombres} {emp.apellido_paterno}",
+            "rut": emp.rut,
+            "dias_licencia": len(dias),
+            "fecha_desde": date(year, month, dias[0]).isoformat(),
+            "fecha_hasta": date(year, month, dias[-1]).isoformat(),
+            "rango_continuo": dias == list(range(dias[0], dias[-1] + 1)),
+            "rima": float(rima_por_emp[emp_id]) if rima_por_emp.get(emp_id) is not None else None,
+            "periodo_rima": periodo_ant,
+        })
+    trabajadores.sort(key=lambda t: t["nombre"])
+    return {"periodo": periodo, "trabajadores": trabajadores}
 
 
 class AsistenciaGuardarIn(BaseModel):

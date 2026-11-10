@@ -340,6 +340,19 @@ export default function Liquidaciones() {
   const [periodoCerrado, setPeriodoCerrado] = useState(false)
   const [cambiandoCierre, setCambiandoCierre] = useState(false)
 
+  // Licencias del período (para declarar manualmente en Previred)
+  const [licenciasOpen, setLicenciasOpen] = useState(false)
+  const [licenciasData, setLicenciasData] = useState(null)
+  const [licenciasLoading, setLicenciasLoading] = useState(false)
+  const verLicencias = async () => {
+    setLicenciasOpen(true); setLicenciasLoading(true)
+    try {
+      const r = await liquidacionesApi.licencias(periodo, empresaActual?.id)
+      setLicenciasData(r.data)
+    } catch { setLicenciasData({ periodo, trabajadores: [], error: true }) }
+    finally { setLicenciasLoading(false) }
+  }
+
   // Asientos contables de remuneraciones
   const [estadoContable, setEstadoContable] = useState(null)
   const [generandoAsiento, setGenerandoAsiento] = useState(false)
@@ -722,6 +735,9 @@ export default function Liquidaciones() {
           <button className="btn btn-outline"
             onClick={() => descargar(() => liquidacionesApi.exportarPrevired(periodo), `previred_${periodo}.csv`)}>
             ⬇️ Archivo Previred
+          </button>
+          <button className="btn btn-outline" onClick={verLicencias}>
+            🩺 Licencias del período
           </button>
           <button className="btn btn-outline"
             onClick={() => descargar(() => liquidacionesApi.exportarLibroRemuneraciones(periodo), `libro_remuneraciones_${periodo}.csv`)}>
@@ -1414,6 +1430,58 @@ export default function Liquidaciones() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {licenciasOpen && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={() => setLicenciasOpen(false)}>
+          <div style={{background:'var(--bg)',borderRadius:8,maxWidth:700,width:'90%',maxHeight:'80vh',overflow:'auto',padding:20}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <h3 style={{margin:0}}>🩺 Licencias médicas — {periodo}</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setLicenciasOpen(false)}>Cerrar</button>
+            </div>
+            <p style={{fontSize:12,color:'var(--gray-500)',marginTop:0}}>
+              Trabajadores con días marcados "L" en el Registro de Asistencia de este período.
+              La RIMA (Renta Imponible del Mes Anterior al inicio de la licencia) es la base que
+              corresponde usar para declarar las cotizaciones de AFP/AFC de esos días en Previred —
+              complétala tú manualmente ahí, este sistema todavía no genera esa parte del archivo
+              automáticamente.
+            </p>
+            {licenciasLoading ? <p>Cargando…</p> : licenciasData?.error ? (
+              <p style={{color:'#dc2626'}}>Error al cargar licencias del período.</p>
+            ) : !licenciasData?.trabajadores?.length ? (
+              <p style={{color:'var(--gray-500)'}}>Sin licencias registradas en {periodo}.</p>
+            ) : (
+              <table style={{width:'100%',fontSize:13,borderCollapse:'collapse'}}>
+                <thead>
+                  <tr style={{background:'#f8fafc'}}>
+                    <th style={{textAlign:'left',padding:'6px 8px'}}>Trabajador</th>
+                    <th style={{textAlign:'left',padding:'6px 8px'}}>Desde</th>
+                    <th style={{textAlign:'left',padding:'6px 8px'}}>Hasta</th>
+                    <th style={{textAlign:'right',padding:'6px 8px'}}>Días</th>
+                    <th style={{textAlign:'right',padding:'6px 8px'}}>RIMA ({licenciasData.trabajadores[0]?.periodo_rima})</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {licenciasData.trabajadores.map(t => (
+                    <tr key={t.id_empleado} style={{borderTop:'1px solid #e5e7eb'}}>
+                      <td style={{padding:'6px 8px'}}>{t.nombre}</td>
+                      <td style={{padding:'6px 8px'}}>{t.fecha_desde}</td>
+                      <td style={{padding:'6px 8px'}}>
+                        {t.fecha_hasta}{!t.rango_continuo && <span title="Los días de licencia no son consecutivos" style={{marginLeft:4}}>⚠️</span>}
+                      </td>
+                      <td style={{padding:'6px 8px',textAlign:'right'}}>{t.dias_licencia}</td>
+                      <td style={{padding:'6px 8px',textAlign:'right'}}>
+                        {t.rima != null ? `$${Number(t.rima).toLocaleString('es-CL')}` : <span style={{color:'#dc2626'}}>sin liquidación previa</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>
