@@ -92,8 +92,9 @@ async def debug_contrato_periodo(periodo: str, id_empleado: int = None, rut: str
             id_empleado = fila["id"]
         year, month = int(periodo[:4]), int(periodo[5:7])
         import calendar as _cal
-        fin_periodo = f"{year}-{month:02d}-{_cal.monthrange(year, month)[1]:02d}"
-        inicio_periodo = f"{year}-{month:02d}-01"
+        from datetime import date as _date
+        fin_periodo = _date(year, month, _cal.monthrange(year, month)[1])
+        inicio_periodo = _date(year, month, 1)
         emp = await conn.fetchrow(
             "SELECT id, nombres, apellido_paterno, rut, sueldo_base FROM erp.empleados WHERE id = $1", id_empleado
         )
