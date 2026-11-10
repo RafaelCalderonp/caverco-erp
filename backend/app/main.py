@@ -98,11 +98,11 @@ async def debug_contrato_periodo(periodo: str, id_empleado: int = None, rut: str
             "SELECT id, nombres, apellido_paterno, rut, sueldo_base FROM erp.empleados WHERE id = $1", id_empleado
         )
         contratos = await conn.fetch(
-            "SELECT id, numero, sueldo_bruto, fecha_inicio, fecha_termino_real, estado, id_centro_costo "
+            "SELECT id, numero_contrato, sueldo_bruto, fecha_inicio, fecha_termino_real, estado, id_centro_costo "
             "FROM erp.contratos WHERE id_empleado = $1 ORDER BY fecha_inicio DESC", id_empleado
         )
         resuelto = await conn.fetchrow(
-            "SELECT id, numero, sueldo_bruto, fecha_inicio, fecha_termino_real, estado "
+            "SELECT id, numero_contrato, sueldo_bruto, fecha_inicio, fecha_termino_real, estado "
             "FROM erp.contratos WHERE id_empleado = $1 AND fecha_inicio <= $2 "
             "AND (fecha_termino_real IS NULL OR fecha_termino_real >= $3) "
             "ORDER BY fecha_inicio DESC LIMIT 1",
