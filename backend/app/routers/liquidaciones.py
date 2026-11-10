@@ -1180,8 +1180,8 @@ async def get_asistencia(
 @router.patch("/asistencia/{periodo}/celda", dependencies=[Depends(require_roles("SUPERADMIN", "ADMIN", "RRHH"))])
 async def patch_asistencia_celda(periodo: str, body: AsistenciaCeldaIn, db: AsyncSession = Depends(get_db)):
     """Actualiza el estado de una celda de asistencia."""
-    if body.estado not in ("VERDE", "ROJO", "AUSENTE"):
-        raise HTTPException(400, "estado debe ser VERDE, ROJO o AUSENTE")
+    if body.estado not in ("VERDE", "ROJO", "AUSENTE", "LICENCIA"):
+        raise HTTPException(400, "estado debe ser VERDE, ROJO, AUSENTE o LICENCIA")
     row = (await db.execute(
         select(RegistroAsistencia)
         .where(RegistroAsistencia.periodo == periodo)

@@ -107,12 +107,13 @@ function ExcelColumnFilter({ label, valores, seleccionados, onCambiarSeleccion, 
 const inpFiltroStyle = { fontSize: 10.5, padding: '3px 5px', boxSizing: 'border-box', border:'1px solid var(--gray-300)', borderRadius:4 }
 const popupItemStyle = { display:'block', width:'100%', textAlign:'left', background:'none', border:'none', cursor:'pointer', fontSize:12, padding:'3px 2px', borderRadius:3 }
 
-// Ciclo de estados al hacer clic: VERDE → ROJO → AUSENTE → VERDE
-const CICLO = { VERDE: 'ROJO', ROJO: 'AUSENTE', AUSENTE: 'VERDE' }
+// Ciclo de estados al hacer clic: VERDE → ROJO → AUSENTE → LICENCIA → VERDE
+const CICLO = { VERDE: 'ROJO', ROJO: 'AUSENTE', AUSENTE: 'LICENCIA', LICENCIA: 'VERDE' }
 const TICK = {
-  VERDE:   { icon: '✔', color: '#16a34a', bg: '#dcfce7' },
-  ROJO:    { icon: '✔', color: '#dc2626', bg: '#fee2e2' },
-  AUSENTE: { icon: '✖', color: '#dc2626', bg: '#fee2e2' },
+  VERDE:    { icon: '✔', color: '#16a34a', bg: '#dcfce7' },
+  ROJO:     { icon: '✔', color: '#dc2626', bg: '#fee2e2' },
+  AUSENTE:  { icon: '✖', color: '#dc2626', bg: '#fee2e2' },
+  LICENCIA: { icon: 'L', color: '#2563eb', bg: '#dbeafe' },
 }
 
 // Nombres de mes abreviados en español
@@ -462,7 +463,10 @@ export default function Liquidaciones() {
       setCalcData(asistRes.data)
       const forms = {}
       asistRes.data.empleados.forEach(emp => {
-        const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE').length
+        // Licencia médica se excluye de días trabajados igual que Ausente:
+        // esos días no los paga el empleador, va por subsidio/Isapre, así
+        // que no deben formar parte del imponible base para AFP/AFC/etc.
+        const ausenteCount = emp.asistencia.filter(s => s === 'AUSENTE' || s === 'LICENCIA').length
         const dias = 30 - ausenteCount
         forms[emp.id] = {
           expanded: false,

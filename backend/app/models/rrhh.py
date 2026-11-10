@@ -556,7 +556,9 @@ class RegistroAsistencia(Base):
     periodo     = Column(String(7), nullable=False)   # YYYY-MM
     id_empleado = Column(Integer, ForeignKey("erp.empleados.id"), nullable=False)
     dia         = Column(SmallInteger, nullable=False)  # 1–31
-    # VERDE=presente, ROJO=sábado/domingo/feriado presente, AUSENTE=falta
+    # VERDE=presente, ROJO=sábado/domingo/feriado presente, AUSENTE=falta,
+    # LICENCIA=licencia médica (no se paga por el empleador, se excluye de
+    # días trabajados igual que AUSENTE)
     estado      = Column(String(10), nullable=False, default="VERDE")
 
     empleado    = relationship("Empleado")
