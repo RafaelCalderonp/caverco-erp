@@ -136,10 +136,33 @@ def _primer_dia_habil_mes_siguiente(periodo: str) -> date:
     return d
 
 
-def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiquidacion:
+async def _contrato_del_periodo(emp: Empleado, periodo: str, db: AsyncSession) -> Optional[Contrato]:
+    """Contrato que estuvo vigente durante el período (no necesariamente el
+    que hoy figura como estado=='vigente': uno finiquitado dentro del mismo
+    mes también aporta su sueldo_bruto para la liquidación de ese mes)."""
+    year, month = int(periodo[:4]), int(periodo[5:7])
+    fin_periodo = date(year, month, calendar.monthrange(year, month)[1])
+    result = await db.execute(
+        select(Contrato)
+        .where(
+            Contrato.id_empleado == emp.id,
+            Contrato.fecha_inicio <= fin_periodo,
+            or_(
+                Contrato.fecha_termino_real.is_(None),
+                Contrato.fecha_termino_real >= date(year, month, 1),
+            ),
+        )
+        .order_by(Contrato.fecha_inicio.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest, contrato: Optional[Contrato] = None) -> EntradaLiquidacion:
     afp_nombre = emp.afp_rel.nombre if emp.afp_rel else "Cuprum"
     tipo       = emp.tipo_contrato_rel.codigo if emp.tipo_contrato_rel else "POR_OBRA"
     es_fonasa  = emp.isapre_rel.es_fonasa if emp.isapre_rel else True
+    sueldo_base = contrato.sueldo_bruto if contrato else (emp.sueldo_base or Decimal("0"))
     return EntradaLiquidacion(
         nombre_empleado  = f"{emp.nombres} {emp.apellido_paterno}",
         rut              = emp.rut,
@@ -148,7 +171,7 @@ def _build_entrada(emp: Empleado, req: LiquidacionPreviewRequest) -> EntradaLiqu
         es_fonasa        = es_fonasa,
         valor_isapre_uf  = emp.valor_isapre_uf or Decimal("0"),
         dias_trabajados  = req.dias_trabajados,
-        sueldo_base      = emp.sueldo_base or Decimal("0"),
+        sueldo_base      = sueldo_base,
         horas_extra_50   = req.horas_extra_50,
         horas_extra_100  = req.horas_extra_100,
         aguinaldo        = req.aguinaldo,
@@ -310,10 +333,11 @@ async def calcular_preview(req: LiquidacionPreviewRequest, db: AsyncSession = De
     Calcula una liquidación sin guardarla (preview), usando los indicadores
     previsionales versionados del período en BD.
     """
-    emp     = await _get_empleado(req.id_empleado, db)
-    ind     = await construir_indicadores(db, emp, req.periodo)
-    entrada = _build_entrada(emp, req)
-    res     = calcular_liquidacion(entrada, ind)
+    emp      = await _get_empleado(req.id_empleado, db)
+    ind      = await construir_indicadores(db, emp, req.periodo)
+    contrato = await _contrato_del_periodo(emp, req.periodo, db)
+    entrada  = _build_entrada(emp, req, contrato)
+    res      = calcular_liquidacion(entrada, ind)
 
     return {
         "empleado":      {"id": emp.id, "nombre": f"{emp.nombres} {emp.apellido_paterno}", "rut": emp.rut},
@@ -425,10 +449,11 @@ async def emitir_liquidacion(req: LiquidacionPreviewRequest, db: AsyncSession = 
 
     await _verificar_periodo_abierto(req.periodo, db)
 
-    emp     = await _get_empleado(req.id_empleado, db)
-    ind     = await construir_indicadores(db, emp, req.periodo)
-    entrada = _build_entrada(emp, req)
-    res     = calcular_liquidacion(entrada, ind)
+    emp      = await _get_empleado(req.id_empleado, db)
+    ind      = await construir_indicadores(db, emp, req.periodo)
+    contrato_periodo = await _contrato_del_periodo(emp, req.periodo, db)
+    entrada  = _build_entrada(emp, req, contrato_periodo)
+    res      = calcular_liquidacion(entrada, ind)
 
     # CC al momento de emitir: se prioriza el CC explícito enviado desde el
     # cálculo (el de Registro de Asistencia, que refleja dónde trabajó
