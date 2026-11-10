@@ -78,19 +78,24 @@ def health():
 
 
 @app.get("/debug/contrato-periodo")
-async def debug_contrato_periodo(id_empleado: int, periodo: str):
+async def debug_contrato_periodo(periodo: str, id_empleado: int = None, rut: str = None):
     """Diagnóstico temporal: qué contrato resuelve _contrato_del_periodo
-    para un empleado/periodo, y todos sus contratos."""
+    para un empleado/periodo, y todos sus contratos. Acepta id_empleado o rut."""
     import asyncpg
     db_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     conn = await asyncpg.connect(db_url)
     try:
+        if rut and not id_empleado:
+            fila = await conn.fetchrow("SELECT id FROM erp.empleados WHERE rut = $1", rut)
+            if not fila:
+                return {"error": f"No existe empleado con rut {rut}"}
+            id_empleado = fila["id"]
         year, month = int(periodo[:4]), int(periodo[5:7])
         import calendar as _cal
         fin_periodo = f"{year}-{month:02d}-{_cal.monthrange(year, month)[1]:02d}"
         inicio_periodo = f"{year}-{month:02d}-01"
         emp = await conn.fetchrow(
-            "SELECT id, nombres, apellido_paterno, sueldo_base FROM erp.empleados WHERE id = $1", id_empleado
+            "SELECT id, nombres, apellido_paterno, rut, sueldo_base FROM erp.empleados WHERE id = $1", id_empleado
         )
         contratos = await conn.fetch(
             "SELECT id, numero, sueldo_bruto, fecha_inicio, fecha_termino_real, estado, id_centro_costo "
