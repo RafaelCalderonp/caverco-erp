@@ -771,6 +771,23 @@ def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nom
         "en los términos y con los límites del artículo 32 del Código del Trabajo, modificado por la Ley N° 21.561.",
     ])
 
+    _parrafo(doc, [("SEXTO: Normas legales aplicables. ", True),
+                   "Las partes declaran conocer el texto de los artículos 31 y 32 del Código del Trabajo, que se transcriben:"])
+    _parrafo(doc, [("Artículo 31: ", True),
+        '"En las faenas que, por su naturaleza, no perjudiquen la salud del trabajador, podrán pactarse horas '
+        'extraordinarias hasta un máximo de dos por día, las que se pagarán con el recargo señalado en el artículo siguiente."'])
+    _parrafo(doc, [("Artículo 32: ", True),
+        '"Las horas extraordinarias sólo podrán pactarse para atender necesidades o situaciones temporales de la empresa. '
+        'Dichos pactos deberán constar por escrito y tener una vigencia transitoria no superior a tres meses, pudiendo '
+        'renovarse por acuerdo de las partes. No obstante la falta de pacto escrito, se considerarán extraordinarias las que '
+        'se trabajen en exceso de la jornada pactada, con conocimiento del empleador. Las horas extraordinarias se pagarán '
+        'con un recargo del cincuenta por ciento sobre el sueldo convenido para la jornada ordinaria y deberán liquidarse y '
+        'pagarse conjuntamente con las remuneraciones ordinarias del respectivo período. En caso de que no exista sueldo '
+        'convenido, o éste sea inferior al ingreso mínimo mensual que determina la ley, éste constituirá la base de cálculo '
+        'para el respectivo recargo."'])
+    _parrafo(doc, ["Conforme a la Ley N° 21.561, el artículo 32 permite además que las partes acuerden por escrito compensar "
+                   "las horas extraordinarias con días adicionales de feriado, con un máximo de cinco días hábiles al año."])
+
     _parrafo(doc, ["En señal de conformidad, las partes firman el presente pacto en dos ejemplares de igual valor y fecha."],
              space_after=40)
 
