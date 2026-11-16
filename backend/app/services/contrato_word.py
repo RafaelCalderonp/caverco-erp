@@ -715,11 +715,13 @@ def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nom
 
     _parrafo(doc, ["PACTO DE HORAS EXTRAORDINARIAS"], bold_default=True,
              align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-    _parrafo(doc, ["(Artículo 32 del Código del Trabajo)"], bold_default=False,
+    _parrafo(doc, ["(Artículos 30, 31 y 32 del Código del Trabajo)"], bold_default=False,
              align=WD_ALIGN_PARAGRAPH.CENTER, space_after=16)
 
     nombre_completo = f"{empleado.nombres} {empleado.apellido_paterno} {empleado.apellido_materno or ''}".strip()
-    recargo_pct = int(Decimal(str(pacto.porcentaje_recargo)) * 100)
+    recargo_pct = max(50, int(Decimal(str(pacto.porcentaje_recargo)) * 100))
+    # Art. 31 CT: máximo legal de 2 horas extraordinarias por día.
+    tope = min(int(pacto.tope_horas_diarias or 2), 2)
 
     _parrafo(doc, [
         f"En {empresa.ciudad or 'Santiago'}, a ", (_fecha_larga(pacto.fecha_inicio), True),
@@ -733,29 +735,40 @@ def generar_pacto_horas_extra_docx(empresa, empleado, contrato, pacto, cargo_nom
 
     _parrafo(doc, [
         ("PRIMERO: ", True),
-        "Las partes acuerdan que EL TRABAJADOR podrá laborar horas extraordinarias, con un tope de ",
-        (f"{pacto.tope_horas_diarias}", True), " horas diarias adicionales a la jornada ordinaria pactada.",
+        "Conforme al artículo 30 del Código del Trabajo, se entiende por jornada extraordinaria la que excede del máximo legal "
+        "o de la pactada contractualmente, si fuese menor. De acuerdo con el artículo 31 del Código del Trabajo, y atendido que "
+        "las faenas que desarrolla EL TRABAJADOR, por su naturaleza, no perjudican su salud, las partes acuerdan que podrá laborar "
+        "horas extraordinarias hasta un máximo de ",
+        (f"{tope}", True), " horas por día, adicionales a la jornada ordinaria pactada.",
     ])
 
     _parrafo(doc, [
         ("SEGUNDO: ", True),
-        "Las horas extraordinarias pactadas se pagarán con un recargo del ",
-        (f"{recargo_pct}%", True), " sobre el valor de la hora ordinaria, conforme a lo establecido en el artículo 32 del Código del Trabajo.",
+        "Las horas extraordinarias se pagarán con un recargo del ",
+        (f"{recargo_pct}%", True),
+        " sobre el sueldo convenido para la jornada ordinaria, conforme a los artículos 31 y 32 del Código del Trabajo, "
+        "y se liquidarán y pagarán conjuntamente con las remuneraciones ordinarias del respectivo período.",
     ])
 
     _parrafo(doc, [
         ("TERCERO: ", True),
-        "El presente pacto regirá desde el ",
+        "Según el artículo 32 del Código del Trabajo, el presente pacto se celebra por escrito para atender necesidades o "
+        "situaciones temporales de la empresa, y tendrá una vigencia transitoria desde el ",
         (_fecha_larga(pacto.fecha_inicio), True), " hasta el ",
         (_fecha_larga(pacto.fecha_termino), True),
-        ", pudiendo ser renovado por acuerdo de las partes.",
+        ", no superior a tres meses, pudiendo renovarse por acuerdo escrito de las partes.",
     ])
 
     _parrafo(doc, [
         ("CUARTO: ", True),
-        "Las horas extraordinarias sólo podrán pactarse para atender necesidades o situaciones temporales de la empresa. "
-        "Transcurrido el período de vigencia, las horas que se laboren en exceso de la jornada pactada no se considerarán extraordinarias, "
-        "salvo que se suscriba un nuevo pacto.",
+        "Sin perjuicio de lo anterior, se considerarán extraordinarias las horas que se trabajen en exceso de la jornada pactada "
+        "con conocimiento de EL EMPLEADOR, de conformidad con el inciso segundo del artículo 32 del Código del Trabajo.",
+    ])
+
+    _parrafo(doc, [
+        ("QUINTO: ", True),
+        "Las partes podrán acordar por escrito que las horas extraordinarias se compensen por días adicionales de feriado, "
+        "en los términos y con los límites del artículo 32 del Código del Trabajo, modificado por la Ley N° 21.561.",
     ])
 
     _parrafo(doc, ["En señal de conformidad, las partes firman el presente pacto en dos ejemplares de igual valor y fecha."],
