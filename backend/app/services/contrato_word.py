@@ -167,12 +167,27 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
         "de las obligaciones que impone el contrato.",
     ])
 
-    if obra:
+    if obra and tipo_contrato_codigo == "POR_OBRA":
+        # Contrato por obra o faena (art. 10 bis CT): su objeto es una obra
+        # específica, por lo que no cabe la cláusula de traslado del art. 12 a
+        # otro sitio; solo se precisa que se trabaja en sus distintas áreas.
         _parrafo(doc, [
             ("SEGUNDO: ", True),
-            "Los servicios serán prestado en la Obra ", (obra.nombre or "", True),
-            ", Ubicado en ", (obra.direccion or "", True),
-            ", Comuna de ", (obra.comuna or "", True),
+            "Los servicios serán prestados en la Obra ", (obra.nombre or "", True),
+            ", ubicada en ", (obra.direccion or "", True),
+            ", comuna de ", (obra.comuna or "", True),
+            ", Región ", (obra.region or "", True),
+            ", donde EL TRABAJADOR desempeñará sus funciones en las distintas áreas, sectores o dependencias "
+            "de dicha obra, según lo requieran las necesidades de la faena. Atendida la naturaleza de este "
+            "contrato por obra o faena, conforme al artículo 10 bis del Código del Trabajo, el lugar de "
+            "prestación de los servicios queda circunscrito a la obra individualizada.",
+        ])
+    elif obra:
+        _parrafo(doc, [
+            ("SEGUNDO: ", True),
+            "Los servicios serán prestados en la Obra ", (obra.nombre or "", True),
+            ", ubicada en ", (obra.direccion or "", True),
+            ", comuna de ", (obra.comuna or "", True),
             ", Región ", (obra.region or "", True),
             " sin perjuicio de la facultad del empleador de alterar, por causa justificada, la naturaleza "
             "de los servicios, o el sitio o recinto en que ellos han de prestarse, con la sola limitación "
