@@ -615,7 +615,10 @@ async def descargar_epp_word(id: int, epp_id: int, db: AsyncSession = Depends(ge
     empleado = await db.get(Empleado, contrato.id_empleado)
     empresa  = await db.get(Empresa, empleado.id_empresa)
 
-    docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega)
+    id_cargo = contrato.id_cargo or empleado.id_cargo
+    cargo = await db.get(Cargo, id_cargo) if id_cargo else None
+    docx_bytes = generar_epp_docx(empresa=empresa, empleado=empleado, entrega=entrega,
+                                  cargo_nombre=cargo.nombre if cargo else "")
     fname  = _fname(f"Entrega EPP Folio {entrega.folio or epp_id}", empleado, entrega.fecha_entrega)
 
     return StreamingResponse(

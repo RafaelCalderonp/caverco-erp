@@ -597,7 +597,7 @@ export default function ContratoDetalle() {
       const res = await capacitacionesApi.irl(idEmpresa, {
         nombre_trabajador: nombre,
         rut_trabajador: emp.rut || '',
-        cargo: emp.cargo_nombre || '',
+        cargo: cargos.find(c => c.id === contrato.id_cargo)?.nombre || emp.cargo_nombre || '',
         obra_nombre: formIrl.obra_nombre,
         obra_direccion: formIrl.obra_direccion,
         fecha: formIrl.fecha,

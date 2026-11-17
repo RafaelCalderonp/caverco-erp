@@ -572,7 +572,7 @@ def _cell_text(cell, text="", bold=False, size=9, align=WD_ALIGN_PARAGRAPH.LEFT)
         r.font.size = Pt(size)
 
 
-def generar_epp_docx(empresa, empleado, entrega) -> bytes:
+def generar_epp_docx(empresa, empleado, entrega, cargo_nombre: str = "") -> bytes:
     from docx.enum.table import WD_ALIGN_VERTICAL
     doc = Document()
     section = doc.sections[0]
@@ -640,7 +640,7 @@ def generar_epp_docx(empresa, empleado, entrega) -> bytes:
     filas_datos = [
         ("Nombre del trabajador", nombre_empleado),
         ("Cédula de Identidad",   empleado.rut or ""),
-        ("Cargo",                 getattr(empleado, "cargo_nombre", "") or ""),
+        ("Cargo",                 cargo_nombre or ""),
         ("Área / Obra / Faena",   empresa.razon_social or ""),
     ]
     for i, (lbl, val) in enumerate(filas_datos):

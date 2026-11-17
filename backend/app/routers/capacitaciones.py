@@ -422,7 +422,9 @@ async def generar_entrega_epp(
         if emp:
             nombre = f"{emp.nombres} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip()
             rut    = emp.rut or rut
-            cargo  = cargo or getattr(emp, "cargo_nombre", "") or ""
+            if not cargo and emp.id_cargo:
+                cargo_obj = await db.get(Cargo, emp.id_cargo)
+                cargo = cargo_obj.nombre if cargo_obj else ""
 
     docx_bytes = generar_epp_docx(
         nombre         = nombre,
