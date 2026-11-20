@@ -521,9 +521,15 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
         nueva_obra = await db.get(Obra, data.id_nueva_obra)
         if nueva_obra is None or nueva_obra.id_empresa != empleado.id_empresa:
             raise HTTPException(400, "La obra indicada no pertenece a la misma empresa del trabajador")
-        if nueva_obra.id == contrato.id_obra:
-            raise HTTPException(400, "La obra de destino es la misma obra actual del contrato")
-        payload["valor_anterior"] = {"id_obra": contrato.id_obra}
+        id_origen = (data.valor_anterior or {}).get("id_obra") or contrato.id_obra
+        if id_origen:
+            obra_origen = await db.get(Obra, int(id_origen))
+            if obra_origen is None or obra_origen.id_empresa != empleado.id_empresa:
+                raise HTTPException(400, "La obra de origen no pertenece a la misma empresa del trabajador")
+            id_origen = obra_origen.id
+        if nueva_obra.id == id_origen:
+            raise HTTPException(400, "La obra de destino debe ser distinta de la obra de origen")
+        payload["valor_anterior"] = {"id_obra": id_origen}
         payload["valor_nuevo"] = {"id_obra": nueva_obra.id}
         contrato.id_obra = nueva_obra.id
         empleado.id_obra = nueva_obra.id

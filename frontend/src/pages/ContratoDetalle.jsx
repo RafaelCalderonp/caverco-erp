@@ -489,6 +489,10 @@ export default function ContratoDetalle() {
       setErrorAnexo('Debes indicar el nuevo sueldo bruto')
       return
     }
+    if (esTraslado && !(formAnexo.id_obra_origen || contrato.id_obra)) {
+      setErrorAnexo('Debes indicar la obra de origen')
+      return
+    }
     if (esTraslado && !formAnexo.id_nueva_obra) {
       setErrorAnexo('Debes indicar la obra de destino')
       return
@@ -509,6 +513,7 @@ export default function ContratoDetalle() {
         nuevo_sueldo: esModRemuner ? Number(formAnexo.nuevo_sueldo) : null,
         id_nuevo_cargo: esModCargo ? Number(formAnexo.id_nuevo_cargo) : null,
         id_nueva_obra: esTraslado ? Number(formAnexo.id_nueva_obra) : null,
+        valor_anterior: esTraslado ? { id_obra: Number(formAnexo.id_obra_origen || contrato.id_obra) || null } : null,
       })
       setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
       setMostrarFormAnexo(false)
@@ -1582,15 +1587,22 @@ export default function ContratoDetalle() {
               )}
               {esTraslado && (
                 <div className="form-group">
+                  <label className="form-label">Obra de Origen<span style={{color:'var(--danger)'}}> *</span></label>
+                  <select className="select" value={formAnexo.id_obra_origen || contrato.id_obra || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, id_obra_origen: e.target.value }))}>
+                    <option value="">Seleccionar…</option>
+                    {obras.map(o => <option key={o.id} value={o.id}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+              {esTraslado && (
+                <div className="form-group">
                   <label className="form-label">Obra de Destino<span style={{color:'var(--danger)'}}> *</span></label>
                   <select className="select" value={formAnexo.id_nueva_obra || ''}
                     onChange={e => setFormAnexo(f => ({ ...f, id_nueva_obra: e.target.value }))}>
                     <option value="">Seleccionar…</option>
-                    {obras.filter(o => o.id !== contrato.id_obra).map(o => <option key={o.id} value={o.id}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>)}
+                    {obras.filter(o => o.id !== Number(formAnexo.id_obra_origen || contrato.id_obra)).map(o => <option key={o.id} value={o.id}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>)}
                   </select>
-                  <span style={{fontSize:11,color:'var(--gray-500)'}}>
-                    Obra actual (origen): {obras.find(o => o.id === contrato.id_obra)?.nombre || '—'}
-                  </span>
                 </div>
               )}
               {esModCargo && (
