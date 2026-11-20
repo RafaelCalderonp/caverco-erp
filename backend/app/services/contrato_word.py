@@ -339,6 +339,9 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
 def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, cargo_nombre,
                        obra_origen=None, obra_destino=None) -> bytes:
     doc = Document()
+    sec = doc.sections[0]
+    sec.page_width, sec.page_height = Cm(21.59), Cm(27.94)
+    sec.top_margin = sec.bottom_margin = sec.left_margin = sec.right_margin = Cm(2.0)
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(11)
