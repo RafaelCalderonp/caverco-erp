@@ -370,6 +370,7 @@ export default function ContratoDetalle() {
   const esProrroga = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'PRORROGA_PLAZO'
   const esModRemuner = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_REMUNER'
   const esModCargo = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'MOD_CARGO'
+  const esTraslado = tiposAnexo.find(t => t.id === Number(formAnexo.id_tipo_anexo))?.codigo === 'TRASLADO'
   const yaProrrogado = anexos.some(a => tiposAnexo.find(t => t.id === a.id_tipo_anexo)?.codigo === 'PRORROGA_PLAZO')
 
   const abrirEdicion = async () => {
@@ -488,6 +489,10 @@ export default function ContratoDetalle() {
       setErrorAnexo('Debes indicar el nuevo sueldo bruto')
       return
     }
+    if (esTraslado && !formAnexo.id_nueva_obra) {
+      setErrorAnexo('Debes indicar la obra de destino')
+      return
+    }
     if (esModCargo && !formAnexo.id_nuevo_cargo) {
       setErrorAnexo('Debes indicar el nuevo cargo')
       return
@@ -503,6 +508,7 @@ export default function ContratoDetalle() {
           : null,
         nuevo_sueldo: esModRemuner ? Number(formAnexo.nuevo_sueldo) : null,
         id_nuevo_cargo: esModCargo ? Number(formAnexo.id_nuevo_cargo) : null,
+        id_nueva_obra: esTraslado ? Number(formAnexo.id_nueva_obra) : null,
       })
       setFormAnexo({ id_tipo_anexo: '', fecha_anexo: '', observacion: '', plazo_dias: '30' })
       setMostrarFormAnexo(false)
@@ -1572,6 +1578,19 @@ export default function ContratoDetalle() {
                   <input className="input" type="number" value={formAnexo.nuevo_sueldo || ''}
                     onChange={e => setFormAnexo(f => ({ ...f, nuevo_sueldo: e.target.value }))} />
                   <span style={{fontSize:11,color:'var(--gray-500)'}}>Actual: {fmt(contrato.sueldo_bruto)}</span>
+                </div>
+              )}
+              {esTraslado && (
+                <div className="form-group">
+                  <label className="form-label">Obra de Destino<span style={{color:'var(--danger)'}}> *</span></label>
+                  <select className="select" value={formAnexo.id_nueva_obra || ''}
+                    onChange={e => setFormAnexo(f => ({ ...f, id_nueva_obra: e.target.value }))}>
+                    <option value="">Seleccionar…</option>
+                    {obras.filter(o => o.id !== contrato.id_obra).map(o => <option key={o.id} value={o.id}>{o.codigo ? `${o.codigo} — ` : ''}{o.nombre}</option>)}
+                  </select>
+                  <span style={{fontSize:11,color:'var(--gray-500)'}}>
+                    Obra actual (origen): {obras.find(o => o.id === contrato.id_obra)?.nombre || '—'}
+                  </span>
                 </div>
               )}
               {esModCargo && (

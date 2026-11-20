@@ -435,6 +435,9 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
         raise HTTPException(404, "Trabajador no encontrado")
     empresa = await db.get(Empresa, empleado.id_empresa)
     cargo = await db.get(Cargo, contrato.id_cargo) if contrato.id_cargo else None
+    id_obra_origen = (anexo.valor_anterior or {}).get("id_obra")
+    obra_origen = await db.get(Obra, id_obra_origen) if id_obra_origen else None
+    obra_destino = await db.get(Obra, anexo.id_nueva_obra) if anexo.id_nueva_obra else None
 
     contenido = generar_anexo_docx(
         empresa=empresa,
@@ -443,6 +446,8 @@ async def descargar_anexo_word(id: int, id_anexo: int, db: AsyncSession = Depend
         anexo=anexo,
         tipo_anexo_codigo=tipo_anexo.codigo,
         cargo_nombre=cargo.nombre if cargo else None,
+        obra_origen=obra_origen,
+        obra_destino=obra_destino,
     )
     nombre_archivo = _fname(f"Anexo {tipo_anexo.codigo}", empleado, anexo.fecha_anexo)
     return StreamingResponse(
@@ -509,6 +514,19 @@ async def crear_anexo(id: int, data: AnexoContratoCreate, db: AsyncSession = Dep
         payload["nuevo_cargo"] = nuevo_cargo.nombre
         contrato.id_cargo = nuevo_cargo.id
         empleado.id_cargo = nuevo_cargo.id
+
+    elif tipo_anexo.codigo == "TRASLADO":
+        if not data.id_nueva_obra:
+            raise HTTPException(400, "Debe indicar la obra de destino")
+        nueva_obra = await db.get(Obra, data.id_nueva_obra)
+        if nueva_obra is None or nueva_obra.id_empresa != empleado.id_empresa:
+            raise HTTPException(400, "La obra indicada no pertenece a la misma empresa del trabajador")
+        if nueva_obra.id == contrato.id_obra:
+            raise HTTPException(400, "La obra de destino es la misma obra actual del contrato")
+        payload["valor_anterior"] = {"id_obra": contrato.id_obra}
+        payload["valor_nuevo"] = {"id_obra": nueva_obra.id}
+        contrato.id_obra = nueva_obra.id
+        empleado.id_obra = nueva_obra.id
 
     anexo = AnexoContrato(id_contrato=id, id_empleado=contrato.id_empleado, id_empresa=empleado.id_empresa, **payload)
     db.add(anexo)

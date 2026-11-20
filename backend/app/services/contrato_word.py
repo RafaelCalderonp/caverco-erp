@@ -336,7 +336,8 @@ def generar_contrato_docx(empresa, empleado, contrato, cargo_nombre, obra, afp_n
     return buffer.getvalue()
 
 
-def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, cargo_nombre) -> bytes:
+def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, cargo_nombre,
+                       obra_origen=None, obra_destino=None) -> bytes:
     doc = Document()
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
@@ -381,7 +382,26 @@ def generar_anexo_docx(empresa, empleado, contrato, anexo, tipo_anexo_codigo, ca
 
     _parrafo(doc, ["CLÁUSULAS:"], bold_default=True, space_after=6)
 
-    if tipo_anexo_codigo == "PRORROGA_PLAZO":
+    def _lugar(obra):
+        return [
+            ("“", False), (obra.nombre or "", True), " ubicado en ", (obra.direccion or "", True),
+            ", Comuna de ", (obra.comuna or "", True), ", Región ", (obra.region or "", True), ("”", False),
+        ]
+
+    if tipo_anexo_codigo == "TRASLADO" and obra_destino:
+        _parrafo(doc, [("PRIMERO: ", True), ("Modificación de Lugar de Trabajo:", True)])
+        origen = _lugar(obra_origen) if obra_origen else [("la obra indicada en el contrato original", False)]
+        _parrafo(doc, [
+            "A partir de la fecha indicada en el presente anexo, los servicios que se prestaban en el establecimiento ",
+            *origen,
+            " dejarán de prestarse en dicho lugar. El trabajador se traslada al siguiente cargo y establecimiento, ", (cargo_nombre or "", True),
+            ", prestando sus servicios en ", *_lugar(obra_destino),
+            ", sin perjuicio de la facultad del empleador de alterar, por causa justificada, el sitio o recinto en que "
+            "han de prestarse los servicios, con la sola limitación de que se trate de labores similares y que el nuevo "
+            "sitio o recinto quede dentro de la misma localidad o ciudad, sin que ello importe menoscabo para el "
+            "trabajador, conforme al artículo 12 del Código del Trabajo.",
+        ])
+    elif tipo_anexo_codigo == "PRORROGA_PLAZO":
         fecha_anterior = (anexo.valor_anterior or {}).get("fecha_termino_pactada")
         fecha_nueva = (anexo.valor_nuevo or {}).get("fecha_termino_pactada")
         fecha_anterior_dt = date.fromisoformat(fecha_anterior) if fecha_anterior else None
