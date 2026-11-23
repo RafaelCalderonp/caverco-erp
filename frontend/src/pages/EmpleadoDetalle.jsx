@@ -80,9 +80,16 @@ export default function EmpleadoDetalle() {
     }
     setGuardando(true); setError('')
     try {
-      const { nombres, apellido_paterno, apellido_materno, ...formEditable } = form
+      if (!form.nombres.trim() || !form.apellido_paterno.trim()) {
+        setError('Nombres y apellido paterno son obligatorios')
+        setGuardando(false)
+        return
+      }
       const payload = {
-        ...formEditable,
+        ...form,
+        nombres: form.nombres.trim(),
+        apellido_paterno: form.apellido_paterno.trim(),
+        apellido_materno: (form.apellido_materno || '').trim(),
         id_departamento: form.id_departamento ? Number(form.id_departamento) : null,
         colacion: Number(form.colacion) || 0,
         movilizacion: Number(form.movilizacion) || 0,
@@ -132,15 +139,18 @@ export default function EmpleadoDetalle() {
             </div>
             <div className="form-group">
               <label className="form-label">Nombres</label>
-              <input className="input" value={form.nombres} disabled />
+              <input className="input" value={form.nombres}
+                onChange={e => setForm(f => ({ ...f, nombres: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Paterno</label>
-              <input className="input" value={form.apellido_paterno} disabled />
+              <input className="input" value={form.apellido_paterno}
+                onChange={e => setForm(f => ({ ...f, apellido_paterno: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Apellido Materno</label>
-              <input className="input" value={form.apellido_materno} disabled />
+              <input className="input" value={form.apellido_materno}
+                onChange={e => setForm(f => ({ ...f, apellido_materno: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Teléfono</label>
