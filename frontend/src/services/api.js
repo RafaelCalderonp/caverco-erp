@@ -165,9 +165,9 @@ export const contratosApi = {
     ),
   },
   certificadoAntiguedad: {
-    word: (idContrato, ciudad, fechaEmision) => api.get(
+    word: (idContrato, ciudad, fechaEmision, firmanteNombre, firmanteCargo) => api.get(
       `/contratos/${idContrato}/certificado-antiguedad/word`,
-      { params: { ciudad, fecha_emision: fechaEmision }, responseType: 'blob' }
+      { params: { ciudad, fecha_emision: fechaEmision, firmante_nombre: firmanteNombre, firmante_cargo: firmanteCargo }, responseType: 'blob' }
     ),
   },
   amonestacion: {

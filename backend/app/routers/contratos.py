@@ -676,6 +676,8 @@ async def descargar_certificado_antiguedad_word(
     id: int,
     ciudad: str = "Santiago",
     fecha_emision: Optional[date] = None,
+    firmante_nombre: Optional[str] = None,
+    firmante_cargo: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     contrato = await _get_contrato_or_404(id, db)
@@ -697,6 +699,8 @@ async def descargar_certificado_antiguedad_word(
         empresa         = empresa,
         vigente         = contrato.estado == "vigente",
         fecha_termino   = contrato.fecha_termino_real,
+        firmante_nombre = firmante_nombre,
+        firmante_cargo  = firmante_cargo,
     )
     fname  = _fname("Certificado Antiguedad", empleado, fecha_emision or date.today())
     return StreamingResponse(

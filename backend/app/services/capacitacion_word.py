@@ -737,6 +737,8 @@ def generar_certificado_antiguedad_docx(
     empresa=None,
     vigente: bool = True,
     fecha_termino: date = None,
+    firmante_nombre: str = None,
+    firmante_cargo: str = None,
 ) -> bytes:
     doc = _new_doc()
     if fecha_emision is None:
@@ -820,9 +822,13 @@ def generar_certificado_antiguedad_docx(
     p_emp.runs[0].font.size = Pt(11)
     p_emp.runs[0].bold = True
 
-    rep = (getattr(empresa, "representante_legal", None) or "") if empresa else ""
+    if firmante_nombre and firmante_nombre.strip():
+        rep, rep_cargo = firmante_nombre.strip(), (firmante_cargo or "").strip()
+    else:
+        rep = (getattr(empresa, "representante_legal", None) or "") if empresa else ""
+        rep_cargo = "Representante Legal"
     if rep:
-        p_rep = doc.add_paragraph(f"{rep}\nRepresentante Legal")
+        p_rep = doc.add_paragraph(f"{rep}\n{rep_cargo}" if rep_cargo else rep)
         p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_rep.paragraph_format.space_after = Pt(2)
         p_rep.runs[0].font.size = Pt(11)

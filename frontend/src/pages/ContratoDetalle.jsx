@@ -144,6 +144,8 @@ export default function ContratoDetalle() {
   const [ciudadCertificado, setCiudadCertificado] = useState('Santiago')
   const [fechaCertificado, setFechaCertificado] = useState(new Date().toISOString().slice(0, 10))
   const [descargandoCertificado, setDescargandoCertificado] = useState(false)
+  const [firmanteCertificado, setFirmanteCertificado] = useState('Jose Calderón')
+  const [cargoFirmanteCertificado, setCargoFirmanteCertificado] = useState('Gerente General')
 
   const [formIrl, setFormIrl] = useState({
     fecha: new Date().toISOString().slice(0, 10),
@@ -591,7 +593,7 @@ export default function ContratoDetalle() {
   async function descargarCertificado() {
     setDescargandoCertificado(true)
     try {
-      const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado)
+      const res = await contratosApi.certificadoAntiguedad.word(id, ciudadCertificado, fechaCertificado, firmanteCertificado, cargoFirmanteCertificado)
       descargarBlob(new Blob([res.data]), nombreDesdeHeader(res.headers['content-disposition'] || '', `Certificado_Antiguedad_${id}.docx`))
     } catch (err) { alert(await detalleErrorBlob(err, 'Error al generar certificado')) }
     finally { setDescargandoCertificado(false) }
@@ -1667,6 +1669,18 @@ export default function ContratoDetalle() {
             <input className="input" type="date" value={fechaCertificado}
               onChange={e => setFechaCertificado(e.target.value)}
               style={{fontSize:13}} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Firmado por</label>
+            <input className="input" type="text" value={firmanteCertificado}
+              onChange={e => setFirmanteCertificado(e.target.value)}
+              style={{fontSize:13, width:180}} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label" style={{fontSize:12}}>Cargo</label>
+            <input className="input" type="text" value={cargoFirmanteCertificado}
+              onChange={e => setCargoFirmanteCertificado(e.target.value)}
+              style={{fontSize:13, width:160}} />
           </div>
           <button className="btn btn-outline btn-sm" onClick={descargarCertificado} disabled={descargandoCertificado}>
             {descargandoCertificado ? '...' : '📄 Generar Word'}
