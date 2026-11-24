@@ -735,6 +735,8 @@ def generar_certificado_antiguedad_docx(
     ciudad: str = "Santiago",
     fecha_emision: date = None,
     empresa=None,
+    vigente: bool = True,
+    fecha_termino: date = None,
 ) -> bytes:
     doc = _new_doc()
     if fecha_emision is None:
@@ -758,7 +760,7 @@ def generar_certificado_antiguedad_docx(
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_titulo.paragraph_format.space_after = Pt(30)
-    r = p_titulo.add_run("CERTIFICADO DE ANTIGÜEDAD")
+    r = p_titulo.add_run("CERTIFICADO DE ANTIGÜEDAD Y VIGENCIA LABORAL" if vigente else "CERTIFICADO DE ANTIGÜEDAD LABORAL")
     r.bold = True
     r.font.size = Pt(14)
 
@@ -767,7 +769,7 @@ def generar_certificado_antiguedad_docx(
         "POR OBRA": "por obra",
         "PLAZO FIJO": "a plazo fijo",
         "INDEFINIDO": "indefinido",
-    }.get((tipo_contrato or "").upper().strip(), (tipo_contrato or "indefinido").lower())
+    }.get((tipo_contrato or "").upper().replace("_", " ").strip(), (tipo_contrato or "indefinido").lower().replace("_", " "))
 
     fecha_emision_str = f"{fecha_emision.day}-{MESES[fecha_emision.month-1][:3]}-{str(fecha_emision.year)[2:]}"
     fecha_ingreso_str = f"{fecha_ingreso.day:02d} {MESES[fecha_ingreso.month-1]} {fecha_ingreso.year}" if fecha_ingreso else ""
@@ -775,8 +777,15 @@ def generar_certificado_antiguedad_docx(
     cuerpo = (
         f"En {ciudad}, a {fecha_emision_str}, {empresa_nombre}, RUT N° {empresa_rut}, "
         f"certifica que {nombre} CI: {rut_empleado}, en su calidad de empleado dependiente, "
-        f"desempeñando el cargo de {cargo}, está contratado desde {fecha_ingreso_str}, "
-        f"con un contrato {tipo_label}."
+        + (
+            f"desempeñando el cargo de {cargo}, está contratado desde {fecha_ingreso_str}, "
+            f"con un contrato {tipo_label}, el cual a la fecha de emisión del presente certificado "
+            f"se encuentra vigente."
+            if vigente else
+            f"desempeñó el cargo de {cargo}, con un contrato {tipo_label}, desde {fecha_ingreso_str}"
+            + (f" hasta el {fecha_termino.day:02d} {MESES[fecha_termino.month-1]} {fecha_termino.year}" if fecha_termino else "")
+            + ", fecha en que terminó la relación laboral."
+        )
     )
 
     p_cuerpo = doc.add_paragraph()
@@ -811,7 +820,13 @@ def generar_certificado_antiguedad_docx(
     p_emp.runs[0].font.size = Pt(11)
     p_emp.runs[0].bold = True
 
-    p_rut = doc.add_paragraph(f"C.I. {empresa_rut}")
+    rep = (getattr(empresa, "representante_legal", None) or "") if empresa else ""
+    if rep:
+        p_rep = doc.add_paragraph(f"{rep}\nRepresentante Legal")
+        p_rep.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_rep.paragraph_format.space_after = Pt(2)
+        p_rep.runs[0].font.size = Pt(11)
+    p_rut = doc.add_paragraph(f"RUT {empresa_rut}")
     p_rut.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_rut.runs[0].font.size = Pt(11)
 

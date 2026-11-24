@@ -695,6 +695,8 @@ async def descargar_certificado_antiguedad_word(
         ciudad          = ciudad,
         fecha_emision   = fecha_emision or date_today.today(),
         empresa         = empresa,
+        vigente         = contrato.estado == "vigente",
+        fecha_termino   = contrato.fecha_termino_real,
     )
     fname  = _fname("Certificado Antiguedad", empleado, fecha_emision or date.today())
     return StreamingResponse(
